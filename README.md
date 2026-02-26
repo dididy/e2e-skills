@@ -4,18 +4,18 @@ A [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/
 
 ## Installation
 
-### Recommended (clone directly)
+### Marketplace (recommended)
+
+```shell
+/plugin marketplace add dididy/e2e-test-reviewer
+/plugin install e2e-test-reviewer@dididy
+```
+
+### Clone directly
 
 ```bash
 mkdir -p ~/.claude/skills
 git clone https://github.com/dididy/e2e-test-reviewer.git ~/.claude/skills/e2e-test-reviewer
-```
-
-### Manual (skill file only)
-
-```bash
-mkdir -p ~/.claude/skills/e2e-test-reviewer
-cp skills/e2e-test-reviewer/SKILL.md ~/.claude/skills/e2e-test-reviewer/
 ```
 
 ## Usage

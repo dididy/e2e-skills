@@ -1,10 +1,18 @@
 {
-  "name": "e2e-test-reviewer",
-  "version": "1.0.0",
+  "name": "dididy",
+  "owner": {
+    "name": "YONGJAE LEE"
+  },
   "plugins": [
     {
       "name": "e2e-test-reviewer",
+      "source": ".",
       "description": "Systematic 12-point checklist for reviewing E2E test spec quality. Catches always-passing assertions, naming-assertion mismatch, missing Then, duplicate scenarios, error swallowing, boolean traps, conditional skips, and YAGNI violations in Page Objects.",
+      "version": "1.0.0",
+      "author": {
+        "name": "YONGJAE LEE"
+      },
+      "license": "Apache-2.0",
       "category": "testing",
       "keywords": [
         "e2e",
