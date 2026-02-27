@@ -4,7 +4,13 @@ A [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/
 
 ## Installation
 
-### Marketplace (recommended)
+### npx skills (recommended)
+
+```bash
+npx skills install dididy/e2e-test-reviewer
+```
+
+### Marketplace
 
 ```shell
 /plugin marketplace add dididy/e2e-test-reviewer

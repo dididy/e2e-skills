@@ -7,6 +7,69 @@ description: Use when reviewing, auditing, or improving existing E2E test specs.
 
 Systematic checklist for reviewing E2E **spec files AND Page Object Model (POM) files**. Framework-agnostic principles; code examples show Playwright, Cypress, and Puppeteer where they differ.
 
+## Phase 1: Automated Grep Checks (Run First)
+
+Once the review target files are determined, run the following Bash commands **before** LLM analysis to mechanically detect known anti-patterns.
+
+```bash
+echo "=== E2E Mechanical Anti-Pattern Check ==="
+echo ""
+
+# 3. Error Swallowing — .catch(() => {}) / .catch(() => false)
+echo "--- #3 Error Swallowing ---"
+grep -rn '\.catch(\s*() =>' e2e/ --include='*.ts' --include='*.js' --include='*.cy.*' | grep -v node_modules | grep -v '// justified'
+
+# 4. Always-Passing — assertion that can never fail
+echo "--- #4 Always-Passing ---"
+grep -rn -E 'toBeGreaterThanOrEqual\(0\)|should\(.*(gte|greaterThan).*0\)' e2e/ --include='*.ts' --include='*.js' --include='*.cy.*'
+
+# 5. Boolean Trap — toBeTruthy / should be.truthy
+echo "--- #5 Boolean Trap ---"
+grep -rn -E 'expect\(.*\)\.toBeTruthy\(\)|should\(.*(be\.truthy|be\.true)\)' e2e/ --include='*.spec.*' --include='*.test.*' --include='*.cy.*'
+
+# 6. Conditional Bypass — expect inside if(isVisible)
+echo "--- #6 Conditional Bypass ---"
+grep -rn -E "if.*(isVisible|is\(.*:visible.*\))" e2e/ --include='*.spec.*' --include='*.test.*' --include='*.cy.*'
+
+# 7. Raw DOM — document.querySelector in spec/test files
+echo "--- #7 Raw DOM in specs ---"
+grep -rn 'document\.querySelector' e2e/ --include='*.spec.*' --include='*.test.*' --include='*.cy.*'
+
+# 12. Hard-coded Timeout — waitForTimeout / cy.wait(number)
+echo "--- #12 Hard-coded Timeout ---"
+grep -rn -E 'waitForTimeout|cy\.wait\(\d' e2e/ --include='*.ts' --include='*.js' --include='*.cy.*'
+
+echo ""
+echo "=== Done ==="
+```
+
+**Interpreting results:**
+- Zero hits → no mechanical issues found, proceed to Phase 2
+- Any hit → report each line as an issue (includes file:line)
+- Lines with `// justified` comments are excluded (intentional usage)
+
+**Output Phase 1 results as-is.** The LLM must not reinterpret them.
+
+---
+
+## Phase 2: LLM Review (Subjective Checks Only)
+
+Patterns already detected in Phase 1 (#3, #4, #5 partial, #6, #7, #12) are **skipped**.
+The LLM performs only these checks:
+
+| # | Check | Reason |
+|---|-------|--------|
+| 1 | Name-Assertion Alignment | Requires semantic interpretation |
+| 2 | Missing Then | Requires logic flow analysis |
+| 8 | Render-Only | Requires test value judgment |
+| 9 | Duplicate Scenarios | Requires similarity comparison |
+| 10 | Misleading Names | Requires semantic interpretation |
+| 11 | Over-Broad Assertions | Requires domain context |
+| 13 | Flaky Selectors (partial) | Requires nth() justification judgment |
+| 14 | YAGNI in POM | Requires usage grep then judgment |
+
+---
+
 ## Review Checklist
 
 Run each check against every **non-skipped** test and every **changed POM file**.
@@ -17,7 +80,7 @@ Run each check against every **non-skipped** test and every **changed POM file**
 
 ### Tier 1 — High-Impact Bugs (always check)
 
-#### 1. Name-Assertion Alignment
+#### 1. Name-Assertion Alignment `[LLM-only]`
 
 **Symptom:** Test name promises something the assertions don't verify.
 
@@ -30,7 +93,7 @@ test('should display paragraph status', () => {
 
 **Rule:** Every noun in the test name must have a corresponding assertion. Add it or rename.
 
-#### 2. Missing Then
+#### 2. Missing Then `[LLM-only]`
 
 **Symptom:** Test acts but doesn't verify the final expected state.
 
@@ -46,7 +109,7 @@ test('should cancel edit on Escape', () => {
 
 **Rule:** For toggle/cancel/close actions, verify both the restored state AND the dismissed state.
 
-#### 3. Error Swallowing
+#### 3. Error Swallowing `[grep-detectable]`
 
 **Symptom (spec):** `try/catch` wrapping assertions — test passes on error.
 
@@ -65,7 +128,7 @@ await runningIndicator.waitFor({ state: 'detached' }).catch(() => {});
 
 **Rule (POM):** Remove `.catch(() => {})` / `.catch(() => false)` from wait/assertion methods. If the operation can legitimately fail, the caller should decide how to handle it. Only keep catch for UI stabilization like `editor.click({ force: true }).catch(() => textArea.focus())`.
 
-#### 4. Always-Passing Assertions
+#### 4. Always-Passing Assertions `[grep-detectable]`
 
 **Symptom:** Assertion that can never fail.
 
@@ -76,7 +139,7 @@ expect(count).toBeGreaterThanOrEqual(0);
 
 **Rule:** Search for `toBeGreaterThanOrEqual(0)`, `toBeTruthy()` on always-truthy strings, `||` chains that accept defaults as valid.
 
-#### 5. Boolean Trap Assertions
+#### 5. Boolean Trap Assertions `[grep-detectable]`
 
 **Symptom (spec):** `expect(bool).toBe(true)` — failure message is just "expected false to be true".
 
@@ -97,7 +160,7 @@ expect(await page.isEditorVisible(0)).toBe(true);
 
 **Rule (POM):** Expose the element handle (Locator / selector string) instead of returning `Promise<boolean>`. Let specs use framework assertions directly.
 
-#### 6. Conditional Bypass (Silent Pass / Hidden Skip)
+#### 6. Conditional Bypass (Silent Pass / Hidden Skip) `[grep-detectable]`
 
 **Symptom:** `expect()` inside `if` block, or mid-test `test.skip()` — test silently passes when feature is broken.
 
@@ -110,7 +173,7 @@ if (await spinner.isVisible()) {
 
 **Rule:** Every test path must contain at least one `expect()`. Move environment checks to `beforeEach` or declaration-level `test.skip()`.
 
-#### 7. Raw DOM Queries (Bypassing Framework API)
+#### 7. Raw DOM Queries (Bypassing Framework API) `[grep-detectable]`
 
 **Symptom:** Test drops into raw `document.querySelector*` / `document.getElementById` via `evaluate()` when the framework's element lookup API could do the same job.
 
@@ -135,13 +198,13 @@ Only use `evaluate`/`waitForFunction` when the framework API can't express the c
 
 ### Tier 2 — Quality Improvements (check when time permits)
 
-#### 8. Render-Only Tests (Low E2E Value)
+#### 8. Render-Only Tests (Low E2E Value) `[LLM-only]`
 
 **Symptom:** Test only calls `toBeVisible()` with no interaction or content assertion.
 
 **Rule:** Add at least one of: content assertion (`not.toBeEmpty()`, `toContainText()`), count assertion (`toHaveCount(n)`), or sibling element assertion.
 
-#### 9. Duplicate Scenarios (DRY)
+#### 9. Duplicate Scenarios (DRY) `[LLM-only]`
 
 **Symptom:** Two tests share >70% of their steps with minor variations.
 
@@ -149,13 +212,13 @@ Only use `evaluate`/`waitForFunction` when the framework API can't express the c
 
 **Rule (cross-file):** After reviewing all files in scope, cross-check tests with similar names across different spec files. If test A in `feature-settings.spec.ts` is a subset of test B in `feature-form-validation.spec.ts`, delete A and strengthen B.
 
-#### 10. Misleading Test Names (KISS)
+#### 10. Misleading Test Names (KISS) `[LLM-only]`
 
 **Symptom:** Name implies UI interaction but test uses API/REST, or name implies feature X but tests feature Y.
 
 **Rule:** If the test uses REST API, reload, or indirect methods, the name must make that explicit.
 
-#### 11. Over-Broad Assertions (KISS)
+#### 11. Over-Broad Assertions (KISS) `[LLM-only]`
 
 **Symptom:** Assertion too loose to catch regressions.
 
@@ -166,7 +229,7 @@ expect(content.includes('%')).toBe(true);
 
 **Rule:** Prefer exact matches or explicit value lists over `.includes()` or loose regex when valid values are known and small.
 
-#### 12. Hard-coded Timeouts
+#### 12. Hard-coded Timeouts `[grep-detectable]`
 
 **Symptom:** `waitForTimeout()` or magic timeout numbers scattered across tests and POM.
 
@@ -180,7 +243,7 @@ await element.waitFor({ state: 'visible', timeout: 30000 });
 
 **Rule:** Never use explicit sleep (`waitForTimeout` / `cy.wait(ms)`) — rely on framework auto-wait or retry mechanisms. For custom timeouts, extract named constants with comments explaining why the default isn't sufficient.
 
-#### 13. Flaky Selectors
+#### 13. Flaky Selectors `[LLM-only]`
 
 **Symptom:** Positional selectors or unstable text that breaks across environments.
 
@@ -191,7 +254,7 @@ await expect(items.nth(2)).toContainText('Settings');
 
 **Rule:** Prefer `data-testid`, role-based, or attribute-based selectors over `nth()` or raw text. If `nth()` is unavoidable, add a comment. For text selectors, use regex with `i` flag or `hasText` filter.
 
-#### 14. YAGNI in Page Objects
+#### 14. YAGNI in Page Objects `[LLM-only]`
 
 **Symptom:** POM has locators/methods never referenced by any spec.
 
@@ -237,19 +300,27 @@ Present findings grouped by severity:
 
 ## Quick Reference
 
-| # | Check | Tier | Detection Signal |
-|---|-------|------|-----------------|
-| 1 | Name-Assertion | T1 | Noun in name with no matching `expect()` |
-| 2 | Missing Then | T1 | Action without final state verification |
-| 3 | Error Swallowing | T1 | `try/catch` in spec, `.catch(() => {})` in POM |
-| 4 | Always-Passing | T1 | `>=0`, truthy on non-empty, `\|\|` defaults |
-| 5 | Boolean Trap | T1 | `expect(bool).toBe(true)`, POM returns boolean |
-| 6 | Conditional Bypass | T1 | `expect()` inside `if`, mid-test `test.skip()` |
-| 7 | Raw DOM Queries | T1 | `document.querySelector` in `evaluate` bypassing framework API |
-| 8 | Render-Only | T2 | Only `toBeVisible()`, no content/count |
-| 9 | Duplicate | T2 | >70% shared steps, cross-file overlap |
-| 10 | Misleading Name | T2 | API/reload in "should [UI verb]" test |
-| 11 | Over-Broad | T2 | `.includes()` where enum values known |
-| 12 | Hard-coded Timeout | T2 | `waitForTimeout()`, magic numbers |
-| 13 | Flaky Selectors | T2 | `nth()` without comment, raw text matching |
-| 14 | YAGNI in POM | T2 | Public member not referenced in any spec |
+| # | Check | Tier | Phase | Detection Signal |
+|---|-------|------|-------|-----------------|
+| 1 | Name-Assertion | T1 | LLM | Noun in name with no matching `expect()` |
+| 2 | Missing Then | T1 | LLM | Action without final state verification |
+| 3 | Error Swallowing | T1 | grep | `try/catch` in spec, `.catch(() => {})` in POM |
+| 4 | Always-Passing | T1 | grep | `>=0`, truthy on non-empty, `\|\|` defaults |
+| 5 | Boolean Trap | T1 | grep | `expect(bool).toBe(true)`, POM returns boolean |
+| 6 | Conditional Bypass | T1 | grep | `expect()` inside `if`, mid-test `test.skip()` |
+| 7 | Raw DOM Queries | T1 | grep | `document.querySelector` in `evaluate` bypassing framework API |
+| 8 | Render-Only | T2 | LLM | Only `toBeVisible()`, no content/count |
+| 9 | Duplicate | T2 | LLM | >70% shared steps, cross-file overlap |
+| 10 | Misleading Name | T2 | LLM | API/reload in "should [UI verb]" test |
+| 11 | Over-Broad | T2 | LLM | `.includes()` where enum values known |
+| 12 | Hard-coded Timeout | T2 | grep | `waitForTimeout()`, magic numbers |
+| 13 | Flaky Selectors | T2 | LLM | `nth()` without comment, raw text matching |
+| 14 | YAGNI in POM | T2 | LLM | Public member not referenced in any spec |
+
+---
+
+## Suppression
+
+When a grep-detected pattern is intentional, add a `// justified: [reason]` comment to the line. Phase 1 will exclude it.
+
+Example: `await editor.click({ force: true }).catch(() => textArea.focus()); // justified: UI stabilization fallback`

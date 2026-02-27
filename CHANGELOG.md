@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.1.0] - 2026-02-27
+
+### Added
+- **Phase 1: Automated Grep Checks** — deterministic pattern detection via `grep` before LLM analysis. Covers checks #3 (Error Swallowing), #4 (Always-Passing), #5 (Boolean Trap), #6 (Conditional Bypass), #7 (Raw DOM), #12 (Hard-coded Timeout), and `page.isClosed()` guards
+- **Phase 2: LLM-only Checks** — LLM now only performs subjective checks (#1, #2, #8-11, #13, #14) that require semantic interpretation
+- **`[grep-detectable]` / `[LLM-only]` tags** on each checklist item for quick classification
+- **Phase column** in Quick Reference table to indicate grep vs LLM detection
+- **Suppression mechanism** — `// justified: [reason]` inline comment excludes lines from Phase 1 grep results
+- **`npx skills` installation** method in README (recommended)
+
+### Changed
+- Review workflow is now two-phase: mechanical grep first, LLM second — reduces token usage and ensures deterministic results for pattern-based checks
+- **Framework-agnostic grep patterns** — Phase 1 now covers Playwright (`toBeGreaterThanOrEqual`, `waitForTimeout`), Cypress (`should('be.gte')`, `cy.wait()`), and Puppeteer in a single command using `-E` extended regex
+
 ## [2.0.0] - 2026-02-27
 
 ### Added
