@@ -1,6 +1,6 @@
 ---
 name: e2e-test-reviewer
-description: Use when reviewing, auditing, or improving existing E2E test specs. Triggers on tasks like "review tests", "improve test quality", "audit specs", "check test scenarios". Detects naming-assertion mismatch, missing Then, error swallowing, always-passing assertions, boolean traps, conditional bypass, raw DOM queries, render-only tests, duplicate scenarios, misleading names, over-broad assertions, hard-coded timeouts, flaky selectors, and YAGNI violations in Page Objects.
+description: Use when reviewing, auditing, or improving existing E2E test specs. Triggers on tasks like "review tests", "improve test quality", "audit specs", "check test scenarios". Detects naming-assertion mismatch, missing Then, error swallowing, always-passing assertions, boolean traps, conditional bypass, raw DOM queries, render-only tests, duplicate scenarios, misleading names, over-broad assertions, hard-coded timeouts, flaky patterns, and YAGNI violations in Page Objects.
 ---
 
 # E2E Test Scenario Quality Review
@@ -39,6 +39,10 @@ grep -rn 'document\.querySelector' e2e/ --include='*.spec.*' --include='*.test.*
 echo "--- #12 Hard-coded Timeout ---"
 grep -rn -E 'waitForTimeout|cy\.wait\(\d' e2e/ --include='*.ts' --include='*.js' --include='*.cy.*'
 
+# 13b. Network dependency — goto/visit without route/intercept setup nearby
+echo "--- #13b Missing Network Mock ---"
+grep -rn -E 'page\.goto|cy\.visit' e2e/ --include='*.spec.*' --include='*.test.*' --include='*.cy.*' | grep -v 'route\.\|intercept\|mock' | head -20
+
 echo ""
 echo "=== Done ==="
 ```
@@ -54,7 +58,7 @@ echo "=== Done ==="
 
 ## Phase 2: LLM Review (Subjective Checks Only)
 
-Patterns already detected in Phase 1 (#3, #4, #5 partial, #6, #7, #12) are **skipped**.
+Patterns already detected in Phase 1 (#3, #4, #5 partial, #6, #7, #12, #13b partial) are **skipped**.
 The LLM performs only these checks:
 
 | # | Check | Reason |
@@ -65,7 +69,7 @@ The LLM performs only these checks:
 | 9 | Duplicate Scenarios | Requires similarity comparison |
 | 10 | Misleading Names | Requires semantic interpretation |
 | 11 | Over-Broad Assertions | Requires domain context |
-| 13 | Flaky Selectors (partial) | Requires nth() justification judgment |
+| 13 | Flaky Patterns (partial) | Requires context judgment for nth(), animation, network patterns |
 | 14 | YAGNI in POM | Requires usage grep then judgment |
 
 ---
@@ -264,16 +268,41 @@ await element.waitFor({ state: 'visible', timeout: 30000 });
 
 **Rule:** Never use explicit sleep (`waitForTimeout` / `cy.wait(ms)`) — rely on framework auto-wait or retry mechanisms. For custom timeouts, extract named constants with comments explaining why the default isn't sufficient.
 
-#### 13. Flaky Selectors `[LLM-only]`
+#### 13. Flaky Patterns `[LLM-only + grep]`
 
-**Symptom:** Positional selectors or unstable text that breaks across environments.
+**Symptom:** Test passes locally but fails intermittently in CI due to timing, ordering, or environment assumptions.
+
+**Sub-patterns:**
+
+**13a. Positional selectors** — `nth()`, `first()`, `last()` without comment.
 
 ```typescript
 // BAD — breaks if DOM order changes
 await expect(items.nth(2)).toContainText('Settings');
 ```
 
-**Rule:** Prefer `data-testid`, role-based, or attribute-based selectors over `nth()` or raw text. If `nth()` is unavoidable, add a comment. For text selectors, use regex with `i` flag or `hasText` filter.
+**Rule:** Prefer `data-testid`, role-based, or attribute selectors. If `nth()` is unavoidable, add a comment explaining why.
+
+**13b. Network dependency without mock** — Test relies on real API responses without `route.fulfill()` / `cy.intercept()`.
+
+```typescript
+// BAD — fails if API is slow or returns different data
+await page.goto('/dashboard');
+await expect(page.locator('.user-count')).toHaveText('42');
+```
+
+**Rule:** For data-dependent assertions, mock the network response or assert on structure (element exists, is not empty) rather than exact values.
+
+**13c. Animation race** — Assertion runs before CSS transition or animation completes.
+
+```typescript
+// BAD — modal may still be animating
+await button.click();
+await expect(modal).toBeVisible(); // passes
+await expect(modal.locator('.content')).toHaveText('Done'); // flaky — content not rendered yet
+```
+
+**Rule:** After triggering animations, wait for the final state element, not the container. Use `waitForSelector` with stable content or `toHaveCSS('opacity', '1')` for fade-ins.
 
 #### 14. YAGNI in Page Objects `[LLM-only]`
 
@@ -335,7 +364,7 @@ Present findings grouped by severity:
 | 10 | Misleading Name | P1 | LLM | API/reload in "should [UI verb]" test |
 | 11 | Over-Broad | P2 | LLM | `.includes()` where enum values known |
 | 12 | Hard-coded Timeout | P2 | grep | `waitForTimeout()`, magic numbers |
-| 13 | Flaky Selectors | P1 | LLM | `nth()` without comment, raw text matching |
+| 13 | Flaky Patterns | P1 | LLM+grep | `nth()`, missing network mock, animation race |
 | 14 | YAGNI in POM | P2 | LLM | Public member not referenced in any spec |
 
 ---
