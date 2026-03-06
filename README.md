@@ -40,7 +40,7 @@ Are there any always-passing tests?
 
 ## 14 Patterns Detected
 
-### Tier 1 — High-Impact Bugs (always check)
+### Tier 1 — P0/P1 (always check)
 
 | # | Pattern | Before | After |
 |---|---------|--------|-------|
@@ -52,7 +52,7 @@ Are there any always-passing tests?
 | 6 | **Conditional bypass** | `if (visible) { expect(...) }` or mid-test `test.skip()` | Always assert; move env checks to `beforeEach` |
 | 7 | **Raw DOM queries** | `document.querySelector` in `evaluate()` | Use framework element API (`locator` / `cy.get` / `page.$`) |
 
-### Tier 2 — Quality Improvements (check when time permits)
+### Tier 2 — P1/P2 (check when time permits)
 
 | # | Pattern | Before | After |
 |---|---------|--------|-------|
