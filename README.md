@@ -60,6 +60,7 @@ Are there any always-passing tests?
 | 9 | **Duplicate scenario** | Two tests share 90% of steps (within or cross-file) | Merge into one comprehensive test |
 | 10 | **Misleading name** | `should add a paragraph` (uses REST API) | `should reflect paragraph added via API after reload` |
 | 11 | **Over-broad assertion** | `expect(s.includes('%')).toBe(true)` | `expect(['%python', '%md']).toContain(s)` |
+| 11b | **Subject-inversion** | `expect([200, 202]).toContain(status)` | `expect(status === 200 \|\| status === 202).toBe(true)` |
 | 12 | **Hard-coded timeout** | `waitForTimeout(2000)` / `cy.wait(2000)` | Rely on framework auto-wait; extract named constants |
 | 13 | **Flaky patterns** | `items.nth(2).toContainText('Settings')` | Use `data-testid`, role-based selectors; mock network; wait for animation completion |
 | 14 | **Unused Page Object member** | `clickEdit()` never called by any spec | Delete unused members or make `private`; do not delete actively-used util files |

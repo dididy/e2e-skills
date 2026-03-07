@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.3.0] - 2026-03-07
+
+### Added
+- **#11b Subject-Inversion** (P1): Detects `expect([expected]).toContain(actual)` where expected values are placed as the subject instead of the actual value — produces confusing failure messages like "Expected [200, 202] to contain 204"
+
+### Context
+Discovered during n8n (177k stars) review.
+
 ## [3.2.0] - 2026-03-06
 
 ### Changed

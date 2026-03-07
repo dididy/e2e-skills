@@ -1,6 +1,6 @@
 ---
 name: e2e-test-reviewer
-description: Use when reviewing, auditing, or improving existing E2E test specs. Triggers on tasks like "review tests", "improve test quality", "audit specs", "check test scenarios", "check coverage gaps". Detects naming-assertion mismatch, missing Then, error swallowing, always-passing assertions, boolean traps, conditional bypass, raw DOM queries, render-only tests, duplicate scenarios, misleading names, over-broad assertions, hard-coded timeouts, flaky patterns, and YAGNI violations in Page Objects.
+description: Use when reviewing, auditing, or improving existing E2E test specs. Triggers on tasks like "review tests", "improve test quality", "audit specs", "check test scenarios", "check coverage gaps". Detects naming-assertion mismatch, missing Then, error swallowing, always-passing assertions, boolean traps, conditional bypass, raw DOM queries, render-only tests, duplicate scenarios, misleading names, over-broad assertions, subject-inversion, hard-coded timeouts, flaky patterns, and YAGNI violations in Page Objects.
 ---
 
 # E2E Test Scenario Quality Review
@@ -69,7 +69,7 @@ The LLM performs only these checks:
 | 8 | Render-Only | Requires test value judgment |
 | 9 | Duplicate Scenarios | Requires similarity comparison |
 | 10 | Misleading Names | Requires semantic interpretation |
-| 11 | Over-Broad Assertions | Requires domain context |
+| 11 | Over-Broad Assertions + Subject-Inversion | Requires domain context |
 | 13 | Flaky Patterns (partial) | Requires context judgment for nth(), animation, network patterns |
 | 14 | YAGNI in POM | Requires usage grep then judgment |
 
@@ -278,6 +278,22 @@ expect(content.includes('%')).toBe(true);
 
 **Rule:** Prefer exact matches or explicit value lists over `.includes()` or loose regex when valid values are known and small.
 
+#### 11b. Subject-Inversion `[LLM-only]`
+
+**Symptom:** Expected values placed in `expect()` instead of the actual value — failure messages become confusing.
+
+```typescript
+// BAD — subject is the expected values array, not the actual result
+//        failure message: "Expected [200, 202] to contain 204" (confusing)
+expect([200, 202]).toContain(deleteResponse.status());
+
+// GOOD — actual value as subject, clear failure message
+const status = deleteResponse.status();
+expect(status === 200 || status === 202).toBe(true);
+```
+
+**Rule:** The value under test (actual) must always be the argument to `expect()`. Expected values go in the matcher. If the matcher doesn't support multi-value checks natively, use a boolean expression with `toBe(true)` rather than inverting the subject.
+
 #### 12. Hard-coded Timeouts `[grep-detectable]`
 
 **Symptom:** `waitForTimeout()` or magic timeout numbers scattered across tests and POM.
@@ -401,6 +417,7 @@ Present findings grouped by severity:
 | 9 | Duplicate | P1 | LLM | >70% shared steps, cross-file overlap |
 | 10 | Misleading Name | P1 | LLM | API/reload in "should [UI verb]" test |
 | 11 | Over-Broad | P2 | LLM | `.includes()` where enum values known |
+| 11b | Subject-Inversion | P1 | LLM | `expect([expected]).toContain(actual)` — confusing failure messages |
 | 12 | Hard-coded Timeout | P2 | grep | `waitForTimeout()`, magic numbers |
 | 13 | Flaky Patterns | P1 | LLM+grep | `nth()`, missing network mock, animation race |
 | 14 | YAGNI in POM | P2 | LLM | Public member not referenced in any spec |
