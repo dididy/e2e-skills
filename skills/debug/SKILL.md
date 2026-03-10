@@ -7,6 +7,16 @@ description: Use when Playwright tests have failed and you need to diagnose root
 
 Diagnose Playwright test failures from report files. Classifies root causes and provides concrete fixes.
 
+## Prerequisites: Run Tests First
+
+**Do NOT run `playwright test` directly and read its stdout** — output may be truncated by token-optimizing proxies (e.g. rtk). Instead:
+
+```bash
+npx playwright test --reporter=json 2>/dev/null > playwright-report/results.json
+```
+
+Then parse the report file in Phase 1.
+
 ## Phase 1: Extract Failures
 
 ```bash
