@@ -1,5 +1,5 @@
 ---
-name: e2e-test-skill-debug
+name: e2e-test-debugger
 description: Use when Playwright tests have failed and you need to diagnose root causes from report files. Triggers on tasks like "debug failing tests", "analyze test failures", "why did these tests fail", "investigate CI failures", or when given a playwright-report directory.
 ---
 

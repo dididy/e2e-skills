@@ -1,5 +1,5 @@
 ---
-name: e2e-test-skill-review
+name: e2e-test-reviewer
 description: Use when reviewing, auditing, or improving existing E2E test specs. Triggers on tasks like "review tests", "improve test quality", "audit specs", "check test scenarios", "check coverage gaps". Detects naming-assertion mismatch, missing Then, error swallowing, always-passing assertions, boolean traps, conditional bypass, raw DOM queries, render-only tests, duplicate scenarios, misleading names, over-broad assertions, subject-inversion, hard-coded timeouts, flaky patterns, and YAGNI violations in Page Objects.
 ---
 
