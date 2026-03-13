@@ -1,5 +1,11 @@
 # Changelog
 
+## [4.2.1] - 2026-03-14
+
+### Fixed
+- **`e2e-reviewer` #4 toBeAttached() grep scope**: Extended search target from spec files only to `.ts/.js/.cy.*` (all files including POM/util) — `toBeAttached()` in POM helper methods was previously invisible to Phase 1 grep
+- **`e2e-reviewer` #6 Conditional Bypass POM gap**: Added explicit note that the Phase 1 grep only covers spec files; POM/util methods with `if (await el.isVisible())` guards must be reviewed manually in Phase 2
+
 ## [4.2.0] - 2026-03-13
 
 ### Added

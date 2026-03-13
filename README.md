@@ -80,7 +80,7 @@ My tests pass CI but I think they miss regressions
 
 Three-phase review with P0/P1/P2 severity:
 
-1. **Phase 1: Automated grep** — mechanically detects error swallowing, always-passing (including `toBeAttached()` on static elements), boolean traps, conditional bypass, raw DOM, timeouts, missing network mocks
+1. **Phase 1: Automated grep** — mechanically detects error swallowing, always-passing (including `toBeAttached()` on static elements — scans all `.ts` files, not just specs), boolean traps, conditional bypass in specs (POM methods reviewed manually in Phase 2), raw DOM, timeouts, missing network mocks
 2. **Phase 2: LLM analysis** — semantic checks for naming, missing assertions, duplicates, flaky patterns, YAGNI
 3. **Phase 3: Coverage gaps** — suggests missing error paths, edge cases, accessibility, and auth boundary tests
 
