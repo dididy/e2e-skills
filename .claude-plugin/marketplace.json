@@ -7,8 +7,8 @@
     {
       "name": "e2e-skills",
       "source": "./",
-      "description": "Three E2E skills that catch what CI misses — tests that pass but prove nothing, and failures that are hard to trace. Audits Playwright, Cypress, and Puppeteer specs against 10 anti-patterns (P0/P1/P2) including focused test leaks and zombie spec files, debugs failed Playwright tests from playwright-report/, and Cypress tests from cypress/reports/.",
-      "version": "1.0.1",
+      "description": "Four E2E skills that generate, audit, and debug Playwright and Cypress tests. Generates Playwright tests from scratch via live browser exploration and a Plan Mode approval gate. Audits Playwright, Cypress, and Puppeteer specs against 10 anti-patterns (P0/P1/P2). Debugs failed Playwright tests from playwright-report/ and Cypress tests from cypress/reports/.",
+      "version": "1.1.0",
       "author": {
         "name": "YONGJAE LEE"
       },
@@ -20,6 +20,9 @@
         "playwright",
         "cypress",
         "puppeteer",
+        "test-generation",
+        "test-generator",
+        "generate-tests",
         "test-quality",
         "review",
         "audit",
@@ -27,11 +30,13 @@
         "trace",
         "failure",
         "page-object-model",
+        "pom",
         "flaky-test",
         "always-passing",
         "error-swallowing",
         "dom-queries",
         "coverage-gap",
+        "coverage",
         "severity",
         "ci",
         "ci-failure",
@@ -47,7 +52,10 @@
         "fragile-test",
         "brittle-test",
         "static-analysis",
-        "test-maintenance"
+        "test-maintenance",
+        "yagni",
+        "bdd",
+        "scenario"
       ]
     }
   ]

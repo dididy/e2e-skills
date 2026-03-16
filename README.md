@@ -1,16 +1,18 @@
 # e2e-skills
 
-A [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) plugin with three complementary E2E testing skills designed to work together:
+A [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) plugin with four complementary E2E testing skills designed to work together:
 
-1. **`e2e-reviewer`** — finds issues in your tests and suggests fixes (Playwright, Cypress, Puppeteer)
-2. **`playwright-debugger`** — diagnoses failures from `playwright-report/` after you apply fixes and re-run
-3. **`cypress-debugger`** — diagnoses failures from Cypress report files after you apply fixes and re-run
+1. **`playwright-test-generator`** — generates Playwright E2E tests from scratch, from coverage gap analysis to passing, reviewed tests
+2. **`e2e-reviewer`** — finds issues in your tests and suggests fixes (Playwright, Cypress, Puppeteer)
+3. **`playwright-debugger`** — diagnoses failures from `playwright-report/` after you apply fixes and re-run
+4. **`cypress-debugger`** — diagnoses failures from Cypress report files after you apply fixes and re-run
 
 The typical workflow:
 
-1. Run `e2e-reviewer` → fix issues → re-run tests
-2. If tests fail → run `playwright-debugger` or `cypress-debugger` → fix → re-run tests
-3. Once tests pass → run `e2e-reviewer` again to confirm no new issues
+1. Run `playwright-test-generator` → generate tests with user approval → auto-reviewed by `e2e-reviewer`
+2. If generated tests fail → `playwright-debugger` is invoked automatically after 3 fix attempts
+3. For existing tests: run `e2e-reviewer` → fix issues → re-run tests
+4. If tests fail → run `playwright-debugger` or `cypress-debugger` → fix → re-run tests
 
 > AI-generated E2E tests tend toward the statistically likely result — visibility checks that always pass, loose assertions that accept anything, and convenience methods that nobody calls. These skills catch what CI misses: **tests that pass but prove nothing**, and **failures that are hard to trace**.
 
@@ -31,7 +33,48 @@ git clone https://github.com/dididy/e2e-skills.git ~/.claude/skills/e2e-skills
 
 ---
 
-## Skill 1: `e2e-reviewer` — Quality Review
+## Skill 1: `playwright-test-generator` — Test Generation
+
+Generates Playwright E2E tests from scratch for any project. Starts from coverage gap analysis, explores the live app via Playwright CLI, designs scenarios with your approval, and auto-reviews generated tests with `e2e-reviewer`.
+
+### When to Use
+
+- You have a page or feature with no E2E coverage
+- You want to bootstrap a test suite for an existing app
+- You need to quickly add tests before a release
+
+### Usage
+
+```
+Generate playwright tests
+Generate playwright tests for the login page
+Write e2e tests for the settings page
+Add playwright coverage for checkout flow
+```
+
+### Pipeline
+
+```
+Step 1: Detect environment (config, baseURL, test dir, POM structure)
+Step 2: Coverage gap analysis → user picks target
+Step 3: Live browser exploration via Playwright CLI
+Step 4: Scenario design → Plan Mode → user approves
+Step 5: Code generation (POM + spec or flat spec, auto-detected)
+Step 6: YAGNI audit + e2e-reviewer quality gate
+Step 7: TS compile + test run → playwright-debugger on failure
+```
+
+### Key Behaviors
+
+- **Structure-aware**: detects POM pattern and matches project conventions
+- **No hallucinated selectors**: explores real DOM before writing any code
+- **Approval gate**: shows scenario plan and locator table before generating code
+- **Quality loop**: YAGNI audit removes unused locators; `e2e-reviewer` catches P0 issues before you ever run the tests
+- **Self-healing**: 3 auto-fix attempts on failure, then hands off to `playwright-debugger`
+
+---
+
+## Skill 2: `e2e-reviewer` — Quality Review
 
 Catches issues in E2E tests that pass CI but fail to catch real regressions.
 
@@ -88,7 +131,7 @@ Three-phase review with P0/P1/P2 severity:
 
 ---
 
-## Skill 2: `playwright-debugger` — Playwright Failure Debugger
+## Skill 3: `playwright-debugger` — Playwright Failure Debugger
 
 Diagnoses Playwright test failures from a `playwright-report/` directory — whether failures happened locally or in CI. Classifies root causes and provides concrete fixes.
 
@@ -137,7 +180,7 @@ Tests pass locally but fail in CI
 
 ---
 
-## Skill 3: `cypress-debugger` — Cypress Failure Debugger
+## Skill 4: `cypress-debugger` — Cypress Failure Debugger
 
 Diagnoses Cypress test failures from mochawesome or JUnit report files. Classifies root causes and provides concrete fixes.
 
@@ -186,6 +229,8 @@ Cypress tests pass locally but fail in CI
 ---
 
 ## Compatibility
+
+**`playwright-test-generator`** — Playwright only. Generates tests for any project with a `playwright.config.ts`. Requires Playwright CLI or agent-browser tools for live exploration.
 
 **`e2e-reviewer`** — Framework-agnostic. Covers [Playwright](https://playwright.dev/), [Cypress](https://www.cypress.io/), and [Puppeteer](https://pptr.dev/).
 

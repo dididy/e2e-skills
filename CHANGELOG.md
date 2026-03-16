@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.0] - 2026-03-17
+
+### Added
+- **`playwright-test-generator`** — new skill for generating Playwright E2E tests from scratch
+  - 7-step pipeline: environment detection → coverage gap analysis → live browser exploration (Playwright CLI / agent-browser) → scenario design with Plan Mode approval gate → code generation → YAGNI audit + e2e-reviewer → TS compile + test run
+  - Structure-aware: auto-detects POM vs flat spec pattern, extends existing POMs when present
+  - Coverage gap analysis: scans Angular, Next.js, React Router routing files; maps existing specs to routes; flags auth and form-heavy pages as high priority
+  - Browser exploration via Playwright CLI (`playwright-cli open/snapshot/close`); falls back to agent-browser tools
+  - Approval gate: EnterPlanMode with scenario list + locator mapping table before any code is written
+  - Quality loop: YAGNI audit removes unused locators immediately after generation; `e2e-reviewer` runs automatically (P0 issues fix-looped, P1/P2 reported)
+  - Failure handling: 3 targeted auto-fix attempts (selectors → assertions → structure), then hands off to `playwright-debugger`
+  - Companion files: `code-rules.md` (selector priority, POM/spec rules, forbidden patterns) and `best-practices.md` (Playwright official best practices reference)
+- **README**: added `playwright-test-generator` as Skill 1; updated workflow to include generation step; added Compatibility entry
+
 ## [1.0.1] - 2026-03-15
 
 ### Added
