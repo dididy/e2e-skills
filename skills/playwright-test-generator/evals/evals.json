@@ -1,0 +1,84 @@
+{
+  "skill_name": "playwright-test-generator",
+  "evals": [
+    {
+      "id": 1,
+      "title": "Coverage gap analysis with POM project",
+      "prompt": "Analyze the project in evals/files/project-pom/ and identify coverage gaps. The project has routes defined in src/routes.ts including /login, /dashboard, /dashboard/analytics, /settings, /settings/notifications, /settings/security, /profile, /checkout, and /checkout/confirmation. Currently only auth tests exist in tests/auth.spec.ts. Identify what is covered, what is not, and how new tests should be structured.",
+      "expected_output": "Should detect POM pattern (tests/pages/ directory with BasePage and LoginPage). Should identify /login as covered via auth.spec.ts. Should identify /dashboard, /dashboard/analytics, /settings, /settings/notifications, /settings/security, /profile, /checkout, /checkout/confirmation as uncovered routes. Should flag auth-related paths as already covered. Should flag /checkout as high priority (form-heavy). Should recommend new tests follow the existing POM pattern with classes extending BasePage.",
+      "files": [
+        "evals/files/project-pom/playwright.config.ts",
+        "evals/files/project-pom/tests/auth.spec.ts",
+        "evals/files/project-pom/tests/pages/login-page.ts",
+        "evals/files/project-pom/tests/pages/base-page.ts",
+        "evals/files/project-pom/src/routes.ts"
+      ],
+      "assertions": [
+        "Detects POM pattern (tests/pages/ directory exists)",
+        "Identifies BasePage as base class for POMs",
+        "Identifies LoginPage as existing POM",
+        "Recognizes /login route as covered by auth.spec.ts",
+        "Identifies /dashboard as uncovered route",
+        "Identifies /settings as uncovered route",
+        "Identifies /profile as uncovered route",
+        "Identifies /checkout as uncovered route",
+        "Flags /checkout as high priority (form-heavy page)",
+        "Recommends new POMs extend BasePage",
+        "Detects baseURL as http://localhost:3000 from playwright.config.ts",
+        "Detects testDir as ./tests from playwright.config.ts",
+        "Does not hallucinate routes not in src/routes.ts",
+        "Lists at least 4 uncovered routes"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Test generation plan for /checkout with POM",
+      "prompt": "Generate a test plan for the /checkout page based on the project structure in evals/files/project-pom/. The project uses POM pattern with BasePage and LoginPage in tests/pages/. The routes file shows /checkout (show + process) and /checkout/confirmation endpoints. Show what scenarios, locators, and POM structure you would create. Do not write code yet — present the plan for approval.",
+      "expected_output": "Should propose a CheckoutPage class extending BasePage in tests/pages/checkout-page.ts. Should propose a checkout.spec.ts in tests/. Should include happy path scenario (complete purchase flow). Should include error scenarios (validation errors, payment failure). Should include a Locator Mapping Table. Should reference existing patterns from auth.spec.ts and LoginPage.",
+      "files": [
+        "evals/files/project-pom/playwright.config.ts",
+        "evals/files/project-pom/tests/auth.spec.ts",
+        "evals/files/project-pom/tests/pages/login-page.ts",
+        "evals/files/project-pom/tests/pages/base-page.ts",
+        "evals/files/project-pom/src/routes.ts"
+      ],
+      "assertions": [
+        "Proposes CheckoutPage class extending BasePage",
+        "Places POM file in tests/pages/checkout-page.ts",
+        "Places spec file in tests/checkout.spec.ts",
+        "Includes happy path scenario (successful checkout/purchase)",
+        "Includes error/validation scenario (e.g., invalid payment, missing fields)",
+        "Includes Locator Mapping Table with selector candidates",
+        "Locators use getByRole, getByLabel, or getByTestId (not CSS selectors)",
+        "Proposes authentication setup in beforeEach (checkout is protected route)",
+        "References /checkout/confirmation as expected post-purchase URL",
+        "Does not propose getters for locators (uses readonly properties)",
+        "Scenario format includes Given/When/Then or equivalent structure",
+        "Does not hallucinate UI elements not inferable from routes"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Flat spec project detection (no POM)",
+      "prompt": "Analyze the project in evals/files/project-flat/ for test coverage and structure. The project has a Next.js App Router structure with src/app/page.tsx as the home page. Tests are in tests/login.spec.ts using direct page interactions without POM. Identify the project pattern, coverage gaps, and how new tests should be structured.",
+      "expected_output": "Should detect flat spec pattern (no POM — no pages/ or page-objects/ directory). Should NOT suggest POM pattern since the project does not use it. Should identify login as covered. Should identify home page, signup, dashboard, profile, notifications as potential coverage gaps based on page.tsx links and feature list. Should recommend new tests follow the existing flat spec style with direct page.goto and page.getByX calls.",
+      "files": [
+        "evals/files/project-flat/playwright.config.ts",
+        "evals/files/project-flat/tests/login.spec.ts",
+        "evals/files/project-flat/src/app/page.tsx"
+      ],
+      "assertions": [
+        "Detects flat spec pattern (no POM directory)",
+        "Does NOT recommend introducing POM pattern",
+        "Identifies login as covered by login.spec.ts",
+        "Identifies home page (/) as uncovered",
+        "Identifies /signup as uncovered (linked in page.tsx)",
+        "Recommends new tests use direct page interactions (matching existing style)",
+        "Detects baseURL as http://localhost:3000",
+        "Detects testDir as ./tests",
+        "Detects Next.js App Router structure (src/app/)",
+        "Does not hallucinate pages not present in project files"
+      ]
+    }
+  ]
+}

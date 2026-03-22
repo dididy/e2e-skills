@@ -130,7 +130,7 @@ We have coverage but bugs still slip through
 
 Three-phase review with P0/P1/P2 severity:
 
-1. **Phase 1: Automated grep** — mechanically detects #3 (POM `.catch()`), #4 (always-passing: one-shot booleans, Locator-as-truthy, toBeAttached, timeout:0), #5 (bypass patterns), #6 (raw DOM queries), #7 (focused test leak), #8 (missing assertions: dangling locators + discarded booleans), #9 (hard-coded sleeps), #10 partial (positional selectors, describe.serial)
+1. **Phase 1: Automated grep** — mechanically detects #3 (POM `.catch()`), #4 (always-passing), #5 (bypass patterns), #6 (raw DOM queries), #7 (focused test leak), #8 (missing assertions), #9 (hard-coded sleeps), #10 partial (positional selectors, describe.serial)
 2. **Phase 2: LLM analysis** — #1 name-assertion alignment, #2 missing Then, #3 `try/catch` in specs (context-dependent), #8 Cypress dangling selectors, #10 flaky pattern judgment, #11 YAGNI + zombie specs
 3. **Phase 3: Coverage gaps** — suggests missing error paths, edge cases, accessibility, and auth boundary tests
 

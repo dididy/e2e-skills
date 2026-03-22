@@ -1,0 +1,144 @@
+{
+  "skill_name": "e2e-reviewer",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Review the Playwright E2E tests in evals/files/auth.spec.ts and its POM file pages/login-page.ts. Find any anti-patterns, weak assertions, or quality issues.",
+      "expected_output": "Should detect: test.only (P0), waitForTimeout (P1), dangling locator (P0), one-shot boolean (P0), conditional bypass (P0), force:true (P1), .catch(()=>{}) in POM (P0), raw DOM query in POM (P1), name-assertion mismatch (P0), missing then (P0), YAGNI unused POM members (P2), hardcoded credentials (P1), deprecated page.click API (P1)",
+      "files": ["evals/files/auth.spec.ts", "evals/files/pages/login-page.ts"],
+      "assertions": [
+        "Detects test.only (#7)",
+        "Detects waitForTimeout (#9)",
+        "Detects dangling locator (#8a)",
+        "Detects one-shot boolean (#4)",
+        "Detects conditional bypass (#5a)",
+        "Detects force:true (#5b)",
+        "Detects .catch(()=>{}) in POM (#3)",
+        "Detects raw DOM query in POM (#6)",
+        "Flags name-assertion mismatch (#1)",
+        "Flags missing then (#2)",
+        "Identifies YAGNI unused POM members (#11)",
+        "Detects hardcoded credentials (#14)",
+        "Structured output with P0/P1/P2",
+        "Summary table included",
+        "Top Priorities section included"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Review the Playwright E2E tests in evals/files/dashboard.spec.ts. Identify all anti-patterns and suggest improvements.",
+      "expected_output": "Should detect: serial() (P1), >=0 always-passing (P0), waitForTimeout (P1), missing assertion (P0), toBeAttached (P0), boolean discarded (P0), positional selectors (P1), raw DOM query (P1), missing then (P0), name-assertion mismatch (P0), missing auth setup (P0), deprecated page action API (P1)",
+      "files": ["evals/files/dashboard.spec.ts"],
+      "assertions": [
+        "Detects test.describe.serial (#10b)",
+        "Detects toBeGreaterThanOrEqual(0) (#4)",
+        "Detects waitForTimeout (#9)",
+        "Detects toBeAttached (#4)",
+        "Detects boolean discarded (#8b)",
+        "Detects positional selectors (#10a)",
+        "Detects raw DOM query (#6)",
+        "Flags missing assertion on export test (#2/#8)",
+        "Flags missing then on sidebar toggle (#2)",
+        "Flags name-assertion mismatch on user name (#1)",
+        "Detects missing auth setup - no login before /dashboard (#12)",
+        "Detects deprecated page.click/page.fill API (#17)",
+        "Structured output with P0/P1/P2",
+        "Summary table included",
+        "Top Priorities section included"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Review all Playwright test files in evals/files/ including POM files. Give me a full quality audit with severity ratings.",
+      "expected_output": "Comprehensive report covering all spec files and POM files. Finds issues across all checks. Summary table with P0/P1/P2 counts. Coverage gap suggestions referencing specific findings. Cross-file YAGNI analysis. Systemic issues section. Top priorities.",
+      "files": ["evals/files/auth.spec.ts", "evals/files/dashboard.spec.ts", "evals/files/settings.spec.ts", "evals/files/pages/login-page.ts", "evals/files/pages/settings-page.ts"],
+      "assertions": [
+        "Reviews all 3 spec files",
+        "Reviews both POM files",
+        "Detects try/catch error swallowing in settings (#3)",
+        "Detects name-assertion mismatch: change password (#1)",
+        "Detects missing assertion: toggle notifications (#2)",
+        "Detects toBeAttached in settings (#4)",
+        "Detects one-shot getAttribute (#4)",
+        "Detects one-shot URL in settings (#4h)",
+        "Detects inconsistent POM usage in settings (#13)",
+        "Detects hardcoded credentials in auth (#14)",
+        "Detects missing auth setup in dashboard (#12)",
+        "YAGNI in settings-page.ts (#11)",
+        "YAGNI in login-page.ts (#11)",
+        "Coverage gap suggestions reference specific findings (Phase 3)",
+        "Phase 2.5 systemic issues section present",
+        "Summary table with counts",
+        "Top Priorities section included",
+        "Total 20+ issues found"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Review the Playwright E2E tests in evals/files/checkout.spec.ts and its POM file pages/checkout-page.ts. Find any anti-patterns or quality issues.",
+      "expected_output": "Clean, well-written tests. Minimal or no P0/P1 findings. Should recognize good practices: beforeEach, getByTestId/getByRole, storageState auth, env vars for credentials, test.skip with reason. Should NOT flag: test.skip with reason comment, JUSTIFIED nth() usage in POM. May suggest minor improvements but should not produce false positives.",
+      "files": ["evals/files/checkout.spec.ts", "evals/files/pages/checkout-page.ts"],
+      "assertions": [
+        "Does NOT flag test.skip as an issue (has valid reason)",
+        "Does NOT flag nth() in checkout-page.ts (has JUSTIFIED comment)",
+        "Reports zero or near-zero P0 issues",
+        "Recognizes good practices (getByTestId, getByRole, env vars, beforeEach)",
+        "Does NOT produce false positives on well-written assertions",
+        "Summary table included",
+        "Coverage gap suggestions present"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Review the Playwright E2E tests in evals/files/search-justified.spec.ts. Check for anti-patterns and respect JUSTIFIED suppression markers.",
+      "expected_output": "Should skip patterns with JUSTIFIED comments above them (first() in search results, force:true on filter). Should flag: unjustified nth() on pagination, waitForTimeout without justification. Should detect deprecated page.locator usage patterns.",
+      "files": ["evals/files/search-justified.spec.ts"],
+      "assertions": [
+        "Skips JUSTIFIED first() in search results test",
+        "Skips JUSTIFIED force:true in filter test",
+        "Flags unjustified nth(2) on pagination button (#10a)",
+        "Flags waitForTimeout(500) in suggestions test (#9)",
+        "Does NOT flag locator-based page.locator('#x').fill() as deprecated (it is correct API)",
+        "Does NOT over-flag legitimate patterns",
+        "Structured output with P0/P1/P2",
+        "Summary table included"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Review the Cypress E2E tests in evals/files/products.cy.ts. Identify all anti-patterns and suggest improvements.",
+      "expected_output": "Should detect Cypress framework via Phase 0. Should detect: it.only (P0), cy.wait numeric sleeps (P1), dangling cy.get (P0), conditional assertion bypass (P0), force:true without justification (P1), name-assertion mismatch on add-to-cart (P0), missing then on product details (P0). Should skip Playwright-specific checks.",
+      "files": ["evals/files/products.cy.ts"],
+      "assertions": [
+        "Detects Cypress framework in Phase 0",
+        "Detects it.only (#7)",
+        "Detects cy.wait numeric sleeps (#9b)",
+        "Flags dangling cy.get without assertion chain",
+        "Flags conditional assertion bypass with Cypress.env (#5a)",
+        "Flags force:true without JUSTIFIED on discount apply (#5b)",
+        "Flags name-assertion mismatch on add-to-cart (#1)",
+        "Flags missing assertion on product details (#2)",
+        "Skips Playwright-specific checks (dangling page.locator, describe.serial)",
+        "Structured output with P0/P1/P2",
+        "Summary table included"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Review the Playwright E2E tests in evals/files/profile-mixed.spec.ts. Find anti-patterns but don't over-flag legitimate try/catch and test.skip usage.",
+      "expected_output": "Should detect: missing await on expect (#15 P0), missing await on action (#16 P0), deprecated page.fill/page.click (#17 P1), networkidle usage (#9c P1). Should NOT flag: legitimate try/catch in beforeEach (setup retry), test.skip with reason, legitimate try/catch in cleanup (delete address test).",
+      "files": ["evals/files/profile-mixed.spec.ts"],
+      "assertions": [
+        "Detects missing await on expect in update-display-name test (#15)",
+        "Detects missing await on action in upload-photo test (#16)",
+        "Detects deprecated page.fill and page.click in update-bio test (#17)",
+        "Detects networkidle usage in activity-feed test (#9c)",
+        "Does NOT flag legitimate try/catch in beforeEach (setup retry)",
+        "Does NOT flag test.skip with reason comment",
+        "Does NOT flag legitimate try/catch in cleanup (delete-address test)",
+        "Structured output with P0/P1/P2",
+        "Summary table included"
+      ]
+    }
+  ]
+}

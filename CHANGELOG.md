@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.3] - 2026-03-22
+
+### Added
+- **`e2e-reviewer` supplementary grep checks** — 6 additional patterns for general code quality (missing auth setup, inconsistent POM usage, hardcoded credentials, missing await on expect/action, deprecated page API, networkidle). These supplement the core 11 anti-patterns during review.
+- **Evals for all 4 skills** — `e2e-reviewer` (7 evals), `playwright-debugger` (4 evals), `cypress-debugger` (4 evals), `playwright-test-generator` (3 evals)
+- **`.gitignore`** — eval fixture files and workspace dirs excluded from git
+
 ## [1.1.2] - 2026-03-19
 
 ### Fixed

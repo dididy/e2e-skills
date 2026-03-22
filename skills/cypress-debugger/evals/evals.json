@@ -1,0 +1,77 @@
+{
+  "skill_name": "cypress-debugger",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Debug the Cypress test failures in evals/files/mochawesome-selector-timeout.json. Classify each failure and suggest fixes.",
+      "expected_output": "Should classify 2 failures: (1) '#submit-btn' not found as F2 Selector Broken — element ID changed or never existed, suggest using data-testid selector. (2) '.modal' visibility timeout as F1 Flaky/Timing or F2 Selector Broken — generic CSS selector '.modal' is fragile, duration hit 10s timeout suggesting element never rendered. Should suggest data-testid for modal, check if delete action triggers modal correctly.",
+      "files": ["evals/files/mochawesome-selector-timeout.json"],
+      "assertions": [
+        "Classifies '#submit-btn' failure as F2 (Selector Broken)",
+        "Classifies '.modal' timeout as F1 (Flaky/Timing) or F2 (Selector Broken)",
+        "Notes duration near defaultCommandTimeout (4000ms) for submit-btn failure",
+        "Notes duration at 10000ms for modal failure indicating extended timeout",
+        "Suggests replacing '#submit-btn' with data-testid selector",
+        "Suggests replacing '.modal' with data-testid selector",
+        "Provides fix code examples",
+        "Uses structured output format with severity (P1/P2)",
+        "Includes failure summary with total count",
+        "Includes review summary table"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Analyze the Cypress test report at evals/files/mochawesome-mixed.json. Identify root causes for each failure and detect any cascade patterns.",
+      "expected_output": "Should classify 3 failures: (1) Payment API returning 500 as F3 Network Dependency — cy.intercept returns 500 but test expects success, test setup is contradictory. (2) 'Welcome' vs 'Login' text mismatch as F4 Assertion Mismatch — user not logged in, seeing Login page instead of Welcome. (3) Uncaught TypeError on discount click as application bug (not test issue) — 'Cannot read properties of undefined' indicates missing discount data. Should detect potential cascade: test 2 may indicate missing auth which also affects test 1 expectations.",
+      "files": ["evals/files/mochawesome-mixed.json"],
+      "assertions": [
+        "Classifies payment failure as F3 (Network Dependency)",
+        "Classifies 'Welcome' vs 'Login' as F4 (Assertion Mismatch)",
+        "Identifies uncaught TypeError as application code bug, not test issue",
+        "Notes the 'uncaught:exception' error pattern from Cypress",
+        "Detects potential cascade: missing auth causing 'Login' instead of 'Welcome'",
+        "Suggests fixing intercept setup for payment test (contradictory 500 + expect success)",
+        "Suggests adding login/auth before homepage assertion",
+        "Suggests fixing application code for discount TypeError",
+        "Provides severity ratings (P0 for uncaught exception, P1/P2 for others)",
+        "Uses structured output format with failure summary",
+        "Includes review summary table"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Debug the flaky Cypress test failures in evals/files/mochawesome-flaky.json. Identify flaky patterns, race conditions, and suggest stabilization strategies.",
+      "expected_output": "Should classify 3 failures as flaky/timing related: (1) Notification badge not appearing after postMessage — race condition between postMessage and DOM update, F1 Flaky/Timing or F11 Async Order. (2) Infinite scroll not loading more items — cy.wait(2000) is a fixed sleep, race condition with async data loading, F1 Flaky/Timing. (3) Toast not found after click — animation/render race, element may appear and disappear before assertion, F14 Animation Race or F1. Should detect pattern: all 3 failures involve timing-dependent UI with fixed waits or missing waits.",
+      "files": ["evals/files/mochawesome-flaky.json"],
+      "assertions": [
+        "Classifies notification badge failure as F1 (Flaky/Timing) or F11 (Async Order)",
+        "Classifies infinite scroll failure as F1 (Flaky/Timing)",
+        "Classifies toast failure as F14 (Animation Race) or F1 (Flaky/Timing)",
+        "Identifies cy.wait(2000) as a flaky pattern in infinite scroll test",
+        "Identifies race condition between postMessage and DOM assertion",
+        "Identifies toast auto-dismiss race condition",
+        "Suggests replacing cy.wait with cy.intercept().wait() or retry-able assertions",
+        "Suggests adding proper wait for notification badge (e.g., cy.get with timeout)",
+        "Detects systemic pattern: multiple timing-dependent failures",
+        "Uses structured output format with severity ratings",
+        "Includes stabilization strategy recommendations",
+        "Includes review summary table"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Analyze the Cypress test report at evals/files/mochawesome-clean.json. Report the test run status.",
+      "expected_output": "Should report all 4 tests passing with 0 failures. Clean run with no issues to diagnose. Should not produce false diagnoses or invent problems. May note good practices observed in the test code (data-testid usage, proper assertions).",
+      "files": ["evals/files/mochawesome-clean.json"],
+      "assertions": [
+        "Reports 0 failures / 4 passes",
+        "Reports clean run status",
+        "Does NOT produce false failure diagnoses",
+        "Does NOT invent or fabricate issues",
+        "Does NOT classify any test as F1-F14",
+        "May note good practices (data-testid usage, proper assertions)",
+        "Output is concise — no lengthy failure analysis on a clean run"
+      ]
+    }
+  ]
+}

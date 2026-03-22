@@ -1,6 +1,6 @@
 ---
 name: e2e-reviewer
-description: Use when reviewing, auditing, or improving E2E test specs for Playwright, Cypress, or Puppeteer — static code analysis of existing test files, not diagnosing runtime failures. Triggers on "review my tests", "audit test quality", "find weak tests", "my tests always pass but miss bugs", "tests pass CI but miss regressions", "improve playwright tests", "improve cypress tests", "check test coverage gaps", "my tests are fragile", "tests break on every UI change", "test suite is hard to maintain", "we have coverage but bugs still slip through". Detects 11 anti-patterns -- name-assertion mismatch, missing Then, error swallowing (.catch in POM via grep; try/catch in specs via LLM), always-passing assertions (one-shot booleans, Locator-as-truthy, toBeAttached, timeout:0), bypass patterns (conditional assertions + force:true), raw DOM queries, focused test leak (test.only committed), missing assertions (dangling locators + boolean result discarded), hard-coded sleeps (P1), flaky test patterns (positional selectors + serial ordering), and YAGNI + zombie specs (unused POM members, single-use Util wrappers, zombie spec files).
+description: Use when reviewing, auditing, or improving E2E test specs for Playwright, Cypress, or Puppeteer — static code analysis of existing test files, not diagnosing runtime failures. Triggers on "review my tests", "audit test quality", "find weak tests", "my tests always pass but miss bugs", "tests pass CI but miss regressions", "improve playwright tests", "improve cypress tests", "check test coverage gaps", "my tests are fragile", "tests break on every UI change", "test suite is hard to maintain", "we have coverage but bugs still slip through", "flaky tests", "test anti-patterns", "check my e2e tests", "tests pass locally but fail in CI". Detects 11 anti-patterns -- name-assertion mismatch, missing Then, error swallowing (.catch in POM via grep; try/catch in specs via LLM), always-passing assertions (one-shot booleans, Locator-as-truthy, toBeAttached, timeout:0, one-shot URL), bypass patterns (conditional assertions + force:true), raw DOM queries, focused test leak (test.only committed), missing assertions (dangling locators + boolean result discarded), hard-coded sleeps (P1), flaky test patterns (positional selectors + serial ordering), YAGNI + zombie specs (unused POM members, single-use Util wrappers, zombie spec files). Also runs supplementary grep checks for general code quality issues (missing auth setup, inconsistent POM usage, hardcoded credentials, missing await, deprecated page API, networkidle).
 ---
 
 # E2E Test Scenario Quality Review
@@ -11,39 +11,78 @@ Systematic checklist for reviewing E2E **spec files AND Page Object Model (POM) 
 - Playwright best practices: https://playwright.dev/docs/best-practices
 - Cypress best practices: https://docs.cypress.io/app/core-concepts/best-practices
 
-## Phase 1: Automated Grep Checks (Run First)
+## Phase 0: Framework Detection
+
+Before running checks, determine the framework by grepping for import statements:
+- `@playwright/test` → Playwright
+- `cypress` → Cypress
+- `puppeteer` → Puppeteer
+
+**Skip framework-irrelevant checks:** If Playwright, skip Cypress-specific greps (`cy.wait`). If Cypress, skip Playwright-specific greps (`describe.serial`, dangling `page.locator`). This eliminates noise in Phase 1 output.
+
+---
+
+## Phase 1: Automated Grep Checks
 
 Once the review target files are determined, use the Grep tool to mechanically detect known anti-patterns **before** LLM analysis. Run each check below against the `e2e/` directory (or equivalent). Replace `e2e/` with the actual test directory if different.
 
-**What each check detects:**
+**CRITICAL — parallel execution required.** Each batch below contains independent grep checks. You MUST call all Grep tools within one batch in a SINGLE assistant message so they execute in parallel. Do NOT run greps one-by-one — that wastes 3-4x the wall-clock time. Each batch = one assistant turn with multiple Grep tool_use blocks.
 
-- **#3 Error Swallowing** — `.catch(() => {})` or `.catch(() => false)` in POM/spec silently hides failures. Search `.ts/.js/.cy.*` for `\.catch\(\s*(async\s*)?\(\)\s*=>`, excluding `node_modules` and lines with `// JUSTIFIED:` on the line above. `try/catch` wrapping in spec files requires LLM judgment (Phase 2) — too many legitimate uses to grep reliably.
+**Batch 1 — send all 5 Grep calls in ONE message:**
 
-- **#4 Always-Passing** — assertions that can never fail. Run these greps:
-  1. `toBeGreaterThanOrEqual(0)` or `should.*(gte|greaterThan).*0` — mathematically always true
-  2. `toBeAttached\(\)` in `.ts/.js/.cy.*` — flag every hit; confirm in Phase 2 whether the element can ever be absent from the DOM (if unconditionally rendered → P0 vacuous assertion; if `// JUSTIFIED:` explains CSS-hidden use → skip)
-  3. `expect\(await.*\.isVisible\(\)\)` in spec files — one-shot boolean, no auto-retry
-  4. `expect\(await.*\.(isDisabled|isEnabled|isChecked|isHidden)\(\)\)` in spec files — same one-shot boolean problem
-  5. `expect\(await.*\.(textContent|innerText|getAttribute|inputValue)\(\)\)` in spec files — resolves immediately with no retry; use `toHaveText()`, `toHaveAttribute()`, `toHaveValue()`
-  6. `\.toBeTruthy\(\)` on a Locator subject (e.g., `expect(page.locator(...)).toBeTruthy()`) — Locator objects are always truthy JS objects regardless of element existence
-  7. `timeout:\s*0` as an assertion option (e.g., `toHaveCount(0, { timeout: 0 })`) — disables auto-retry entirely; flag unless `// JUSTIFIED:` on the line above
+| Check | Pattern | Glob | What it detects |
+|-------|---------|------|-----------------|
+| #3 Error Swallowing | `\.catch\(\s*(async\s*)?\(\)\s*=>` | `*.{ts,js,cy.*}` | `.catch(() => {})` in POM/spec silently hides failures |
+| #7 Focused Test Leak | `\.(only)\(` | `*.{spec.*,test.*,cy.*}` | `test.only` / `it.only` / `describe.only` — zero legitimate committed uses, always P0 |
+| #9 Hard-coded Sleeps | `waitForTimeout` | `*.{ts,js,cy.*}` | Explicit sleeps cause flakiness |
+| #9b Cypress Sleeps | `cy\.wait\(\d` | `*.{cy.*}` | Cypress numeric waits |
+| #6 Raw DOM Queries | `document\.querySelector` | `*.{ts,js,cy.*}` | Bypasses framework auto-wait (covers `evaluate()` and `waitForFunction()`). Search POM files too — raw DOM in a POM helper is equally harmful. |
 
-- **#5 Bypass Patterns** — two sub-patterns that suppress what the framework would normally catch: (a) `expect()` inside `if(isVisible)` silently skips assertions — search `.spec.*/.test.*/.cy.*` for `if.*(isVisible|is\(.*:visible.*\))`; (b) `{ force: true }` bypasses actionability checks (visibility, enabled state) — search `.ts/.js/.cy.*` for `force:\s*true`. Exclude lines where `// JUSTIFIED:` appears on the line above. **Note:** The `if(isVisible)` grep covers spec files only — review POM helper methods manually in Phase 2.
+**Batch 2 — send all 5 Grep calls in ONE message:**
 
-- **#6 Raw DOM Queries** — `document.querySelector` bypasses framework auto-wait. Search `.spec.*/.test.*/.cy.*` for `document\.querySelector` (covers both `evaluate()` and `waitForFunction()`).
+| Check | Pattern | Glob | What it detects |
+|-------|---------|------|-----------------|
+| #4a Always-true math | `toBeGreaterThanOrEqual\(0\)` | `*.{ts,js,cy.*}` | Mathematically always true |
+| #4b Vacuous attached | `toBeAttached\(\)` | `*.{ts,js,cy.*}` | Flag every hit; confirm in Phase 2 whether the element is unconditionally rendered (→ P0 vacuous) or CSS-hidden (`// JUSTIFIED:` → skip) |
+| #4c One-shot isVisible | `expect\(await.*\.isVisible\(\)\)` | `*.{spec.*,test.*}` | One-shot boolean, no auto-retry |
+| #4d One-shot state | `expect\(await.*\.(isDisabled\|isEnabled\|isChecked\|isHidden)\(\)\)` | `*.{spec.*,test.*}` | Same one-shot boolean problem |
+| #4e One-shot content | `expect\(await.*\.(textContent\|innerText\|getAttribute\|inputValue)\(\)\)` | `*.{spec.*,test.*}` | Resolves immediately; use `toHaveText()`, `toHaveAttribute()`, `toHaveValue()` |
+| #4h One-shot URL | `expect\(page\.url\(\)\)` | `*.{spec.*,test.*}` | `page.url()` reads URL at one instant with no retry; use `await expect(page).toHaveURL(...)` |
 
-- **#7 Focused Test Leak** — `test.only` / `it.only` / `describe.only` committed to source silently skips the rest of the suite in CI. Search `.spec.*/.test.*/.cy.*` for `\.(only)\(`. No `// JUSTIFIED:` exemption — there are zero legitimate committed uses; remove before committing.
+**Batch 3 — send all 5 Grep calls in ONE message:**
 
-- **#8 Missing Assertion** — two sub-patterns where no assertion ever occurs: (a) Dangling locator `[Playwright only]` — a locator created as a standalone statement, not assigned, not passed to `expect()`, not chained with an action; search `.spec.*/.test.*` for lines where `page\.locator\(|page\.getBy` is the entire expression; (b) Boolean result discarded — `isVisible()` / `isEnabled()` / `isChecked()` / `isDisabled()` / `isEditable()` awaited as a standalone statement, boolean thrown away; search `.spec.*/.test.*/.cy.*` for `^\s*await .*\.(isVisible|isEnabled|isChecked|isDisabled|isEditable|isHidden)\(\)\s*;`. Flag every hit for both. Exclude lines where `// JUSTIFIED:` appears on the line above. For Cypress dangling selectors (`cy.get(...)` as a standalone statement), check manually in Phase 2.
+| Check | Pattern | Glob | What it detects |
+|-------|---------|------|-----------------|
+| #4f Locator-as-truthy | `\.toBeTruthy\(\)` | `*.{ts,js,cy.*}` | Flag hits where the subject is a Locator (always truthy JS object regardless of element existence). Non-Locator subjects (e.g., boolean variables) are fine — confirm in Phase 2. |
+| #4g Timeout zero | `timeout:\s*0` | `*.{ts,js,cy.*}` | Disables auto-retry entirely; flag unless `// JUSTIFIED:` on line above |
+| #5a Conditional bypass | `if.*(isVisible\|is\(.*:visible.*\))` | `*.{spec.*,test.*,cy.*}` | `expect()` gated behind runtime `if` — silently skips assertions |
+| #5b Force true | `force:\s*true` | `*.{ts,js,cy.*}` | Bypasses actionability checks (visibility, enabled state) |
+| #10b Serial ordering | `\.describe\.serial\(` | `*.{spec.*,test.*}` | `[Playwright only]` — order-dependent tests break parallel sharding |
 
-- **#9 Hard-coded Sleeps** — explicit sleeps cause flakiness. Search `.ts/.js/.cy.*` for `waitForTimeout` or `cy\.wait\(\d`.
+**Batch 4 — send all 4 Grep calls in ONE message:**
 
-- **#10 Flaky Test Patterns (partial)** — two sub-patterns that cause CI instability: (a) positional selectors `nth()`, `first()`, `last()` without explanation — search `.spec.*/.test.*/.cy.*` for `\.nth\(|\.first\(\)|\.last\(\)`; (b) `test.describe.serial()` creates order-dependent tests that break parallel sharding `[Playwright only]` — search `.spec.*/.test.*` for `\.describe\.serial\(`. Exclude lines where `// JUSTIFIED:` appears on the line above.
+| Check | Pattern | Glob | What it detects |
+|-------|---------|------|-----------------|
+| #8a Dangling locator | `^\s*(page\.locator\(\|page\.getBy)` | `*.{spec.*,test.*}` | `[Playwright only]` — locator created as standalone statement, no `expect()`, no action, no assignment. A complete no-op. |
+| #8b Boolean discarded | `^\s*await .*\.(isVisible\|isEnabled\|isChecked\|isDisabled\|isEditable\|isHidden)\(\)\s*;` | `*.{spec.*,test.*,cy.*}` | Boolean result computed and thrown away — asserts nothing |
+| #10a Positional selectors | `\.nth\(\|\.first\(\)\|\.last\(\)` | `*.{spec.*,test.*,cy.*}` | Breaks when DOM order changes; needs `// JUSTIFIED:` |
+| #14 Hardcoded credentials | `(login\|fill.*password\|fill.*user).*['"].*['"]` | `*.{spec.*,test.*,cy.*}` | String literals as credentials couple tests to specific values; use env vars or fixtures |
+
+**Batch 5 — send all 4 Grep calls in ONE message:**
+
+| Check | Pattern | Glob | What it detects |
+|-------|---------|------|-----------------|
+| #15 Missing await on expect | `^\s*expect\(` | `*.{spec.*,test.*}` | `[Playwright]` — `expect(locator).toBeVisible()` without `await` silently resolves to a Promise that is never checked. The test passes regardless of element state. Always P0. |
+| #16 Missing await on action | `^\s*page\.(locator\|getBy\w+)\(.*\)\.(click\|fill\|type\|press\|check\|uncheck\|selectOption\|setInputFiles\|hover\|focus\|blur)\(` | `*.{spec.*,test.*}` | `[Playwright]` — Action without `await` creates an unresolved Promise. The action may never execute. Always P0. Confirm in Phase 2 that the hit line lacks a leading `await`. |
+| #17 Deprecated page action API | `page\.(click\|fill\|type\|check\|uncheck\|selectOption)\(["'\`]` | `*.{spec.*,test.*}` | `[Playwright]` — `page.click(selector)` is deprecated; use `page.locator(selector).click()` instead. Locator-based actions provide auto-wait and better error messages. P1. |
+| #9c Networkidle | `networkidle` | `*.{ts,js}` | Playwright docs warn against `networkidle` — unreliable on modern SPAs with long-polling/WebSockets. Use `domcontentloaded` or condition-based waits. P1. |
+
+`try/catch` wrapping in spec files (#3 partial) requires LLM judgment (Phase 2) — too many legitimate uses to grep reliably.
 
 **Interpreting results:**
 - Zero hits → no mechanical issues found, proceed to Phase 2
 - Any hit → report each line as an issue (includes file:line)
-- Lines where the **immediately preceding line** contains `// JUSTIFIED:` are intentional — skip them
+- Lines where the **immediately preceding line** contains `// JUSTIFIED:` are intentional — skip them (exception: #7 Focused Test Leak has no `// JUSTIFIED:` exemption)
 
 **Output Phase 1 results as-is.** The LLM must not reinterpret them.
 
@@ -51,7 +90,7 @@ Once the review target files are determined, use the Grep tool to mechanically d
 
 ## Phase 2: LLM Review (Subjective Checks Only)
 
-Patterns already detected in Phase 1 (#3 partial, #4, #5, #6, #7, #8, #9, #10 partial) are **skipped**.
+Patterns already detected in Phase 1 (#3 partial, #4, #5, #6, #7, #8, #9, #10 partial, #14, #15, #16, #17) are **skipped** unless they need LLM confirmation.
 The LLM performs only these checks:
 
 | # | Check | Reason |
@@ -59,15 +98,48 @@ The LLM performs only these checks:
 | 1 | Name-Assertion Alignment | Requires semantic interpretation |
 | 2 | Missing Then | Requires logic flow analysis |
 | 3 | Error Swallowing — `try/catch` in specs | Too many legitimate non-test uses; requires reading context |
+| 4 | Always-Passing — `.toBeTruthy()` confirmation | Phase 1 flags all `.toBeTruthy()` hits; LLM confirms which ones have a Locator subject (P0) vs. a legitimate boolean variable (OK). Do NOT re-report other #4 sub-patterns already covered in Phase 1. |
 | 8 | Missing Assertion — Cypress dangling selectors | `cy.get(...)` standalone requires manual check |
 | 10 | Flaky Test Patterns | Requires context judgment for nth() and serial ordering |
 | 11 | YAGNI in POM + Zombie Specs | Requires usage grep then judgment |
+| 12 | Missing Auth Setup | Spec navigates to protected routes (`/dashboard`, `/settings`, `/admin`, etc.) without preceding login, `storageState`, or auth `beforeEach`. Flag P0 — tests will hit login redirects. |
+| 13 | Inconsistent POM Usage | POM is imported but spec bypasses it with raw `page.fill`/`page.click` for operations the POM should encapsulate. Flag P1. |
+
+**Consolidation rule:** If a single code block triggers multiple checks (e.g., `page.evaluate` + `toBeTruthy` + `document.querySelector`), report it as ONE finding with all rule numbers in the heading (e.g., `[P0] #4f + #6: ...`). Do not create 3-4 separate findings for the same lines of code.
+
+**#11 YAGNI — grep-assisted procedure:** For each POM file in scope, list all public members (locators + methods). Then grep each member name across all spec files and other POMs in a single parallel batch:
+```
+Grep pattern: "memberName1|memberName2|memberName3|..."
+Glob: "*.{spec.*,test.*,cy.*}"
+```
+This is much faster than grepping each member individually. Classify results: USED / INTERNAL-ONLY (make `private`) / UNUSED (delete).
+
+---
+
+## Phase 2.5: Systemic Issues
+
+After individual findings are catalogued, synthesize cross-cutting patterns that affect the test suite as a whole. Check for:
+
+| Issue | How to check | Sev |
+|-------|-------------|-----|
+| **No authentication strategy** | Any spec navigates to protected routes without login/storageState | P0 |
+| **CSS-only selectors** | Zero uses of `getByRole`, `getByTestId`, `getByLabel`, `getByPlaceholder`, `getByText` across all files | P2 |
+| **Missing `beforeEach`** | 3+ tests in a `describe` repeat the same setup code (POM instantiation + navigation) | P2 |
+
+Output as a dedicated section:
+```markdown
+## Systemic Issues
+- **No authentication strategy:** N tests navigate to protected routes without auth setup. Add `storageState` or auth fixture.
+- **CSS-only selectors:** 0 uses of getByRole/getByTestId across N files. Migrate to user-facing locators.
+```
+
+Only report systemic issues that are actually present. Skip this section if none apply.
 
 ---
 
 ## Phase 3: Coverage Gap Analysis (After Review)
 
-After completing Phase 1 + 2, identify scenarios the test suite does NOT cover. Scan the page/feature under test and flag missing:
+After completing Phase 1 + 2 + 2.5, identify scenarios the test suite does NOT cover. Scan the page/feature under test and flag missing:
 
 | Gap Type | What to look for |
 |----------|-----------------|
@@ -76,12 +148,14 @@ After completing Phase 1 + 2, identify scenarios the test suite does NOT cover. 
 | Accessibility | Keyboard navigation, screen reader labels, focus management after modal/dialog |
 | Auth boundaries | Unauthorized access redirects, expired session handling, role-based visibility |
 
+**Context-aware suggestions:** Each gap MUST reference a specific finding from Phase 1/2 when possible. Generic suggestions that could apply to any test suite are less valuable. Connect the gap to what you observed in the code.
+
 **Output:** List up to 5 highest-value missing scenarios as suggestions, not requirements. Format:
 
 ```markdown
 ## Coverage Gaps (Suggestions)
-1. **[Error path]** No test for form submission with server error — add API mock returning 500
-2. **[Edge case]** No test for empty list state — verify empty state message shown
+1. **[Edge case]** No test for empty dashboard state — currently `toBeGreaterThanOrEqual(0)` masks this (see #4a-1). Verify empty-state message when no metrics exist.
+2. **[Error path]** No test for form submission with server error — the profile update test (settings:9) has no error path at all.
 ```
 
 ---
@@ -191,6 +265,7 @@ await expect(el).toHaveCount(0, { timeout: 0 });
 - `expect(await el.getAttribute('x')).toBe(y)` → `await expect(el).toHaveAttribute('x', y)`
 - `expect(locator).toBeTruthy()` → `await expect(locator).toBeVisible()`
 - `{ timeout: 0 }` on assertions → remove unless preceded by an explicit wait; add `// JUSTIFIED:` if intentional
+- `expect(page.url()).toContain(x)` → `await expect(page).toHaveURL(x)` (one-shot URL read with no retry)
 
 #### 5. Bypass Patterns `[grep-detectable]`
 
@@ -213,7 +288,7 @@ if (await spinner.isVisible()) {
 
 #### 6. Raw DOM Queries (Bypassing Framework API) `[grep-detectable]`
 
-**Symptom:** Test uses `document.querySelector*` / `document.getElementById` inside `evaluate()` or `waitForFunction()` when the framework's element API could do the same job.
+**Symptom:** Test or POM uses `document.querySelector*` / `document.getElementById` inside `evaluate()` or `waitForFunction()` when the framework's element API could do the same job. Check both spec files and POM files — raw DOM in a POM helper is equally harmful since it bypasses the same auto-wait guarantees.
 
 **Why it matters:** No auto-waiting, no retry, boolean trap, framework error messages lost.
 
@@ -350,6 +425,86 @@ Two sub-patterns: unused code in Page Objects, and zombie spec files.
 | basic.spec.ts | (entire file) | covered by full.spec.ts | DELETE |
 ```
 
+#### 12. Missing Auth Setup `[LLM-only]`
+
+**Symptom:** Spec navigates to protected routes (`/dashboard`, `/settings`, `/admin`, `/account`, etc.) without any preceding login action, `storageState` configuration, or authentication `beforeEach` hook.
+
+**Why it matters:** Tests hit a login redirect instead of the intended page, making all assertions vacuous — they verify the login page, not the feature under test.
+
+**Rule:** Every spec that navigates to a route requiring authentication must either: (a) perform login in `beforeEach`, (b) use `storageState` from Playwright config, or (c) use a custom auth fixture. Flag P0 if no auth mechanism is visible.
+
+#### 13. Inconsistent POM Usage `[LLM-only]`
+
+**Symptom:** A POM class is imported and used for some actions, but the spec also uses raw `page.fill()` / `page.click()` for operations the POM should encapsulate.
+
+**Why it matters:** Defeats the purpose of the POM pattern — when the UI changes, you must update both the POM and the spec. DRY principle violated.
+
+**Rule:** If a POM exists for a page, all interactions with that page should go through the POM. Flag P1 if spec bypasses POM with raw `page.*` calls for actions the POM should own. Suggest adding missing methods to the POM.
+
+#### 14. Hardcoded Credentials `[grep-detectable]`
+
+**Symptom:** String literals used as usernames, passwords, or API keys directly in test code.
+
+```typescript
+// BAD — credentials as string literals
+await loginPage.login('admin', 'password123');
+await page.fill('#password', 'secret');
+```
+
+**Why it matters:** Security risk if repo is public, couples tests to specific credentials, prevents running tests against different environments.
+
+**Rule:** Use environment variables (`process.env.TEST_USER`), Playwright config secrets, or test data fixtures. Flag P1.
+
+#### 15. Missing `await` on `expect()` `[grep-detectable]`
+
+**Symptom:** `expect(locator).toBeVisible()` without `await` — the expression returns a Promise that is never awaited. The test moves on immediately and the assertion never actually runs.
+
+```typescript
+// BAD — Promise returned but never awaited; test always passes
+expect(page.locator('.toast')).toBeVisible();
+
+// GOOD
+await expect(page.locator('.toast')).toBeVisible();
+```
+
+**Why it matters:** This is a silent P0. The test compiles and runs green, but zero verification happens. Extremely common mistake, especially when converting from non-async test frameworks.
+
+**Rule:** Every `expect()` on a Playwright Locator must be `await`ed. Grep flags lines starting with `expect(` — confirm in Phase 2 that the line lacks `await` and involves a Locator (non-Locator expects like `expect(count).toBe(3)` don't need `await`). Flag P0.
+
+#### 16. Missing `await` on Playwright Actions `[grep-detectable]`
+
+**Symptom:** `page.locator(...).click()` without `await` — the action is fired but never awaited. It may not execute at all, or execute out of order.
+
+```typescript
+// BAD — click may never complete before next line runs
+page.locator('#submit').click();
+
+// GOOD
+await page.locator('#submit').click();
+```
+
+**Why it matters:** Silent no-op. The test passes because it never waits for the action. Subsequent assertions may run against stale page state.
+
+**Rule:** Every Playwright action (`.click()`, `.fill()`, `.type()`, `.press()`, `.check()`, `.selectOption()`, `.setInputFiles()`, `.hover()`, `.focus()`, `.blur()`) must be `await`ed. Flag P0.
+
+#### 17. Deprecated `page.click(selector)` API `[grep-detectable, Playwright only]`
+
+**Symptom:** Using `page.click('#button')` or `page.fill('#input', 'text')` instead of the locator-based API.
+
+```typescript
+// BAD — deprecated shorthand
+await page.click('#submit');
+await page.fill('#email', 'user@test.com');
+
+// GOOD — locator-based, auto-wait, better errors
+await page.locator('#submit').click();
+await page.locator('#email').fill('user@test.com');
+```
+
+**Why it matters:** The shorthand `page.click(selector)` skips the Locator layer, losing auto-wait improvements and producing worse error messages. Playwright docs recommend locator-based actions.
+
+**Rule:** Flag P1. Suggest migrating to `page.locator(selector).action()`.
+
 ---
 
 ## Output Format
@@ -368,7 +523,7 @@ Present findings grouped by severity:
   ```
 ```
 
-**After all findings, append a summary table:**
+**After all findings, append a summary table and top priorities:**
 
 ```markdown
 ## Review Summary
@@ -379,8 +534,15 @@ Present findings grouped by severity:
 | P1  | 5     | Flaky Selectors | settings.spec.ts |
 | P2  | 2     | Hard-coded Sleeps | dashboard.spec.ts |
 
-**Total: 10 issues across 4 files. Fix P0 first.**
+**Total: 10 issues across 4 files.**
+
+### Top 3 Priorities
+1. **Remove `test.only`** in auth.spec.ts — CI is running only 1 of 6 tests
+2. **Remove try/catch** around assertion in settings.spec.ts — test can never fail
+3. **Add assertions** to 4 tests with zero verification (redirect, export, toggle, notification)
 ```
+
+The "Top N Priorities" section should list the 3-5 highest-impact fixes in concrete, actionable terms. This helps developers know where to start without scanning all P0 findings.
 
 **Severity classification:**
 - **P0 (Must fix):** Test silently passes when the feature is broken — no real verification happening
@@ -402,6 +564,12 @@ Present findings grouped by severity:
 | 9 | Hard-coded Sleeps | P1 | grep | `waitForTimeout()`, `cy.wait(ms)` |
 | 10 | Flaky Test Patterns | P1 | LLM+grep | `nth()` without comment; `test.describe.serial()` |
 | 11 | YAGNI + Zombie Specs | P2 | LLM | Unused POM member; empty wrapper; single-use Util; zombie spec file |
+| 12 | Missing Auth Setup | P0 | LLM | Spec navigates to protected route without login/storageState/auth beforeEach |
+| 13 | Inconsistent POM Usage | P1 | LLM | POM imported but spec uses raw `page.fill`/`page.click` for POM-encapsulated actions |
+| 14 | Hardcoded Credentials | P1 | grep | String literals as login credentials; use env vars or test fixtures |
+| 15 | Missing await on expect | P0 | grep+LLM | `expect(locator).toBeVisible()` without `await` — assertion never runs |
+| 16 | Missing await on action | P0 | grep+LLM | `page.locator(...).click()` without `await` — action may never execute |
+| 17 | Deprecated page action API | P1 | grep | `page.click(selector)` instead of `page.locator(selector).click()` |
 
 ---
 

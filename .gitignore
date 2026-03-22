@@ -1,2 +1,8 @@
 .DS_Store
 docs/
+
+# Eval fixture files (mock data for eval runs, not skill code)
+skills/*/evals/files/
+
+# Eval run results (benchmarks, grading, timing)
+*-workspace/
