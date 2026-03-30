@@ -78,8 +78,8 @@ test.describe('Login', () => {
     // Given: user is on the login page (handled by beforeEach)
 
     // When: user fills in valid credentials and submits
-    await loginPage.form.emailInput.fill('user@example.com');
-    await loginPage.form.passwordInput.fill('password123');
+    await loginPage.form.emailInput.fill(process.env.TEST_USER!);
+    await loginPage.form.passwordInput.fill(process.env.TEST_PASSWORD!);
     await loginPage.form.submitButton.click();
 
     // Then: user is redirected to the dashboard
@@ -90,8 +90,8 @@ test.describe('Login', () => {
     // Given: user is on the login page
 
     // When: user submits invalid credentials
-    await loginPage.form.emailInput.fill('wrong@example.com');
-    await loginPage.form.passwordInput.fill('badpassword');
+    await loginPage.form.emailInput.fill('nonexistent@test.invalid');
+    await loginPage.form.passwordInput.fill('wrongpassword');
     await loginPage.form.submitButton.click();
 
     // Then: error message is shown
@@ -105,7 +105,7 @@ test.describe('Login', () => {
 - `beforeEach` for shared navigation setup only — never for shared state
 - Mock external APIs with Playwright Network API; do not call real third-party services
 - **Auto-waiting assertions only:** `toBeVisible()`, `toBeHidden()`, `toHaveText()`, `toContainText()`, `toHaveCount()`, `toHaveURL()`
-- Use `expect.soft()` when verifying multiple independent conditions in one test
+- Use `expect.soft()` for independent, non-critical checks — but ensure at least one hard `expect()` gates on the primary condition per test. A test with only `expect.soft()` assertions never fails early.
 
 **Forbidden:**
 
@@ -114,5 +114,27 @@ test.describe('Login', () => {
 | `waitForTimeout(N)` | `await expect(el).toBeVisible({ timeout: N })` |
 | `expect(await el.isVisible()).toBe(true)` | `await expect(el).toBeVisible()` |
 | `const n = await el.count()` | `await expect(el).toHaveCount(N)` or `.first()` + `toBeVisible()` |
+| `toBeAttached()` | `toBeVisible()` — `toBeAttached` is vacuous on always-rendered elements |
+| `expect(locator).toBeTruthy()` | `await expect(locator).toBeVisible()` — Locator is always a truthy JS object |
+| `page.click(selector)` / `page.fill(selector, v)` | `page.locator(selector).click()` / `.fill(v)` — deprecated shorthand |
+| `{ force: true }` | Fix the root cause (element not actionable); if unavoidable, add `// JUSTIFIED:` |
+| `waitUntil: 'networkidle'` | `waitUntil: 'domcontentloaded'` or condition-based wait — unreliable on SPAs |
+| `expect(page.url()).toContain(x)` | `await expect(page).toHaveURL(x)` — one-shot, no retry |
 | Framework component selectors in spec (`app-button`, `my-component`) | POM only |
 | XPath selectors | `getByRole` / `getByLabel` / `getByTestId` |
+
+**Await rule:** Every `expect()` on a Locator and every Playwright action (`.click()`, `.fill()`, `.type()`, `.press()`, `.check()`, `.selectOption()`, `.hover()`) **must** be `await`ed. Missing `await` silently skips the assertion or action.
+
+---
+
+## Suppression Convention
+
+When a forbidden pattern is genuinely unavoidable, add `// JUSTIFIED: <reason>` on the **line immediately above**. This tells the `e2e-reviewer` to skip the hit during grep checks.
+
+Patterns that accept `// JUSTIFIED:`:
+- `.nth()` / `.first()` / `.last()` — explain why positional selection is required
+- `{ force: true }` — explain why the element is not normally actionable
+- `{ timeout: 0 }` — explain why auto-retry must be disabled
+- `evaluate()` / `waitForFunction()` with raw DOM — explain why the framework API can't express the condition
+
+**No suppression exists for:** `test.only` / `it.only` (always remove before commit).

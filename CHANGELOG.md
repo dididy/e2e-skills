@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.2.0] - 2026-03-30
+
+### Added
+- **`e2e-reviewer` #18 `expect.soft()` overuse** (P1, grep+LLM) — Phase 1 grep detects all `expect.soft()` hits; Phase 2 LLM confirms if >50% of assertions in a single test are soft. Tests with only soft assertions never fail early, functionally equivalent to error swallowing.
+- **`e2e-reviewer` #3b Cypress `uncaught:exception` suppression** (P0, grep) — detects `cy.on('uncaught:exception', () => false)` in both spec files and `cypress/support/` directory. Blanket suppression is P0; scoped handlers with `// JUSTIFIED:` are acceptable.
+- **`playwright-test-generator` forbidden patterns expanded** — `toBeAttached()`, `expect(locator).toBeTruthy()`, `page.click(selector)` (deprecated), `{ force: true }`, `waitUntil: 'networkidle'`, `expect(page.url()).toContain(x)` added to code-rules.md forbidden table.
+- **`playwright-test-generator` await rule** — explicit rule: every `expect()` on a Locator and every Playwright action must be `await`ed.
+- **`playwright-test-generator` Suppression Convention section** — documents `// JUSTIFIED:` pattern for unavoidable forbidden patterns (`nth()`, `force: true`, `timeout: 0`, `evaluate()`), bridging generator output to `e2e-reviewer` grep checks.
+- **`best-practices.md` anti-patterns expanded** — `networkidle`, deprecated `page.click(selector)`, missing `await` added.
+
+### Changed
+- **`e2e-reviewer` selector priority (#10a)** — updated from `data-testid → role/label` to Playwright official order: `getByRole` → `getByLabel` → `getByTestId` → `getByText` → attribute → class → generic. Now consistent with `playwright-test-generator` code-rules.md.
+- **`e2e-reviewer` Phase 0 framework skip** — expanded to include new checks: Playwright skips `#3b`; Cypress skips `#18`, `#15/#16`, `#17`.
+- **`e2e-reviewer` pattern count** — 11 → 13 (description, README, Quick Reference updated).
+- **`playwright-test-generator` `expect.soft()` guidance** — changed from unconditional recommendation to conditional: at least one hard `expect()` must gate per test.
+- **`playwright-test-generator` spec example credentials** — replaced hardcoded `'user@example.com'`/`'password123'` with `process.env.TEST_USER`/`process.env.TEST_PASSWORD`.
+- **README** — pattern count 11 → 13, Tier 2 table updated, Review Workflow updated.
+
 ## [1.1.3] - 2026-03-22
 
 ### Added

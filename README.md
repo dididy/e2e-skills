@@ -5,7 +5,7 @@ E2E tests that always pass are worse than no tests — they give false confidenc
 Four complementary skills that cover the full E2E lifecycle:
 
 1. **`playwright-test-generator`** — generates Playwright E2E tests from scratch, from coverage gap analysis to passing, reviewed tests
-2. **`e2e-reviewer`** — static analysis of existing Playwright, Cypress, and Puppeteer specs; finds 11 anti-patterns that make tests pass CI while missing real regressions
+2. **`e2e-reviewer`** — static analysis of existing Playwright, Cypress, and Puppeteer specs; finds 13 anti-patterns that make tests pass CI while missing real regressions
 3. **`playwright-debugger`** — diagnoses failures from `playwright-report/` and classifies root causes (flaky timing, selector drift, auth, environment mismatch, and more)
 4. **`cypress-debugger`** — same for Cypress report files
 
@@ -98,7 +98,7 @@ My tests are fragile and break on every UI change
 We have coverage but bugs still slip through
 ```
 
-### 11 Patterns Detected
+### 13 Patterns Detected
 
 #### Tier 1 — P0/P1 (always check)
 
@@ -120,6 +120,8 @@ We have coverage but bugs still slip through
 | 9 | **Hard-coded sleep** | `waitForTimeout(2000)` / `cy.wait(2000)` | Rely on framework auto-wait; use condition-based waits |
 | 10 | **Flaky test patterns** | `items.nth(2)` without comment; `test.describe.serial()` | Use `data-testid` or role selectors; replace serial with self-contained tests |
 | 11 | **YAGNI + Zombie Specs** | `clickEdit()` never called; empty wrapper class; single-use Util; entire spec duplicated by another | Delete unused members; inline single-use Util methods; delete zombie spec files |
+| 18 | **`expect.soft()` overuse** | All assertions in a test are `expect.soft()` — test never fails early | Ensure at least one hard `expect()` gates per test; use `soft` only for independent details |
+| 3b | **Cypress `uncaught:exception` suppression** | `cy.on('uncaught:exception', () => false)` blanket-swallows app errors | Scope handler to specific known errors; re-throw unknown errors |
 
 ### References
 
@@ -130,8 +132,8 @@ We have coverage but bugs still slip through
 
 Three-phase review with P0/P1/P2 severity:
 
-1. **Phase 1: Automated grep** — mechanically detects #3 (POM `.catch()`), #4 (always-passing), #5 (bypass patterns), #6 (raw DOM queries), #7 (focused test leak), #8 (missing assertions), #9 (hard-coded sleeps), #10 partial (positional selectors, describe.serial)
-2. **Phase 2: LLM analysis** — #1 name-assertion alignment, #2 missing Then, #3 `try/catch` in specs (context-dependent), #8 Cypress dangling selectors, #10 flaky pattern judgment, #11 YAGNI + zombie specs
+1. **Phase 1: Automated grep** — mechanically detects #3 (POM `.catch()`), #3b (Cypress `uncaught:exception`), #4 (always-passing), #5 (bypass patterns), #6 (raw DOM queries), #7 (focused test leak), #8 (missing assertions), #9 (hard-coded sleeps), #10 partial (positional selectors, describe.serial), #18 (`expect.soft()`)
+2. **Phase 2: LLM analysis** — #1 name-assertion alignment, #2 missing Then, #3 `try/catch` in specs (context-dependent), #8 Cypress dangling selectors, #10 flaky pattern judgment, #11 YAGNI + zombie specs, #18 overuse confirmation
 3. **Phase 3: Coverage gaps** — suggests missing error paths, edge cases, accessibility, and auth boundary tests
 
 ---

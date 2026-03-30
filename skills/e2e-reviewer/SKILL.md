@@ -1,6 +1,6 @@
 ---
 name: e2e-reviewer
-description: Use when reviewing, auditing, or improving E2E test specs for Playwright, Cypress, or Puppeteer — static code analysis of existing test files, not diagnosing runtime failures. Triggers on "review my tests", "audit test quality", "find weak tests", "my tests always pass but miss bugs", "tests pass CI but miss regressions", "improve playwright tests", "improve cypress tests", "check test coverage gaps", "my tests are fragile", "tests break on every UI change", "test suite is hard to maintain", "we have coverage but bugs still slip through", "flaky tests", "test anti-patterns", "check my e2e tests", "tests pass locally but fail in CI". Detects 11 anti-patterns -- name-assertion mismatch, missing Then, error swallowing (.catch in POM via grep; try/catch in specs via LLM), always-passing assertions (one-shot booleans, Locator-as-truthy, toBeAttached, timeout:0, one-shot URL), bypass patterns (conditional assertions + force:true), raw DOM queries, focused test leak (test.only committed), missing assertions (dangling locators + boolean result discarded), hard-coded sleeps (P1), flaky test patterns (positional selectors + serial ordering), YAGNI + zombie specs (unused POM members, single-use Util wrappers, zombie spec files). Also runs supplementary grep checks for general code quality issues (missing auth setup, inconsistent POM usage, hardcoded credentials, missing await, deprecated page API, networkidle).
+description: Use when reviewing, auditing, or improving E2E test specs for Playwright, Cypress, or Puppeteer — static code analysis of existing test files, not diagnosing runtime failures. Triggers on "review my tests", "audit test quality", "find weak tests", "my tests always pass but miss bugs", "tests pass CI but miss regressions", "improve playwright tests", "improve cypress tests", "check test coverage gaps", "my tests are fragile", "tests break on every UI change", "test suite is hard to maintain", "we have coverage but bugs still slip through", "flaky tests", "test anti-patterns", "check my e2e tests", "tests pass locally but fail in CI". Detects 13 anti-patterns -- name-assertion mismatch, missing Then, error swallowing (.catch in POM via grep; try/catch in specs via LLM; Cypress uncaught:exception suppression), always-passing assertions (one-shot booleans, Locator-as-truthy, toBeAttached, timeout:0, one-shot URL), bypass patterns (conditional assertions + force:true), raw DOM queries, focused test leak (test.only committed), missing assertions (dangling locators + boolean result discarded), hard-coded sleeps (P1), flaky test patterns (positional selectors + serial ordering), YAGNI + zombie specs (unused POM members, single-use Util wrappers, zombie spec files), expect.soft() overuse. Also runs supplementary grep checks for general code quality issues (missing auth setup, inconsistent POM usage, hardcoded credentials, missing await, deprecated page API, networkidle).
 ---
 
 # E2E Test Scenario Quality Review
@@ -18,7 +18,7 @@ Before running checks, determine the framework by grepping for import statements
 - `cypress` → Cypress
 - `puppeteer` → Puppeteer
 
-**Skip framework-irrelevant checks:** If Playwright, skip Cypress-specific greps (`cy.wait`). If Cypress, skip Playwright-specific greps (`describe.serial`, dangling `page.locator`). This eliminates noise in Phase 1 output.
+**Skip framework-irrelevant checks:** If Playwright, skip Cypress-specific greps (`cy.wait`, `#3b uncaught:exception`). If Cypress, skip Playwright-specific greps (`describe.serial`, dangling `page.locator`, `#18 expect.soft`, `#15/#16 missing await`, `#17 deprecated page API`). This eliminates noise in Phase 1 output.
 
 ---
 
@@ -68,7 +68,7 @@ Once the review target files are determined, use the Grep tool to mechanically d
 | #10a Positional selectors | `\.nth\(\|\.first\(\)\|\.last\(\)` | `*.{spec.*,test.*,cy.*}` | Breaks when DOM order changes; needs `// JUSTIFIED:` |
 | #14 Hardcoded credentials | `(login\|fill.*password\|fill.*user).*['"].*['"]` | `*.{spec.*,test.*,cy.*}` | String literals as credentials couple tests to specific values; use env vars or fixtures |
 
-**Batch 5 — send all 4 Grep calls in ONE message:**
+**Batch 5 — send all 7 Grep calls in ONE message** (#3b requires two Grep calls for different globs)**:**
 
 | Check | Pattern | Glob | What it detects |
 |-------|---------|------|-----------------|
@@ -76,6 +76,8 @@ Once the review target files are determined, use the Grep tool to mechanically d
 | #16 Missing await on action | `^\s*page\.(locator\|getBy\w+)\(.*\)\.(click\|fill\|type\|press\|check\|uncheck\|selectOption\|setInputFiles\|hover\|focus\|blur)\(` | `*.{spec.*,test.*}` | `[Playwright]` — Action without `await` creates an unresolved Promise. The action may never execute. Always P0. Confirm in Phase 2 that the hit line lacks a leading `await`. |
 | #17 Deprecated page action API | `page\.(click\|fill\|type\|check\|uncheck\|selectOption)\(["'\`]` | `*.{spec.*,test.*}` | `[Playwright]` — `page.click(selector)` is deprecated; use `page.locator(selector).click()` instead. Locator-based actions provide auto-wait and better error messages. P1. |
 | #9c Networkidle | `networkidle` | `*.{ts,js}` | Playwright docs warn against `networkidle` — unreliable on modern SPAs with long-polling/WebSockets. Use `domcontentloaded` or condition-based waits. P1. |
+| #18 expect.soft overuse | `expect\.soft\(` | `*.{spec.*,test.*}` | `[Playwright]` — `expect.soft()` continues on failure; overuse masks real failures like error swallowing. Flag in Phase 2 if >50% of assertions in a single test are `soft`. P1. |
+| #3b Cypress uncaught:exception suppression | `on\('uncaught:exception'.*false` | `*.{cy.*}` + `cypress/support/**/*.{ts,js}` | `[Cypress]` — `cy.on('uncaught:exception', () => false)` globally swallows app errors. Often in `cypress/support/e2e.ts`, not in spec files. Run two Grep calls (spec glob + support glob) in the same batch. Equivalent to error swallowing (#3). P0 unless scoped to a specific known error with `// JUSTIFIED:`. |
 
 `try/catch` wrapping in spec files (#3 partial) requires LLM judgment (Phase 2) — too many legitimate uses to grep reliably.
 
@@ -90,7 +92,7 @@ Once the review target files are determined, use the Grep tool to mechanically d
 
 ## Phase 2: LLM Review (Subjective Checks Only)
 
-Patterns already detected in Phase 1 (#3 partial, #4, #5, #6, #7, #8, #9, #10 partial, #14, #15, #16, #17) are **skipped** unless they need LLM confirmation.
+Patterns already detected in Phase 1 (#3 partial, #4, #5, #6, #7, #8, #9, #10 partial, #14, #15, #16, #17, #18, #3b) are **skipped** unless they need LLM confirmation.
 The LLM performs only these checks:
 
 | # | Check | Reason |
@@ -104,6 +106,7 @@ The LLM performs only these checks:
 | 11 | YAGNI in POM + Zombie Specs | Requires usage grep then judgment |
 | 12 | Missing Auth Setup | Spec navigates to protected routes (`/dashboard`, `/settings`, `/admin`, etc.) without preceding login, `storageState`, or auth `beforeEach`. Flag P0 — tests will hit login redirects. |
 | 13 | Inconsistent POM Usage | POM is imported but spec bypasses it with raw `page.fill`/`page.click` for operations the POM should encapsulate. Flag P1. |
+| 18 | `expect.soft()` overuse confirmation | Phase 1 flags all `expect.soft()` hits; LLM counts: if >50% of assertions in a single test are `soft`, flag P1 — soft assertions mask cascading failures. A few `soft` assertions among many hard ones is fine. |
 
 **Consolidation rule:** If a single code block triggers multiple checks (e.g., `page.evaluate` + `toBeTruthy` + `document.querySelector`), report it as ONE finding with all rule numbers in the heading (e.g., `[P0] #4f + #6: ...`). Do not create 3-4 separate findings for the same lines of code.
 
@@ -383,7 +386,7 @@ await expect(items.nth(2)).toContainText('expected text');
 
 **Rule:** Prefer `data-testid`, role-based, or attribute selectors. If `nth()` is unavoidable, add `// JUSTIFIED:` explaining why.
 
-**Selector priority** (best → worst): `data-testid`/`data-cy` → role/label → `name` attr → `id` → class → generic. Class and generic selectors are "Never" — coupled to CSS and DOM structure.
+**Selector priority** (best → worst, per [Playwright docs](https://playwright.dev/docs/best-practices#use-locators)): `getByRole` → `getByLabel` → `getByTestId`/`data-cy` → `getByText` → attribute (`[name]`, `[id]`) → class → generic. Class and generic selectors are "Never" — coupled to CSS and DOM structure.
 
 **10b. Serial test ordering** `[Playwright only]` — `test.describe.serial()` makes tests order-dependent: a single failure cascades to all subsequent tests, and the suite can't be sharded.
 
@@ -505,6 +508,45 @@ await page.locator('#email').fill('user@test.com');
 
 **Rule:** Flag P1. Suggest migrating to `page.locator(selector).action()`.
 
+#### 18. `expect.soft()` Overuse `[grep-detectable + LLM]`
+
+**Symptom:** Most or all assertions in a test use `expect.soft()`, so the test continues past failures and may mask cascading issues — functionally equivalent to error swallowing.
+
+```typescript
+// BAD — all assertions are soft; test never fails early
+test('should display profile', async ({ page }) => {
+  await expect.soft(page.locator('.name')).toBeVisible();
+  await expect.soft(page.locator('.email')).toBeVisible();
+  await expect.soft(page.locator('.avatar')).toBeVisible();
+});
+
+// GOOD — one hard assertion gates, soft assertions for independent checks
+test('should display profile', async ({ page }) => {
+  await expect(page.locator('.profile')).toBeVisible();          // hard gate
+  await expect.soft(page.locator('.name')).toHaveText('Alice');  // independent detail
+  await expect.soft(page.locator('.email')).toHaveText('a@b.c'); // independent detail
+});
+```
+
+**Rule:** `expect.soft()` is fine for independent, non-critical checks alongside hard assertions. Flag P1 when >50% of assertions in a single test are `soft` — the test likely needs at least one hard assertion to gate on the primary condition.
+
+#### 3b. Cypress `uncaught:exception` Suppression `[grep-detectable, Cypress only]`
+
+**Symptom:** `cy.on('uncaught:exception', () => false)` globally suppresses all unhandled app errors, hiding real bugs.
+
+```javascript
+// BAD — blanket suppression
+Cypress.on('uncaught:exception', () => false);
+
+// BETTER — scoped to a specific known error
+Cypress.on('uncaught:exception', (err) => {
+  if (err.message.includes('ResizeObserver loop')) return false;
+  throw err;
+});
+```
+
+**Rule:** Blanket `() => false` is P0 — equivalent to `.catch(() => {})`. Scoped handlers that filter specific known errors and re-throw others are acceptable with `// JUSTIFIED:`.
+
 ---
 
 ## Output Format
@@ -570,6 +612,8 @@ The "Top N Priorities" section should list the 3-5 highest-impact fixes in concr
 | 15 | Missing await on expect | P0 | grep+LLM | `expect(locator).toBeVisible()` without `await` — assertion never runs |
 | 16 | Missing await on action | P0 | grep+LLM | `page.locator(...).click()` without `await` — action may never execute |
 | 17 | Deprecated page action API | P1 | grep | `page.click(selector)` instead of `page.locator(selector).click()` |
+| 18 | `expect.soft()` overuse | P1 | grep+LLM | >50% soft assertions in a test masks cascading failures |
+| 3b | Cypress uncaught:exception suppression | P0 | grep | `cy.on('uncaught:exception', () => false)` globally swallows app errors |
 
 ---
 
