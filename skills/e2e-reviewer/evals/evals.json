@@ -20,6 +20,8 @@
         "Identifies YAGNI: rememberMeCheckbox, forgotPasswordLink, socialLoginGoogle, socialLoginGithub, captchaWidget, termsCheckbox unused in auth.spec.ts (#11, P2)",
         "Detects hardcoded credentials 'admin'/'password123' on lines 8, 30 (#14, P1)",
         "Detects deprecated page.click() on line 39 — should use locator.click() (#17, P1)",
+        "Does NOT flag page.goto('/reset-password') on line 45 as missing auth — public route (#12)",
+        "Does NOT flag page.goto('/dashboard') on line 22 as missing auth in redirect test — testing the redirect itself",
         "Structured output with P0/P1/P2",
         "Summary table included",
         "Top Priorities section included"
@@ -43,6 +45,7 @@
         "Flags name-assertion mismatch: 'display correct user name' uses querySelector truthiness, doesn't check actual name (#1, P0)",
         "Flags missing then: 'export dashboard as PDF' just clicks export buttons, no download verification (#2, P0)",
         "Flags missing then: 'toggle sidebar' checks sidebar hidden but not that main content expanded (#2, P0)",
+        "Does NOT flag page.locator('.chart-container').toBeVisible() on line 16 as always-passing — toBeVisible is a proper web-first assertion",
         "Structured output with P0/P1/P2",
         "Summary table included",
         "Top Priorities section included"
@@ -121,6 +124,8 @@
         "Flags name-assertion mismatch: 'add product to cart' on line 31 only clicks, doesn't verify cart updated (#1, P0)",
         "Flags missing assertion: 'show product details' line 36 assigns cy.get to const but no should() chain (#2, P0)",
         "Skips Playwright-specific checks (dangling page.locator, describe.serial, missing await)",
+        "Does NOT flag cy.get('.product-price').first() on line 45 as dangling — it is chained with .invoke('text')",
+        "Does NOT flag the sort comparison logic (lines 45-50) as an anti-pattern — programmatic price comparison is legitimate",
         "Structured output with P0/P1/P2",
         "Summary table included"
       ]

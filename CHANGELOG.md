@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.2.1] - 2026-04-12
+
+### Changed
+- **`e2e-reviewer` Puppeteer scope removed** — Puppeteer was listed in description but had zero grep patterns and zero eval coverage. Scope narrowed to Playwright and Cypress with full grep + LLM analysis. General principles (name-assertion alignment, missing Then, YAGNI) still apply to any framework.
+- **`e2e-reviewer` Phase 1 grep tables extracted** to `references/grep-patterns.md` — SKILL.md reduced from 625 to 571 lines. Patterns loaded on demand, not always in context.
+- **`e2e-reviewer` test directory auto-detection** — Phase 1 no longer hardcodes `e2e/`; instructs auto-detection from project structure (`tests/`, `__tests__/`, `spec/`, `cypress/e2e/`, etc.).
+- **`e2e-reviewer` #14 credentials grep pattern expanded** — now catches `cy.get('#password').type('secret')` and `page.getByLabel('Password').fill('test')` in addition to `loginPage.login('admin', 'pass')`.
+
+### Improved
+- **`e2e-reviewer` evals strengthened** — all 7 eval assertions now include line numbers, specific context, and P0/P1/P2 severity tags. False positive assertions added to eval 1 (public route not flagged as missing auth), eval 2 (toBeVisible not flagged as always-passing), and eval 6 (chained cy.get not flagged as dangling).
+
 ## [1.2.0] - 2026-03-30
 
 ### Added

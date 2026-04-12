@@ -5,7 +5,7 @@ E2E tests that always pass are worse than no tests — they give false confidenc
 Four complementary skills that cover the full E2E lifecycle:
 
 1. **`playwright-test-generator`** — generates Playwright E2E tests from scratch, from coverage gap analysis to passing, reviewed tests
-2. **`e2e-reviewer`** — static analysis of existing Playwright, Cypress, and Puppeteer specs; finds 13 anti-patterns that make tests pass CI while missing real regressions
+2. **`e2e-reviewer`** — static analysis of existing Playwright and Cypress specs; finds 13 anti-patterns that make tests pass CI while missing real regressions
 3. **`playwright-debugger`** — diagnoses failures from `playwright-report/` and classifies root causes (flaky timing, selector drift, auth, environment mismatch, and more)
 4. **`cypress-debugger`** — same for Cypress report files
 
@@ -84,7 +84,7 @@ Catches issues in E2E tests that pass CI but fail to catch real regressions.
 - Tests pass CI but you suspect they miss real regressions
 - Your test suite is fragile — tests break on every UI change
 - You want to audit test quality before a release or code review
-- You're reviewing Playwright, Cypress, or Puppeteer specs
+- You're reviewing Playwright or Cypress specs
 
 ### Usage
 
@@ -239,7 +239,7 @@ Cypress tests pass locally but fail in CI
 
 **`playwright-test-generator`** — Playwright only. Generates tests for any project with a `playwright.config.ts`. Uses agent-browser tools for live exploration; falls back to `npx playwright codegen` for manual selector discovery.
 
-**`e2e-reviewer`** — Framework-agnostic. Covers [Playwright](https://playwright.dev/), [Cypress](https://www.cypress.io/), and [Puppeteer](https://pptr.dev/).
+**`e2e-reviewer`** — Covers [Playwright](https://playwright.dev/) and [Cypress](https://www.cypress.io/) with full grep + LLM analysis. General principles (name-assertion alignment, missing Then, YAGNI) apply to any framework.
 
 **`playwright-debugger`** — Playwright only. Parses `results.json` and `trace.zip` from `playwright-report/`.
 

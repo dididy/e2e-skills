@@ -1,7 +1,7 @@
 {
   "name": "e2e-skills",
-  "version": "1.2.0",
-  "description": "Four E2E skills for Playwright, Cypress, and Puppeteer: generate tests from scratch with live browser exploration and Plan Mode approval; audit existing specs against 13 anti-patterns (name-assertion mismatch, missing Then, error swallowing, always-passing assertions, missing assertions, bypass patterns, raw DOM queries, focused test leak, hard-coded sleeps, flaky selectors, YAGNI, expect.soft overuse, Cypress uncaught:exception suppression) with P0/P1/P2 severity; debug failed Playwright tests from playwright-report/; debug failed Cypress tests from cypress/reports/.",
+  "version": "1.2.1",
+  "description": "Four E2E skills for Playwright and Cypress: generate tests from scratch with live browser exploration and Plan Mode approval; audit existing specs against 13 anti-patterns (name-assertion mismatch, missing Then, error swallowing, always-passing assertions, missing assertions, bypass patterns, raw DOM queries, focused test leak, hard-coded sleeps, flaky selectors, YAGNI, expect.soft overuse, Cypress uncaught:exception suppression) with P0/P1/P2 severity; debug failed Playwright tests from playwright-report/; debug failed Cypress tests from cypress/reports/.",
   "license": "Apache-2.0",
   "author": {
     "name": "YONGJAE LEE"
