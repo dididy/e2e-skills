@@ -318,6 +318,68 @@ class ReviewerHoldoutV5Test(unittest.TestCase):
                 "Claude Code 2.1.220",
             )
         )
+        # v5 and v6 stay bound to the single build they were cut against.
+        for protocol_id in ("reviewer-holdout-v5", "reviewer-holdout-v6"):
+            self.assertEqual(
+                "exact",
+                runner.FROZEN_EXECUTION_IDENTITY_POLICIES[protocol_id],
+            )
+        self.assertFalse(
+            runner.runner_identity_matches(
+                "claude",
+                "2.1.251 (Claude Code)",
+                "Claude Code 2.1.239",
+                "exact",
+            )
+        )
+        # A "minimum" protocol accepts the pinned build or a later one, so a
+        # pruned vendor build cannot make it permanently unrunnable, but it
+        # still refuses anything older than the declared floor.
+        self.assertTrue(
+            runner.runner_identity_matches(
+                "claude",
+                "2.1.251 (Claude Code)",
+                "Claude Code 2.1.239",
+                "minimum",
+            )
+        )
+        self.assertTrue(
+            runner.runner_identity_matches(
+                "codex",
+                "codex-cli 0.150.1",
+                "codex-cli 0.149.0",
+                "minimum",
+            )
+        )
+        self.assertFalse(
+            runner.runner_identity_matches(
+                "claude",
+                "2.1.220 (Claude Code)",
+                "Claude Code 2.1.239",
+                "minimum",
+            )
+        )
+        self.assertFalse(
+            runner.runner_identity_matches(
+                "codex",
+                "codex-cli 0.148.0",
+                "codex-cli 0.149.0",
+                "minimum",
+            )
+        )
+        # Unparseable identities never satisfy a floor by accident.
+        self.assertFalse(
+            runner.runner_identity_matches(
+                "claude", "unknown build", "Claude Code 2.1.239", "minimum"
+            )
+        )
+        with self.assertRaises(ValueError):
+            runner.runner_identity_matches(
+                "claude",
+                "2.1.251 (Claude Code)",
+                "Claude Code 2.1.239",
+                "loosest",
+            )
         self.assertEqual(self.cases, loaded_cases)
         canonical = runner.canonical_severities(ROOT / "skills/e2e-reviewer")
         for case in loaded_cases:

@@ -172,11 +172,25 @@ ARM_COMPARISON_PROTOCOL_IDS = {
     "reviewer-holdout-v5",
     "reviewer-holdout-v6",
 }
-# Each version freezes the CLI identity that was current when it was cut. v6
-# exists only because the v5 identity became unobtainable: its pinned codex and
-# Claude Code builds were superseded, and v5's own freeze policy requires a new
-# version rather than an edit. Never relax the match — an identity that drifts
-# silently is what makes an old benchmark number unreproducible.
+# Each version declares the CLI identity it was cut against. Two policies exist
+# because exact pinning killed two protocols in a row: v5 pinned Claude Code
+# 2.1.220 and v6 pinned 2.1.239, the installer retains only a few recent builds,
+# and both pins expired before their matrix ran. Refusing to start does not
+# preserve reproducibility once the build is pruned — it only makes the protocol
+# permanently unrunnable.
+#
+# "exact" stays the default and keeps v5 and v6 bound to the build named in
+# their frozen JSON. "minimum" accepts that build or a later one and records the
+# resolved identity in the report, so drift is written down rather than silent.
+# The property an arm comparison actually needs — one identity across every cell
+# of one matrix — is enforced downstream by compare-reviewer-holdouts.py
+# (arm_runner_identity_mismatch, arm_runner_binding_mismatch) together with the
+# 12-hour matrix window, and does not depend on the cut-time constant.
+EXECUTION_IDENTITY_VERSION_POLICIES = {"exact", "minimum"}
+FROZEN_EXECUTION_IDENTITY_POLICIES = {
+    "reviewer-holdout-v5": "exact",
+    "reviewer-holdout-v6": "exact",
+}
 FROZEN_EXECUTION_IDENTITIES = {
     "reviewer-holdout-v5": {
         "codex": "codex-cli 0.146.0",
@@ -553,6 +567,11 @@ def load_protocol(path: Path) -> dict:
                 "attestation."
             ),
         }
+        identity_policy = FROZEN_EXECUTION_IDENTITY_POLICIES.get(
+            protocol_id, "exact"
+        )
+        if identity_policy != "exact":
+            expected_execution_identity["version_policy"] = identity_policy
         if data.get("execution_identity") != expected_execution_identity:
             raise ValueError(
                 f"{path}: {protocol_id} execution identity must be exact"
@@ -2146,18 +2165,53 @@ def command_output(command: list[str]) -> str | None:
     return None
 
 
+ACTUAL_CLI_VERSION_PATTERNS = {
+    "codex": re.compile(r"codex-cli ([0-9]+(?:\.[0-9]+)*)"),
+    "claude": re.compile(r"([0-9]+(?:\.[0-9]+)*) \(Claude Code\)"),
+}
+EXPECTED_CLI_VERSION_PATTERNS = {
+    "codex": re.compile(r"codex-cli ([0-9]+(?:\.[0-9]+)*)"),
+    "claude": re.compile(r"Claude Code ([0-9]+(?:\.[0-9]+)*)"),
+}
+
+
+def parse_cli_version(
+    runner: str,
+    text: str | None,
+    *,
+    declared: bool,
+) -> tuple[int, ...] | None:
+    """Extract a comparable version tuple from one CLI identity string."""
+    patterns = (
+        EXPECTED_CLI_VERSION_PATTERNS if declared else ACTUAL_CLI_VERSION_PATTERNS
+    )
+    pattern = patterns.get(runner)
+    if pattern is None or not isinstance(text, str):
+        return None
+    match = pattern.fullmatch(text.strip())
+    if match is None:
+        return None
+    return tuple(int(part) for part in match.group(1).split("."))
+
+
 def runner_identity_matches(
     runner: str,
     actual: str | None,
     expected: str,
+    policy: str = "exact",
 ) -> bool:
-    """Match raw CLI version output to one frozen public protocol identity."""
+    """Match raw CLI version output to one preregistered protocol identity."""
+    if policy not in EXECUTION_IDENTITY_VERSION_POLICIES:
+        raise ValueError(f"unknown execution identity version policy: {policy!r}")
     if actual == expected:
         return True
-    if runner == "claude" and actual is not None:
-        match = re.fullmatch(r"([0-9]+(?:\.[0-9]+){2}) \(Claude Code\)", actual)
-        return bool(match and expected == f"Claude Code {match.group(1)}")
-    return False
+    actual_version = parse_cli_version(runner, actual, declared=False)
+    expected_version = parse_cli_version(runner, expected, declared=True)
+    if actual_version is None or expected_version is None:
+        return False
+    if policy == "exact":
+        return actual_version == expected_version
+    return actual_version >= expected_version
 
 
 def git_dirty() -> bool | None:
@@ -2842,17 +2896,33 @@ def main() -> int:
         runner_identity = command_output([runner_exec, "--version"])
     else:
         runner_identity = runner_exec
+    identity_policy = "exact"
+    identity_match = None
     if isinstance(execution_identity, dict) and args.runner in {"codex", "claude"}:
         expected_identity = execution_identity["expected_cli_versions"][args.runner]
+        identity_policy = execution_identity.get("version_policy", "exact")
+        if identity_policy not in EXECUTION_IDENTITY_VERSION_POLICIES:
+            parser.error(
+                f"protocol declares unknown version_policy {identity_policy!r}"
+            )
         if not runner_identity_matches(
             args.runner,
             runner_identity,
             expected_identity,
+            identity_policy,
         ):
             parser.error(
                 f"runner identity {runner_identity!r} does not match the "
-                f"preregistered {expected_identity!r}"
+                f"preregistered {expected_identity!r} under the "
+                f"{identity_policy!r} version policy"
             )
+        identity_match = (
+            "exact"
+            if runner_identity_matches(
+                args.runner, runner_identity, expected_identity, "exact"
+            )
+            else "minimum-satisfied"
+        )
     git_revision = command_output(["git", "rev-parse", "HEAD"])
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     output_path = args.output or ROOT / "results/reviewer-holdout" / f"{stamp}.json"
@@ -2863,6 +2933,8 @@ def main() -> int:
         "schema_version": 2,
         "runner": args.runner,
         "runner_identity": runner_identity,
+        "execution_identity_policy": identity_policy,
+        "execution_identity_match": identity_match,
         "runner_executable": portable_host_path(runner_exec),
         "model": args.model,
         "reasoning_effort": args.reasoning_effort,

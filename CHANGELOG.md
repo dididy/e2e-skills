@@ -12,8 +12,31 @@
   No v5 result had been produced, so nothing is being refitted after the fact.
   The runner's frozen execution identity moved from a v5-only literal to a
   per-protocol table, so each version stays pinned to its own builds.
+- **A `minimum` execution-identity version policy.** A protocol's
+  `execution_identity` may now declare `version_policy`, either `exact`
+  (default) or `minimum`. Under `minimum` the runner accepts the preregistered
+  build or any later one and records the resolved identity plus an
+  `execution_identity_match` of `exact` or `minimum-satisfied` in the report, so
+  drift is written down rather than silent. v5 and v6 remain `exact`; their
+  frozen JSON and pinned digests are untouched.
 
 ### Fixed
+
+- **Exact CLI pinning made two protocols permanently unrunnable.** v5 pinned
+  `Claude Code 2.1.220` and v6 pinned `2.1.239`; the installer retains only a
+  few recent builds, so both pins expired before their matrix could run.
+  Refusing to start does not preserve reproducibility once a build is pruned —
+  the build is gone either way — it only guarantees the protocol expires. The
+  property an arm comparison actually needs, one identity across every cell of
+  one matrix, is already enforced by `compare-reviewer-holdouts.py`
+  (`arm_runner_identity_mismatch`, `arm_runner_binding_mismatch`) together with
+  the 12-hour matrix window, and never depended on the cut-time constant. New
+  protocols can now pin a floor instead of a single expiring build.
+- **Reviewer holdout v6 archived as terminated incomplete.** Five of nine cells
+  survived, two of them execution-complete. `benchmarks/reviewer-holdout-v6/`
+  records the reports, the driver logs, why the protocol died, and which single
+  arm contrast the partial data actually supports. No v6 accuracy or skill-lift
+  result is claimed.
 
 - `ci-local.sh` drops inherited `__pycache__` trees before verification runs.
   Python invalidates a cached `.pyc` by source mtime, which misses an edit made

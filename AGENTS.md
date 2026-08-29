@@ -193,6 +193,12 @@ cryptographic attestation. Primary accuracy is computed on unique
 majority-stable labels and predictions; repeated totals also enforce a precision
 floor against rotating one-off false positives, but are not additional
 independent defects.
+A new protocol should declare `execution_identity.version_policy: "minimum"` and
+pin a floor rather than a single build. `exact` expires: v5 and v6 both became
+permanently unrunnable when the vendor pruned the Claude Code build they pinned.
+One identity per runner family across a matrix is enforced by the comparator, so
+`minimum` costs nothing that matters. Never change the policy of an already
+frozen protocol.
 
 ### Local dev workflow (testbed + auto-reinstall)
 

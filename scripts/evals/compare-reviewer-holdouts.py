@@ -72,6 +72,8 @@ REPORT_OPTIONAL_KEYS = {
     "runner_executable",
     "reasoning_effort",
     "started_at",
+    "execution_identity_policy",
+    "execution_identity_match",
 }
 RUN_KEYS = {
     "schedule_ordinal", "case", "framework", "split", "repetition",
@@ -930,10 +932,12 @@ def recompute_report(
         expected_identity = execution_identity["expected_cli_versions"].get(
             report["runner"]
         )
+        identity_policy = execution_identity.get("version_policy", "exact")
         if expected_identity is None or not RUNNER.runner_identity_matches(
             report["runner"],
             report["runner_identity"],
             expected_identity,
+            identity_policy,
         ):
             raise ValueError(
                 "runner_identity does not match the preregistered CLI version"
