@@ -492,15 +492,51 @@ restore "$file"
 
 # Case 13b: OpenAI YAML must be structurally parsed. A duplicate key with the
 # same value defeats token/regex checks but is invalid under the supported
-# fail-closed manifest subset.
+# fail-closed manifest subset. The duplicate now sits inside `interface`,
+# because the schema no longer has top-level scalars.
 file="skills/e2e-reviewer/agents/openai.yaml"
 backup "$file"
 mutate \
   "$file" \
-  "allow_implicit_invocation: true" \
-  $'allow_implicit_invocation: true\nname: e2e-reviewer'
-assert_fails "OpenAI YAML parser — duplicate top-level key rejected" "invalid OpenAI agent YAML"
-assert_security_fails "Pre-push OpenAI YAML parser — duplicate top-level key rejected" "invalid OpenAI agent YAML"
+  "  short_description: Audit E2E tests and diffs" \
+  $'  short_description: Audit E2E tests and diffs\n  short_description: duplicate'
+assert_fails "OpenAI YAML parser — duplicate interface key rejected" "invalid OpenAI agent YAML"
+assert_security_fails "Pre-push OpenAI YAML parser — duplicate interface key rejected" "invalid OpenAI agent YAML"
+restore "$file"
+
+# Case 13b-2: the runtime drops an unknown key silently, so an invented field
+# must fail here or it ships inert the way `name`/`description` once did.
+backup "$file"
+mutate \
+  "$file" \
+  "policy:" \
+  $'description: an invented top-level key\npolicy:'
+assert_fails "OpenAI YAML parser — unknown top-level key rejected" "invalid OpenAI agent YAML"
+assert_security_fails "Pre-push OpenAI YAML parser — unknown top-level key rejected" "invalid OpenAI agent YAML"
+restore "$file"
+
+# Case 13b-3: `interface` carries the only required values; losing it strips the
+# skill's display name in the Codex UI without any runtime error.
+backup "$file"
+mutate "$file" "interface:" "dependencies:"
+assert_fails "OpenAI YAML parser — missing interface rejected" "invalid OpenAI agent YAML"
+assert_security_fails "Pre-push OpenAI YAML parser — missing interface rejected" "invalid OpenAI agent YAML"
+restore "$file"
+
+# Case 13b-4: policy.allow_implicit_invocation is the one field whose value
+# changes behavior, so a non-boolean must not pass as truthy.
+backup "$file"
+mutate "$file" "  allow_implicit_invocation: true" "  allow_implicit_invocation: yes"
+assert_fails "OpenAI YAML parser — non-boolean policy value rejected" "invalid OpenAI agent YAML"
+assert_security_fails "Pre-push OpenAI YAML parser — non-boolean policy value rejected" "invalid OpenAI agent YAML"
+restore "$file"
+
+# Case 13b-5: the schema has no `name`, so the directory binding rides on the
+# documented $<skill> invocation instead.
+backup "$file"
+mutate "$file" "Use \$e2e-reviewer to review" "Use the reviewer to review"
+assert_fails "OpenAI YAML default_prompt — skill invocation required" "must invoke \$e2e-reviewer"
+assert_security_fails "Pre-push OpenAI YAML default_prompt — skill invocation required" "must invoke \$e2e-reviewer"
 restore "$file"
 
 # Case 13c: machine-specific absolute home paths must fail anywhere in the

@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.14.0] - 2026-08-30
 
 ### Added
 
@@ -21,6 +21,24 @@
   frozen JSON and pinned digests are untouched.
 
 ### Fixed
+
+- **The four `agents/openai.yaml` files were inert.** codex-cli reads that file
+  for every discovered skill, plugin-installed or not, but its parser accepts
+  only `interface`, `policy`, and `dependencies`. The repo shipped `name`,
+  `description`, `metadata`, and a top-level `allow_implicit_invocation`, none
+  of which that struct has — and the loader warns then falls back to defaults
+  instead of failing, so all four skills silently had no display name, no short
+  description, and no default prompt in the Codex UI. They now use the real
+  schema and pass the validator bundled with codex-cli. `allow_implicit_invocation`
+  moves under `policy`, where it is actually read; its default is `true`, so
+  behavior is unchanged either way. The trigger surface was never this file — it
+  is SKILL.md frontmatter, which already carries longer text.
+  `playwright-test-generator` keeps its live-exploration scope phrase, moved from
+  the discarded `description` into `interface.default_prompt` so the V5-T2 safety
+  contract stays on a surface that is actually read. The repo's own fail-closed
+  parser, duplicated in `review.sh` and `pre-push-security.sh`, was rewritten for
+  the real schema; the directory binding that the removed `name` field used to
+  provide is now the `$<skill>` invocation required in each `default_prompt`.
 
 - **Exact CLI pinning made two protocols permanently unrunnable.** v5 pinned
   `Claude Code 2.1.220` and v6 pinned `2.1.239`; the installer retains only a

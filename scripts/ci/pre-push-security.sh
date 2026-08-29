@@ -110,58 +110,9 @@ sys.path.insert(0, 'scripts/ci/lib')
 from strict_json import load_manifest_json
 from validate_codex import collect_codex_errors
 from version_contract import canonical_semver_error
+from skill_metadata_contract import collect_openai_manifest_errors
 
 errors = []
-
-def parse_openai_manifest(path):
-    """Parse the deliberately small agents/openai.yaml schema, fail closed."""
-    text = path.read_text(encoding='utf-8')
-    if text.startswith('\ufeff'):
-        raise ValueError("UTF-8 BOM is not supported")
-    if '\t' in text:
-        raise ValueError("tabs are not allowed")
-    top = {}
-    metadata = {}
-    current = None
-    for number, line in enumerate(text.splitlines(), 1):
-        if not line.strip() or line.lstrip().startswith('#'):
-            continue
-        if line.startswith(' '):
-            match = re.fullmatch(r"  ([A-Za-z_][A-Za-z0-9_-]*):[ ]+(.+)", line)
-            if current != 'metadata' or not match:
-                raise ValueError(f"line {number}: unsupported indentation or nested value")
-            key, value = match.groups()
-            if key in metadata:
-                raise ValueError(f"line {number}: duplicate metadata key {key!r}")
-            metadata[key] = value
-            continue
-        match = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_-]*):(?:[ ]+(.*))?", line)
-        if not match:
-            raise ValueError(f"line {number}: unsupported YAML syntax")
-        key, value = match.groups()
-        if key in top:
-            raise ValueError(f"line {number}: duplicate top-level key {key!r}")
-        if key == 'metadata':
-            if value is not None:
-                raise ValueError(f"line {number}: metadata must be a mapping")
-            top[key] = metadata
-        else:
-            if value is None or not value.strip():
-                raise ValueError(f"line {number}: {key} must have a scalar value")
-            if re.search(r":\s|(?:^|\s)#", value):
-                raise ValueError(f"line {number}: unsupported ambiguous plain scalar")
-            top[key] = value
-        current = key
-    expected_top = {'name', 'description', 'metadata', 'allow_implicit_invocation'}
-    if set(top) != expected_top:
-        raise ValueError(
-            f"top-level keys must be exactly {sorted(expected_top)!r}, got {sorted(top)!r}"
-        )
-    if set(metadata) != {'short-description'}:
-        raise ValueError("metadata must contain exactly short-description")
-    if top['allow_implicit_invocation'] not in {'true', 'false'}:
-        raise ValueError("allow_implicit_invocation must be true or false")
-    return top
 
 plugin = load_manifest_json(pathlib.Path('.claude-plugin/plugin.json'))
 marketplace = load_manifest_json(pathlib.Path('.claude-plugin/marketplace.json'))
@@ -230,17 +181,11 @@ for skill_dir in skill_dirs:
                     f"does not match plugin version {plugin_version!r}"
                 )
 
-    manifest = skill_dir / 'agents' / 'openai.yaml'
-    if not manifest.exists():
-        errors.append(f"{manifest}: missing OpenAI agent manifest")
-        continue
-    try:
-        top = parse_openai_manifest(manifest)
-    except (OSError, UnicodeError, ValueError) as exc:
-        errors.append(f"{manifest}: invalid OpenAI agent YAML: {exc}")
-        continue
-    if top['name'] != skill_dir.name:
-        errors.append(f"{manifest}: name must match directory {skill_dir.name}")
+    errors.extend(
+        collect_openai_manifest_errors(
+            skill_dir / 'agents' / 'openai.yaml', skill_dir.name
+        )
+    )
 
 if errors:
     for error in errors:

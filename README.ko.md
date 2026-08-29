@@ -18,7 +18,7 @@
 <a href="README.md">🇺🇸 English</a> | <strong>🇰🇷 한국어</strong> | <a href="README.ja.md">🇯🇵 日本語</a> | <a href="README.zh-cn.md">🇨🇳 简体中文</a>
 </p>
 
-<!-- README-CANONICAL-REVISION: sha256=de124ba37301302a2d6c46222f811a1eb39e168c12c01ae6308232e66acd898b; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
+<!-- README-CANONICAL-REVISION: sha256=39c8ee0a192f21cfa900a17c837657fa31267cf4fa4c0e11f99363f300c34430; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
 
 `e2e-skills`는 AI 코딩 에이전트가 Playwright와 Cypress E2E 테스트를 생성·검토하고 실패 원인을 분석할 때 쓰는 네 가지 Agent Skills 모음입니다. 새 테스트 생성은 Playwright를 지원하고, 기존 테스트나 PR/diff 범위의 변경 검토와 실패 분석은 Playwright와 Cypress를 지원합니다. 검토 목록 가운데 규칙만으로 판별할 수 있는 항목을 찾는 `deterministic scanner`도 포함합니다.
 
@@ -129,7 +129,9 @@ npx --yes skills@1.5.21 add voidmatcha/e2e-skills --skill '*' -g -a claude-code
 npx --yes skills@1.5.21 add voidmatcha/e2e-skills --skill '*' -g -a codex
 ```
 
-Codex에서는 `e2e-reviewer`, `playwright-debugger`, `cypress-debugger` 작업을 전용 role에 맡길 수 있습니다. 해당 role을 사용할 수 없는 환경에서는 스킬에 포함된 동일한 절차를 직접 따릅니다. `playwright-test-generator`에는 더 엄격한 V6 경계가 적용됩니다. 새 문맥에서 검토할 별도 리뷰어가 없으면 `CANNOT_VERIFY`와 `PARTIAL/BLOCKED`를 보고합니다. 소스 체크아웃에는 `.codex/agents/` 아래에 선택적으로 설치할 수 있는 전용 에이전트도 들어 있습니다. 패키징 경계는 [AGENTS.md](AGENTS.md)에서 확인할 수 있습니다.
+Codex에서는 `e2e-reviewer`, `playwright-debugger`, `cypress-debugger` 작업을 전용 role에 맡기거나 동등한 inline fallback을 사용할 수 있습니다. `playwright-test-generator`에는 더 엄격한 V6 경계가 적용됩니다. 새 문맥에서 검토할 별도 리뷰어가 없으면 `CANNOT_VERIFY`와 `PARTIAL/BLOCKED`를 보고합니다.
+
+여기서 말하는 전용 role은 선택적 서브에이전트 `e2e-finding-verifier`와 `e2e-failure-classifier`이며, **Codex는 이 둘을 플러그인으로 설치할 수 없습니다.** Codex 플러그인 매니페스트에는 agents 필드가 없고 agent role은 config 레이어에서만 로드되므로, `codex plugin add`도 `skills` CLI도 이 둘을 등록하지 않습니다. 지원되는 경로는 두 가지입니다. `bash scripts/dev/install-codex-agents.sh`를 실행해 `~/.codex/agents/`에 전역 설치하거나, 이 저장소의 체크아웃에서 작업하면 Codex 세션이 별도 설치 없이 `.codex/agents/`를 인식합니다. 둘 다 건너뛰어도 괜찮습니다. inline fallback이 동작합니다. 패키징 경계는 [AGENTS.md](AGENTS.md)에서 확인할 수 있습니다.
 
 Codex 플러그인 마켓플레이스를 쓰는 다른 설치 경로:
 

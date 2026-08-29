@@ -253,7 +253,7 @@ Both the Claude Code plugin and the Codex plugin expose the same four public ski
 
 - **Version parity**: `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` (the `e2e-skills` entry), and `.codex-plugin/plugin.json` must share the same `version` string. Bump all three together.
 - **Description parity**: all 24 P0/P1/P2 pattern phrases must appear in order in every manifest description. `scripts/ci/lib/manifest_phrase_contract.py` owns the stable ID/title/phrase mapping and `review.sh` checks each mapped ID/title/severity against the `e2e-reviewer/SKILL.md` Quick Reference before checking all three manifests. No manifest can redefine the canonical phrase list. The `e2e-reviewer/SKILL.md` frontmatter keeps a lean trigger description.
-- **Public skill surface**: `skills/<name>/SKILL.md` `name` field must match the directory name, and the four directory names must match `.claude-plugin/plugin.json` `skills` paths and the four `agents/openai.yaml` `name` fields.
+- **Public skill surface**: `skills/<name>/SKILL.md` `name` field must match the directory name, and the four directory names must match `.claude-plugin/plugin.json` `skills` paths and the `$<skill>` invocation in each `agents/openai.yaml` `interface.default_prompt`. That file follows the schema codex-cli actually reads — `interface` plus optional `policy` and `dependencies` — so it carries no `name` field of its own.
 - **Framework scope**: the word "Puppeteer" must not appear outside `docs/framework-scope.md`, including in any plugin manifest.
 
 When you bump the bundle version, touch all three manifests in one commit. The drift smoke test (`scripts/ci/test-parity.sh`) mutates each manifest in turn to verify the parity checks actually catch drift.

@@ -127,7 +127,9 @@ Install the four skills into `~/.agents/skills/`:
 npx --yes skills@1.5.21 add voidmatcha/e2e-skills --skill '*' -g -a codex
 ```
 
-For Codex delegation, `e2e-reviewer`, `playwright-debugger`, and `cypress-debugger` can use native roles or their equivalent inline fallbacks. `playwright-test-generator` has a stricter V6 boundary: without a distinct fresh-context reviewer it reports `CANNOT_VERIFY` and `PARTIAL/BLOCKED`. Source checkouts also include optional native agents under `.codex/agents/`; contributors can see [AGENTS.md](AGENTS.md) for the packaging boundary.
+For Codex delegation, `e2e-reviewer`, `playwright-debugger`, and `cypress-debugger` can use native roles or their equivalent inline fallbacks. `playwright-test-generator` has a stricter V6 boundary: without a distinct fresh-context reviewer it reports `CANNOT_VERIFY` and `PARTIAL/BLOCKED`.
+
+Those native roles are the two optional subagents `e2e-finding-verifier` and `e2e-failure-classifier`, and **Codex cannot install them from a plugin.** The Codex plugin manifest has no agents field, and agent roles load only from config layers, so neither `codex plugin add` nor the `skills` CLI registers them. Two supported paths do: run `bash scripts/dev/install-codex-agents.sh` to copy both into `~/.codex/agents/` globally, or work from a checkout of this repository, where a Codex session picks up `.codex/agents/` with no install step. Skipping both is fine — you get the inline fallback. See [AGENTS.md](AGENTS.md) for the packaging boundary.
 
 Alternative Codex plugin marketplace path:
 

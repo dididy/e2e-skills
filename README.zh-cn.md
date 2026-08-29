@@ -17,7 +17,7 @@
 <p align="center">
 <a href="README.md">🇺🇸 English</a> | <a href="README.ko.md">🇰🇷 한국어</a> | <a href="README.ja.md">🇯🇵 日本語</a> | <strong>🇨🇳 简体中文</strong>
 </p>
-<!-- README-CANONICAL-REVISION: sha256=de124ba37301302a2d6c46222f811a1eb39e168c12c01ae6308232e66acd898b; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
+<!-- README-CANONICAL-REVISION: sha256=39c8ee0a192f21cfa900a17c837657fa31267cf4fa4c0e11f99363f300c34430; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
 
 `e2e-skills` 为 AI 编程代理提供四个面向 E2E 测试工作的聚焦工作流：生成 Playwright 覆盖、审查现有 spec 或 PR/diff 范围内的测试变更、调试失败的 Playwright 报告，以及调试失败的 Cypress 报告。它还包含一个确定性扫描器，用于发现审查目录中可机械判定的子集。
 
@@ -128,7 +128,9 @@ npx --yes skills@1.5.21 add voidmatcha/e2e-skills --skill '*' -g -a claude-code
 npx --yes skills@1.5.21 add voidmatcha/e2e-skills --skill '*' -g -a codex
 ```
 
-对于 Codex 委派，`e2e-reviewer`、`playwright-debugger` 和 `cypress-debugger` 可以使用 native roles，也可以使用等价的 inline fallbacks。`playwright-test-generator` 的 V6 边界更严格：如果没有独立的 fresh-context reviewer，它会报告 `CANNOT_VERIFY` 和 `PARTIAL/BLOCKED`。源码 checkout 也在 `.codex/agents/` 下包含可选的 native agents；贡献者可查看 [AGENTS.md](AGENTS.md) 了解打包边界。
+对于 Codex 委派，`e2e-reviewer`、`playwright-debugger` 和 `cypress-debugger` 可以使用 native roles，也可以使用等价的 inline fallbacks。`playwright-test-generator` 的 V6 边界更严格：如果没有独立的 fresh-context reviewer，它会报告 `CANNOT_VERIFY` 和 `PARTIAL/BLOCKED`。
+
+这里所说的 native roles 就是两个可选子代理 `e2e-finding-verifier` 和 `e2e-failure-classifier`，而 **Codex 无法通过插件安装它们。** Codex 的插件清单没有 agents 字段，agent role 只从 config 层加载，因此 `codex plugin add` 和 `skills` CLI 都不会注册它们。受支持的路径有两条：运行 `bash scripts/dev/install-codex-agents.sh` 将两者全局安装到 `~/.codex/agents/`，或者在本仓库的 checkout 中工作，此时 Codex 会话无需任何安装步骤即可识别 `.codex/agents/`。两者都跳过也没问题，你会得到 inline fallback。贡献者可查看 [AGENTS.md](AGENTS.md) 了解打包边界。
 
 也可以走 Codex plugin marketplace 路径：
 

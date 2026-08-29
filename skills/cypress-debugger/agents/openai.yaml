@@ -1,5 +1,7 @@
-name: cypress-debugger
-description: Find the root cause of a Cypress E2E test that has already run and failed, and fix it — a timed-out command, unresolved selector, cy.intercept race, flake, or CI-only failure — given a mochawesome or JUnit report, screenshots/videos, or CI artifacts, deciding whether it is a real regression or a brittle test. Not for writing new Cypress tests, reviewing a passing suite (use e2e-reviewer), or non-Cypress failures (Playwright, Jest, Vitest).
-metadata:
-  short-description: Debug Cypress failures
-allow_implicit_invocation: true
+interface:
+  display_name: Cypress Debugger
+  short_description: Debug Cypress failures
+  default_prompt: Use $cypress-debugger to find the root cause of a failed Cypress test from its mochawesome or JUnit report.
+
+policy:
+  allow_implicit_invocation: true
