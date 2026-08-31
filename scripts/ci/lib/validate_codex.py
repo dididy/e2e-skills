@@ -42,6 +42,28 @@ CODEX_PRIVACY_POLICY_URL = (
 CODEX_INTERFACE_ASSET_KEYS = ("composerIcon", "logo")
 CODEX_ASSET_SUFFIXES = {".jpeg", ".jpg", ".png", ".svg", ".webp"}
 
+# Public plugin listing limits and fixed directory taxonomy.
+PLUGIN_DESCRIPTION_MAX_LEN = 1024
+DIRECTORY_DISPLAY_NAME_MAX_LEN = 30
+DIRECTORY_SHORT_DESCRIPTION_MAX_LEN = 30
+LONG_DESCRIPTION_MAX_LEN = 4000
+DEVELOPER_NAME_MAX_LEN = 80
+SUPPORTED_CATEGORIES = {
+    "Productivity",
+    "Creativity",
+    "Developer Tools",
+    "Business & Operations",
+    "Data & Analytics",
+    "Communication",
+    "Education & Research",
+    "Security",
+    "Finance",
+    "Healthcare",
+    "Travel",
+    "Entertainment",
+    "Other",
+}
+
 # Codex display surface caps: at most 3 default prompts of 128 chars each.
 DEFAULT_PROMPT_MAX_COUNT = 3
 DEFAULT_PROMPT_MAX_LEN = 128
@@ -116,6 +138,17 @@ def collect_codex_errors(
     expected = set(expected_skills)
     errors: list[str] = []
 
+    description = codex_plugin.get("description")
+    if (
+        not isinstance(description, str)
+        or not description.strip()
+        or len(description) > PLUGIN_DESCRIPTION_MAX_LEN
+    ):
+        errors.append(
+            ".codex-plugin/plugin.json: description must be "
+            f"1-{PLUGIN_DESCRIPTION_MAX_LEN} characters"
+        )
+
     version_error = canonical_semver_error(
         codex_plugin.get("version"), ".codex-plugin/plugin.json: version"
     )
@@ -164,6 +197,47 @@ def collect_codex_errors(
             errors.append(
                 f".codex-plugin/plugin.json: interface.{key} must be a non-empty string"
             )
+
+    display_name = interface.get("displayName")
+    if isinstance(display_name, str) and len(display_name) > DIRECTORY_DISPLAY_NAME_MAX_LEN:
+        errors.append(
+            ".codex-plugin/plugin.json: interface.displayName must be "
+            f"1-{DIRECTORY_DISPLAY_NAME_MAX_LEN} characters for directory submission"
+        )
+
+    short_description = interface.get("shortDescription")
+    if (
+        isinstance(short_description, str)
+        and len(short_description) > DIRECTORY_SHORT_DESCRIPTION_MAX_LEN
+    ):
+        errors.append(
+            ".codex-plugin/plugin.json: interface.shortDescription must be "
+            f"1-{DIRECTORY_SHORT_DESCRIPTION_MAX_LEN} characters for directory submission"
+        )
+
+    long_description = interface.get("longDescription")
+    if (
+        isinstance(long_description, str)
+        and len(long_description) > LONG_DESCRIPTION_MAX_LEN
+    ):
+        errors.append(
+            ".codex-plugin/plugin.json: interface.longDescription must be "
+            f"1-{LONG_DESCRIPTION_MAX_LEN} characters"
+        )
+
+    developer_name = interface.get("developerName")
+    if isinstance(developer_name, str) and len(developer_name) > DEVELOPER_NAME_MAX_LEN:
+        errors.append(
+            ".codex-plugin/plugin.json: interface.developerName must be "
+            f"1-{DEVELOPER_NAME_MAX_LEN} characters"
+        )
+
+    category = interface.get("category")
+    if isinstance(category, str) and category not in SUPPORTED_CATEGORIES:
+        errors.append(
+            ".codex-plugin/plugin.json: interface.category must be one of "
+            f"{sorted(SUPPORTED_CATEGORIES)!r}"
+        )
 
     brand_color = interface.get("brandColor")
     if not isinstance(brand_color, str) or re.fullmatch(

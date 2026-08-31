@@ -1,5 +1,40 @@
 # Changelog
 
+## [1.15.0] - 2026-08-30
+
+### Added
+
+- **CI enforces the Codex directory submission rules.** `validate_codex.py` now
+  checks the manifest description against a 1024-character limit, the listing
+  strings against their 30-character limits, `longDescription` against 4000,
+  the developer name against 80, and `category` against the supported
+  thirteen-value taxonomy. The repository was violating two of these without
+  any surface reporting it: `.codex-plugin/plugin.json` declared the category
+  `Testing`, which is not a supported value, and a 57-character
+  `shortDescription` against a 30-character limit. Both are fixed; the category
+  is now `Developer Tools`.
+- **A balanced trigger fixture for every public skill.** Each of the four
+  skills ships `evals/trigger-evals.json` with sixteen cases, eight that must
+  trigger the skill and eight adjacent negatives that must not — a Playwright
+  report with a TimeoutError belongs to the debugger, not the reviewer, and a
+  request to write new coverage belongs to the generator. `review.sh` validates
+  structure, unique kebab-case ids, realistic multi-word queries, and the
+  per-label floor. It never calls a model; measured trigger rates stay outside
+  ordinary CI.
+
+### Changed
+
+- **Manifest descriptions stop storing the reviewer taxonomy.** All 24 pattern
+  phrases previously had to appear in order inside three manifest descriptions,
+  which made every pattern rename a four-file edit and pushed the description
+  to 1138 characters — past the limit for directory submission. The canonical
+  order now lives in `scripts/ci/lib/manifest_phrase_contract.py` alone, and
+  `review.sh` still checks all 24 ids, titles, order, and severities against
+  the `e2e-reviewer/SKILL.md` Quick Reference. Nothing was dropped from
+  enforcement; it moved from prose to data. Keyword discovery is unaffected —
+  the 52-entry `keywords` array and the 818-character `longDescription` still
+  carry the pattern vocabulary.
+
 ## [1.14.0] - 2026-08-30
 
 ### Added

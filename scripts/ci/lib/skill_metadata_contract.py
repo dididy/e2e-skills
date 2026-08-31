@@ -13,6 +13,11 @@ Standard library only, and a deliberately small YAML subset rather than PyYAML.
 
 import re
 
+try:
+    from .strict_json import StrictJsonError, load_strict
+except ImportError:  # direct import with scripts/ci/lib on sys.path
+    from strict_json import StrictJsonError, load_strict
+
 INTERFACE_KEYS = {
     "display_name",
     "short_description",
@@ -32,6 +37,9 @@ DISPLAY_NAME_MAX_LEN = 64
 SHORT_DESCRIPTION_MAX_LEN = 1024
 DEFAULT_PROMPT_MAX_LEN = 1024
 BRAND_COLOR_PATTERN = re.compile(r"#[0-9A-Fa-f]{6}")
+TRIGGER_FIXTURE_KEYS = {"id", "query", "should_trigger"}
+TRIGGER_ID_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)+")
+MIN_TRIGGER_CASES_PER_LABEL = 8
 
 
 def parse_openai_manifest(path):
@@ -120,4 +128,56 @@ def collect_openai_manifest_errors(path, skill_name):
         errors.append(
             f"{path}: interface.default_prompt must invoke ${skill_name}"
         )
+    return errors
+
+
+def collect_trigger_fixture_errors(path):
+    """Return schema errors for one skill-creator-compatible trigger fixture."""
+    if not path.exists():
+        return [f"{path}: missing trigger fixture"]
+    try:
+        cases = load_strict(path)
+    except StrictJsonError as exc:
+        return [f"{path}: invalid trigger fixture JSON: {exc}"]
+    if not isinstance(cases, list):
+        return [f"{path}: trigger fixture must be a top-level array"]
+
+    errors = []
+    seen_ids = set()
+    label_counts = {True: 0, False: 0}
+    expected_keys = sorted(TRIGGER_FIXTURE_KEYS)
+
+    for index, case in enumerate(cases):
+        context = f"{path}: entry {index}"
+        if not isinstance(case, dict):
+            errors.append(f"{context}: must be an object")
+            continue
+        if set(case) != TRIGGER_FIXTURE_KEYS:
+            errors.append(f"{context}: entry keys must be exactly {expected_keys!r}")
+
+        case_id = case.get("id")
+        if not isinstance(case_id, str) or not TRIGGER_ID_PATTERN.fullmatch(case_id):
+            errors.append(f"{context}: id must be a kebab-case string")
+        elif case_id in seen_ids:
+            errors.append(f"{context}: duplicate trigger fixture id {case_id!r}")
+        else:
+            seen_ids.add(case_id)
+
+        query = case.get("query")
+        if not isinstance(query, str) or len(query.split()) < 2:
+            errors.append(f"{context}: query must contain at least 2 words")
+
+        should_trigger = case.get("should_trigger")
+        if not isinstance(should_trigger, bool):
+            errors.append(f"{context}: should_trigger must be a boolean")
+        else:
+            label_counts[should_trigger] += 1
+
+    for label in (True, False):
+        if label_counts[label] < MIN_TRIGGER_CASES_PER_LABEL:
+            rendered = str(label).lower()
+            errors.append(
+                f"{path}: must contain at least {MIN_TRIGGER_CASES_PER_LABEL} "
+                f"should_trigger={rendered} cases"
+            )
     return errors

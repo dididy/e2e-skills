@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Drift smoke test for the pattern-and-description parity checks in review.sh.
+# Drift smoke test for the repository parity checks in review.sh.
 # Each case applies a known-bad mutation, runs review.sh, asserts the expected
 # error substring appears, then restores the file from a backup.
 
@@ -63,6 +63,8 @@ cleanup() {
   [ -n "${SCAN_FIXDIR:-}" ] && rm -rf "$SCAN_FIXDIR" || true
   [ -n "${LANGUAGE_BAD_FILE:-}" ] && rm -f "$LANGUAGE_BAD_FILE" || true
   [ -n "${ORPHAN_BAD_FILE:-}" ] && rm -f "$ORPHAN_BAD_FILE" || true
+  [ "${TRIGGER_FIXTURE_CREATED:-0}" = "1" ] &&
+    rm -f "${TRIGGER_FIXTURE_FILE:-}" || true
 }
 trap cleanup EXIT INT TERM
 
@@ -390,11 +392,43 @@ mutate "$file" "| 1 | Name-Assertion | P0 | LLM | Noun in name with no matching 
 assert_fails "Check 3c — QR row count drift" "expected 24 rows"
 restore "$file"
 
-# Case 6: out-of-order plugin.json description (Check 5)
-file=".claude-plugin/plugin.json"
+# Case 6: the canonical reviewer taxonomy must agree with SKILL.md even
+# after manifest descriptions stop storing the full 24-pattern phrase list.
+file="scripts/ci/lib/manifest_phrase_contract.py"
 backup "$file"
-mutate "$file" "name-assertion mismatch, missing Then" "missing Then, name-assertion mismatch"
-assert_fails "Check 5 — plugin.json out-of-order pattern phrase" "missing or out-of-order pattern"
+mutate "$file" '"Name-Assertion"' '"Renamed-Assertion"'
+assert_fails \
+  "Check 5 — reviewer taxonomy title drift" \
+  "reviewer taxonomy contract #1 title 'Renamed-Assertion' does not match Quick Reference 'Name-Assertion'"
+restore "$file"
+
+# Case 6b: the Quick Reference is a stable numerical lookup surface, so row
+# movement must fail even when every ID, title, and severity remains present.
+file="skills/e2e-reviewer/SKILL.md"
+backup "$file"
+python3 - "$file" <<'PY_QR_ORDER'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+lines = path.read_text(encoding="utf-8").splitlines()
+heading = lines.index("## Quick Reference")
+first = next(
+    i
+    for i, line in enumerate(lines[heading:], heading)
+    if line.startswith("| 1 | Name-Assertion |")
+)
+second = next(
+    i
+    for i, line in enumerate(lines[heading:], heading)
+    if line.startswith("| 2 | Missing Then |")
+)
+lines[first], lines[second] = lines[second], lines[first]
+path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+PY_QR_ORDER
+assert_fails \
+  "Check 5 — Quick Reference row order drift" \
+  "Quick Reference must keep stable numeric row order"
 restore "$file"
 
 # Case 7: docs orphan — add a publishable docs file with no incoming reference.
@@ -413,37 +447,67 @@ mutate "$file" "\"version\": \"$PLUGIN_VERSION\"" "\"version\": \"9.9.9\""
 assert_fails "Check 6 — manifest version drift" "manifest version mismatch"
 restore "$file"
 
-# Case 9: codex-plugin description out of order — same parity contract as plugin.json
-file=".codex-plugin/plugin.json"
-backup "$file"
-mutate "$file" "name-assertion mismatch, missing Then" "missing Then, name-assertion mismatch"
-assert_fails "Check 5 — codex-plugin out-of-order pattern phrase" "missing or out-of-order pattern"
-restore "$file"
-
-# Case 9b: coordinated drift in all manifests must still fail. The phrase
-# source is the checked ID/title contract, not whichever manifest is treated as
-# the leader, so changing all three copies together cannot redefine truth.
-coordinated_manifests=(
-  ".claude-plugin/plugin.json"
-  ".claude-plugin/marketplace.json"
-  ".codex-plugin/plugin.json"
-)
-for file in "${coordinated_manifests[@]}"; do
-  backup "$file"
-  mutate "$file" "name-assertion mismatch" "renamed coordinated pattern"
-done
-assert_fails \
-  "Check 5 — coordinated manifest phrase drift rejected" \
-  "missing or out-of-order pattern 'name assertion mismatch'"
-for file in "${coordinated_manifests[@]}"; do
-  restore "$file"
-done
-
 # Case 10: Codex plugin interface prompt limit — Codex displays at most 3 prompts
 file=".codex-plugin/plugin.json"
 backup "$file"
 mutate "$file" "\"Diagnose failed Playwright/Cypress tests with root-cause classification.\"" "\"Diagnose failed Playwright/Cypress tests with root-cause classification.\", \"Extra prompt that should fail\""
 assert_fails "Codex plugin guard — too many default prompts" "interface.defaultPrompt must contain 1-3 prompts"
+restore "$file"
+
+# Case 10b: Codex plugin package descriptions are capped at 1,024 characters.
+file=".codex-plugin/plugin.json"
+backup "$file"
+python3 - "$file" <<'PY_CODEX_DESCRIPTION'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+manifest = json.loads(path.read_text(encoding="utf-8"))
+manifest["description"] = "x" * 1025
+path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+PY_CODEX_DESCRIPTION
+assert_fails \
+  "Codex plugin guard — package description length" \
+  ".codex-plugin/plugin.json: description must be 1-1024 characters"
+restore "$file"
+
+# Case 10c: directory submissions cap the short listing subtitle at 30 chars.
+file=".codex-plugin/plugin.json"
+backup "$file"
+python3 - "$file" <<'PY_CODEX_SHORT_DESCRIPTION'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+manifest = json.loads(path.read_text(encoding="utf-8"))
+manifest["interface"]["shortDescription"] = (
+    "A directory subtitle longer than thirty characters"
+)
+path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+PY_CODEX_SHORT_DESCRIPTION
+assert_fails \
+  "Codex plugin guard — directory short description length" \
+  ".codex-plugin/plugin.json: interface.shortDescription must be 1-30 characters for directory submission"
+restore "$file"
+
+# Case 10d: directory categories use the fixed public taxonomy.
+file=".codex-plugin/plugin.json"
+backup "$file"
+python3 - "$file" <<'PY_CODEX_CATEGORY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+manifest = json.loads(path.read_text(encoding="utf-8"))
+manifest["interface"]["category"] = "Testing"
+path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+PY_CODEX_CATEGORY
+assert_fails \
+  "Codex plugin guard — unsupported directory category" \
+  ".codex-plugin/plugin.json: interface.category must be one of"
 restore "$file"
 
 # Case 11: SKILL.md frontmatter description unquoted with colon-space — YAML parse regression of v0.7.3
@@ -538,6 +602,132 @@ mutate "$file" "Use \$e2e-reviewer to review" "Use the reviewer to review"
 assert_fails "OpenAI YAML default_prompt — skill invocation required" "must invoke \$e2e-reviewer"
 assert_security_fails "Pre-push OpenAI YAML default_prompt — skill invocation required" "must invoke \$e2e-reviewer"
 restore "$file"
+
+# Case 13b-6: trigger fixtures must remain balanced, unique, typed, exact,
+# and realistic enough to exercise the skill-creator trigger workflow.
+TRIGGER_FIXTURE_FILE="skills/e2e-reviewer/evals/trigger-evals.json"
+TRIGGER_FIXTURE_CREATED=0
+if [ -f "$TRIGGER_FIXTURE_FILE" ]; then
+  backup "$TRIGGER_FIXTURE_FILE"
+else
+  TRIGGER_FIXTURE_CREATED=1
+fi
+
+reset_trigger_fixture() {
+  if [ "$TRIGGER_FIXTURE_CREATED" = "0" ]; then
+    cp "$TRIGGER_FIXTURE_FILE.parity-backup" "$TRIGGER_FIXTURE_FILE"
+    return
+  fi
+  python3 - "$TRIGGER_FIXTURE_FILE" <<'PY_TRIGGER_BASE'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+cases = []
+for label in (True, False):
+    kind = "positive" if label else "negative"
+    for index in range(1, 9):
+        cases.append(
+            {
+                "id": f"synthetic-{kind}-{index}",
+                "query": f"Synthetic {kind} trigger query number {index}",
+                "should_trigger": label,
+            }
+        )
+path.write_text(json.dumps(cases, indent=2) + "\n", encoding="utf-8")
+PY_TRIGGER_BASE
+}
+
+mutate_trigger_fixture() {
+  python3 - "$TRIGGER_FIXTURE_FILE" "$1" <<'PY_TRIGGER_MUTATION'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+mutation = sys.argv[2]
+
+if mutation == "duplicate-key":
+    text = path.read_text(encoding="utf-8")
+    needle = '"should_trigger": true'
+    replacement = '"should_trigger": true,\n    "should_trigger": false'
+    if needle not in text:
+        raise SystemExit("trigger fixture has no positive case to duplicate")
+    path.write_text(text.replace(needle, replacement, 1), encoding="utf-8")
+    raise SystemExit(0)
+
+cases = json.loads(path.read_text(encoding="utf-8"))
+
+if mutation == "fewer-true":
+    index = next(i for i, case in enumerate(cases) if case["should_trigger"] is True)
+    cases.pop(index)
+elif mutation == "fewer-false":
+    index = next(i for i, case in enumerate(cases) if case["should_trigger"] is False)
+    cases.pop(index)
+elif mutation == "duplicate-id":
+    cases[1]["id"] = cases[0]["id"]
+elif mutation == "non-boolean":
+    cases[0]["should_trigger"] = "true"
+elif mutation == "unexpected-key":
+    cases[0]["notes"] = "not part of the skill-creator trigger schema"
+elif mutation == "one-word-query":
+    cases[0]["query"] = "Review"
+else:
+    raise SystemExit(f"unknown trigger fixture mutation: {mutation}")
+
+path.write_text(json.dumps(cases, indent=2) + "\n", encoding="utf-8")
+PY_TRIGGER_MUTATION
+}
+
+reset_trigger_fixture
+mutate_trigger_fixture "fewer-true"
+assert_fails \
+  "Trigger fixtures — at least eight positive cases required" \
+  "must contain at least 8 should_trigger=true cases"
+
+reset_trigger_fixture
+mutate_trigger_fixture "fewer-false"
+assert_fails \
+  "Trigger fixtures — at least eight negative cases required" \
+  "must contain at least 8 should_trigger=false cases"
+
+reset_trigger_fixture
+mutate_trigger_fixture "duplicate-id"
+assert_fails \
+  "Trigger fixtures — duplicate IDs rejected" \
+  "duplicate trigger fixture id"
+
+reset_trigger_fixture
+mutate_trigger_fixture "duplicate-key"
+assert_fails \
+  "Trigger fixtures — duplicate JSON object keys rejected" \
+  "duplicate JSON object key"
+
+reset_trigger_fixture
+mutate_trigger_fixture "non-boolean"
+assert_fails \
+  "Trigger fixtures — should_trigger must be boolean" \
+  "should_trigger must be a boolean"
+
+reset_trigger_fixture
+mutate_trigger_fixture "unexpected-key"
+assert_fails \
+  "Trigger fixtures — unexpected entry keys rejected" \
+  "entry keys must be exactly ['id', 'query', 'should_trigger']"
+
+reset_trigger_fixture
+mutate_trigger_fixture "one-word-query"
+assert_fails \
+  "Trigger fixtures — one-word queries rejected" \
+  "query must contain at least 2 words"
+
+if [ "$TRIGGER_FIXTURE_CREATED" = "0" ]; then
+  restore "$TRIGGER_FIXTURE_FILE"
+else
+  rm -f "$TRIGGER_FIXTURE_FILE"
+fi
+TRIGGER_FIXTURE_CREATED=0
 
 # Case 13c: machine-specific absolute home paths must fail anywhere in the
 # shipped text/code artifact set; placeholders like /Users/example remain ok.

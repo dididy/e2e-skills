@@ -264,6 +264,35 @@ else
   err "python3 unavailable; public skill/OpenAI YAML checks did not run"
 fi
 
+section "Skill trigger fixtures"
+if command -v python3 >/dev/null 2>&1; then
+  if python3 - <<'PY'
+import pathlib
+import sys
+
+sys.path.insert(0, 'scripts/ci/lib')
+from skill_metadata_contract import collect_trigger_fixture_errors
+
+errors = []
+for skill_dir in sorted(path for path in pathlib.Path('skills').iterdir() if path.is_dir()):
+    errors.extend(
+        collect_trigger_fixture_errors(skill_dir / 'evals' / 'trigger-evals.json')
+    )
+
+if errors:
+    for error in errors:
+        print(error, file=sys.stderr)
+    sys.exit(1)
+PY
+  then
+    ok "all four trigger fixtures are structurally valid with at least eight cases per label"
+  else
+    err "skill trigger fixture validation failed"
+  fi
+else
+  err "python3 unavailable; skill trigger fixture validation did not run"
+fi
+
 # Frontmatter `description` is the cross-host trigger surface and is pre-loaded for EVERY
 # installed skill, so it is budgeted, not free:
 #   - Claude Code: hard cap of 1,024 characters (validation error above it).
@@ -334,7 +363,7 @@ else
   warn "python3 not available; skipped skill description budget check"
 fi
 
-section "Pattern and description parity"
+section "Reviewer taxonomy parity"
 if command -v python3 >/dev/null 2>&1; then
   if python3 - <<'PY'
 import json
@@ -344,7 +373,7 @@ import sys
 
 sys.path.insert(0, 'scripts/ci/lib')
 from strict_json import load_manifest_json
-from manifest_phrase_contract import MANIFEST_PATTERN_PHRASES
+from manifest_phrase_contract import REVIEWER_TAXONOMY
 
 errors = []
 
@@ -365,12 +394,14 @@ if not qr_match:
 
 qr_severity = {}
 qr_titles = {}
+qr_order = []
 for row in qr_match.group(1).splitlines():
     m = re.match(
         r'\|\s*(\d+[a-z]?)\s*\|\s*([^|]+?)\s*\|\s*(P[012](?:/P[012])?)\s*\|',
         row,
     )
     if m:
+        qr_order.append(m.group(1))
         qr_titles[m.group(1)] = m.group(2).strip()
         qr_severity[m.group(1)] = m.group(3)
 qr_ids = set(qr_severity)
@@ -733,56 +764,58 @@ for skill in ('playwright-debugger', 'cypress-debugger'):
     if missing:
         errors.append(f"{evals_path}: F-codes not in SKILL.md taxonomy: {sorted(missing)}")
 
-# Check 5: severity-grouped manifest phrase parity. The source is the checked
-# ID/title contract above, never one of the three manifests being compared.
-def normalize(s):
-    s = s.lower()
-    s = re.sub(r'[^a-z0-9+]+', ' ', s)
-    return re.sub(r'\s+', ' ', s).strip()
-
-contract_ids = {pid for pid, _, _, _ in MANIFEST_PATTERN_PHRASES}
-if len(MANIFEST_PATTERN_PHRASES) != 24 or contract_ids != qr_ids:
+# Check 5: the canonical reviewer taxonomy must preserve all Quick Reference
+# IDs, titles, order, and severity without storing the taxonomy in package copy.
+contract_ids = [pid for pid, _, _ in REVIEWER_TAXONOMY]
+if (
+    len(REVIEWER_TAXONOMY) != 24
+    or len(set(contract_ids)) != 24
+    or set(contract_ids) != qr_ids
+):
     errors.append(
-        "manifest phrase contract must contain exactly the 24 Quick Reference IDs"
+        "reviewer taxonomy contract must contain exactly the 24 Quick Reference IDs"
     )
 
-for pid, expected_title, severity, _ in MANIFEST_PATTERN_PHRASES:
+expected_qr_order = [str(pattern_id) for pattern_id in range(1, 24)] + ["3b"]
+if qr_order != expected_qr_order:
+    errors.append("Quick Reference must keep stable numeric row order")
+
+severity_rank = {"P0": 0, "P1": 1, "P2": 2}
+
+def pattern_id_key(pid):
+    match = re.fullmatch(r'(\d+)([a-z]?)', pid)
+    if not match:
+        return (10**9, pid)
+    return (int(match.group(1)), match.group(2))
+
+expected_contract_order = [
+    pid
+    for pid, _, _ in sorted(
+        REVIEWER_TAXONOMY,
+        key=lambda entry: (
+            severity_rank.get(entry[2], 99),
+            pattern_id_key(entry[0]),
+        ),
+    )
+]
+if contract_ids != expected_contract_order:
+    errors.append(
+        "reviewer taxonomy contract must keep severity-first numeric order"
+    )
+
+for pid, expected_title, severity in REVIEWER_TAXONOMY:
     actual_title = qr_titles.get(pid)
     if actual_title != expected_title:
         errors.append(
-            f"manifest phrase contract #{pid} title {expected_title!r} "
+            f"reviewer taxonomy contract #{pid} title {expected_title!r} "
             f"does not match Quick Reference {actual_title!r}"
         )
     actual_severity = qr_severity.get(pid, "")
     if severity not in actual_severity.split("/"):
         errors.append(
-            f"manifest phrase contract #{pid} severity {severity} "
+            f"reviewer taxonomy contract #{pid} severity {severity} "
             f"does not match Quick Reference {actual_severity!r}"
         )
-
-ordered_phrases = [
-    normalize(phrase) for _, _, _, phrase in MANIFEST_PATTERN_PHRASES
-]
-plugin_desc_norm = normalize(plugin.get('description', ''))
-market_desc_norm = ''
-for entry in market.get('plugins', []):
-    if entry.get('name') == 'e2e-skills':
-        market_desc_norm = normalize(entry.get('description', ''))
-        break
-codex_desc_norm = normalize(codex_plugin.get('description', ''))
-
-for label, desc in (
-    ('.claude-plugin/plugin.json', plugin_desc_norm),
-    ('.claude-plugin/marketplace.json', market_desc_norm),
-    ('.codex-plugin/plugin.json', codex_desc_norm),
-):
-    pos = 0
-    for phrase in ordered_phrases:
-        idx = desc.find(phrase, pos)
-        if idx < 0:
-            errors.append(f"{label}: missing or out-of-order pattern '{phrase}'")
-            break
-        pos = idx + len(phrase)
 
 # Check 6: version parity across all three manifest files
 plugin_version = plugin.get('version')
@@ -807,12 +840,12 @@ if errors:
     sys.exit(1)
 PY
   then
-    ok "pattern IDs, severities, F-codes, and P0/P1/P2 pattern descriptions consistent"
+    ok "reviewer IDs, titles, order, severities, and debugger F-codes consistent"
   else
-    err "pattern/severity/description parity check failed"
+    err "reviewer taxonomy parity check failed"
   fi
 else
-  warn "python3 not available; skipped pattern parity check"
+  warn "python3 not available; skipped reviewer taxonomy parity check"
 fi
 
 section "Framework scope"

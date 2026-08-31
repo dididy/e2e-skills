@@ -1,0 +1,82 @@
+[
+  {
+    "id": "review-checkout-playwright-spec",
+    "query": "Review tests/e2e/checkout.spec.ts for false-positive Playwright assertions and flaky waits before we merge it.",
+    "should_trigger": true
+  },
+  {
+    "id": "audit-cypress-pr-diff",
+    "query": "Audit this PR diff that changes cypress/e2e/billing.cy.ts and call out silently passing tests.",
+    "should_trigger": true
+  },
+  {
+    "id": "inspect-passing-login-suite",
+    "query": "The login E2E suite is green, but I want a quality review for missing awaits and weak assertions.",
+    "should_trigger": true
+  },
+  {
+    "id": "review-page-object-patterns",
+    "query": "Please review our Page Object changes under tests/page-objects for direct page actions and selector smells.",
+    "should_trigger": true
+  },
+  {
+    "id": "scan-flaky-test-anti-patterns",
+    "query": "Scan the Playwright specs for hard coded sleeps, focused tests, and other E2E anti-patterns.",
+    "should_trigger": true
+  },
+  {
+    "id": "diff-review-test-utilities",
+    "query": "Review the changed E2E helper files in this patch for mutable shared state and hidden backend writes.",
+    "should_trigger": true
+  },
+  {
+    "id": "quality-audit-cypress-commands",
+    "query": "Quality-audit our Cypress custom commands for cy command model mistakes and swallowed errors.",
+    "should_trigger": true
+  },
+  {
+    "id": "verify-suite-proves-behavior",
+    "query": "Check whether the passing purchase flow tests actually prove the user-visible behavior or just click through.",
+    "should_trigger": true
+  },
+  {
+    "id": "debug-failing-playwright-trace",
+    "query": "The Playwright report has a TimeoutError and trace.zip for checkout.spec.ts; find the root cause and fix.",
+    "should_trigger": false
+  },
+  {
+    "id": "debug-failing-cypress-video",
+    "query": "Cypress failed in CI with a mochawesome report and video; diagnose why the selector timed out.",
+    "should_trigger": false
+  },
+  {
+    "id": "generate-new-playwright-tests",
+    "query": "Create new Playwright E2E coverage for the password reset page using our existing test style.",
+    "should_trigger": false
+  },
+  {
+    "id": "write-cypress-tests",
+    "query": "Write Cypress E2E tests for the onboarding wizard from scratch.",
+    "should_trigger": false
+  },
+  {
+    "id": "fix-product-regression",
+    "query": "Debug why the checkout API returns 500 when I submit an order in staging.",
+    "should_trigger": false
+  },
+  {
+    "id": "review-unit-test-file",
+    "query": "Review this Vitest reducer spec for branch coverage and missing edge cases.",
+    "should_trigger": false
+  },
+  {
+    "id": "speed-up-test-runtime",
+    "query": "Make the E2E suite run faster by parallelizing shards and caching browser downloads.",
+    "should_trigger": false
+  },
+  {
+    "id": "interpret-coverage-report",
+    "query": "Explain the Istanbul coverage report for app/services/cart.ts and suggest unit test targets.",
+    "should_trigger": false
+  }
+]

@@ -1496,16 +1496,26 @@ def main() -> None:
     approved_live_phrase = (
         "local/disposable or externally isolated approved non-production"
     )
-    public_descriptions = (
+    generator_trigger_surfaces = (
         text.split("---", 2)[1],
         openai_agent,
+    )
+    for public_description in generator_trigger_surfaces:
+        assert approved_live_phrase in " ".join(public_description.split())
+    package_descriptions = (
         claude_plugin["description"],
         claude_marketplace["plugins"][0]["description"],
         codex_plugin["description"],
     )
-    for public_description in public_descriptions:
-        assert approved_live_phrase in " ".join(public_description.split())
-    assert "with live browser exploration" not in "\n".join(public_descriptions)
+    for package_description in package_descriptions:
+        assert package_description == (
+            "Four agent skills for Playwright and Cypress end-to-end tests: "
+            "generate new Playwright coverage, review existing specs or PR "
+            "diffs, and debug failed runs."
+        )
+    assert "with live browser exploration" not in "\n".join(
+        generator_trigger_surfaces + package_descriptions
+    )
 
     step_4 = section(
         text,
