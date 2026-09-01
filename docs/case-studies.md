@@ -27,7 +27,7 @@ Why it matters: Playwright promises must be awaited, and boolean reads do not be
 
 - Repo: [`coder/code-server`](https://github.com/coder/code-server)
 - PR: [`coder/code-server#7845`](https://github.com/coder/code-server/pull/7845) — merged
-- Pattern: `it.only` skipped part of the suite for months; several checks used matcher-less `expect()` calls or one-shot reads.
+- Pattern: a committed `it.only` skipped eight Heart tests for seven months; one stopped passing while disabled. Several other checks used matcher-less `expect()` calls or one-shot reads. These details are documented in the [merged PR](https://github.com/coder/code-server/pull/7845).
 
 Why it matters: focused-test leaks silently remove coverage from CI, while matcher-less `expect()` calls create false confidence.
 
@@ -79,3 +79,5 @@ Why it matters: replacing hard waits with web-first assertions makes tests fail 
 - [`element-hq/element-web#32801`](https://github.com/element-hq/element-web/pull/32801) — fixed always-passing assertions, unawaited checks, `toBeAttached()` misuse, and dead code.
 - [`mui/mui-x#22982`](https://github.com/mui/mui-x/pull/22982) — replaced an always-true Locator null check with a user-visible edit assertion.
 - [`rancher-sandbox/rancher-desktop#10557`](https://github.com/rancher-sandbox/rancher-desktop/pull/10557) — replaced `getByText(...).not.toBeNull()` (always true) with web-first visibility assertions for each WSL integration name.
+- [`module-federation/core#4826`](https://github.com/module-federation/core/pull/4826) — removed a blanket per-spec Cypress exception handler that hid genuine regressions.
+- [`voxel51/fiftyone#7851`](https://github.com/voxel51/fiftyone/pull/7851) — replaced an always-true Locator definition check with a web-first duplicate-name error assertion.

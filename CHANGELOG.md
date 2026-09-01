@@ -2,6 +2,43 @@
 
 ## [Unreleased]
 
+## [1.15.1] - 2026-09-02
+
+### Added
+
+- **The reviewer now covers assertion loops over unproven collections (`#4k`).**
+  It triages Playwright `locator.all()` loops and Cypress `.each()` callbacks
+  whose assertions can execute zero times, while preserving guards for explicit
+  non-empty and collection-size proofs.
+- **The reviewer now identifies unexplained test skips (`#11c`).** Bare
+  `skip`/`fixme` calls are P2 candidates, while conditional skips, reason
+  strings, ticket/date comments, and `JUSTIFIED` markers remain intentional.
+- **A public workflow for reviewing AI-generated Playwright and Cypress tests.**
+  The guide includes copyable prompts, a false-green before/after example,
+  deterministic scanner output, the semantic review evidence fields, and
+  direct FAQ answers.
+- **Playwright debugger guidance for the supported trace CLI.** On trusted
+  projects using Playwright 1.59 or newer, the debugger can use `trace actions`,
+  snapshot evaluation, pass/fail trace comparison, and multi-trace failure
+  clustering after the execution gate passes.
+
+### Changed
+
+- **README discovery now leads with AI-generated-test review and false-green
+  proof.** It links the public workflow, explains how the bundle complements
+  Playwright Test Agents and Cypress AI Skills, and records the current Kimi
+  listing and skills.sh install milestone without treating either as accuracy
+  evidence.
+- **Local CI now reports stage timings and avoids duplicate validation work.**
+  The parity smoke suite no longer reruns an unchanged security gate for every
+  ordinary mutation, and the reference-tokenizer unit suites no longer rebuild
+  three identical standalone wrapper environments after already exercising
+  those wrappers under adversarial conditions. Security-specific mutations and
+  the canonical pre-push gate still execute the real security script.
+- **Scanner contract runs report their slowest checks.** The worker ceiling is
+  unchanged after a higher concurrency setting measured slower on the current
+  host.
+
 ### Fixed
 
 - **`test-fixture-faults.py` no longer fails under CPU contention.** Two
@@ -9,6 +46,10 @@
   spawn a nested one, and flush a line before the timeout fired, so a loaded
   machine failed the output assertion instead of a real regression. Every
   interval is rescaled and the ordering the test proves is unchanged.
+- **Behavioral process-cleanup checks no longer race their PID fixtures.** The
+  two live process-group cases now allow enough startup time for a loaded host
+  to launch Bash, spawn the nested process, and flush its PID before timeout;
+  the TERM/KILL cleanup assertions and their failure conditions are unchanged.
 - **`manifest_phrase_contract.py` is now `reviewer_taxonomy_contract.py`.** It
   stopped holding manifest phrases when 1.15.0 moved the taxonomy out of the
   package descriptions; the name described what it no longer did.

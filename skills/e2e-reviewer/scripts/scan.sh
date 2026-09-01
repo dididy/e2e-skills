@@ -5744,6 +5744,23 @@ run_check P1 '#4h' 'One-shot page.url assertion' '^[[:space:]]*[A-Za-z_$][A-Za-z
 # the main legitimate shape and are expected to dominate raw hits.
 run_check P1 '#4i' 'Absence assertion never proven able to match' '\.not\.toBeVisible\(|\.not\.toBeAttached\(|(?<!\.not)\.toBeHidden\(|(?<!\.not)\.toHaveCount\(\s*0\s*\)|\.should\(.[^)]*not\.(exist|be\.visible)' "$ALL_CODE_GLOB" 'triage'
 
+# #4k: sibling of #4i with the unproven locator moved into an iteration count. locator.all()
+# resolves immediately without retrying, so an empty match yields an empty array and a loop body
+# holding the test's only assertions never executes — the test passes having verified nothing.
+# expect-expect and every "test has no assertion" lint pass this, because the assertion is
+# syntactically present and only its execution count is zero. Grep cannot see whether a count
+# assertion precedes the loop, so this is LLM-TRIAGE: Phase 2 looks for toHaveCount /
+# have.length / an explicit non-empty check on the same collection, or for the loop being
+# setup rather than verification, before reporting.
+run_check P1 '#4k' 'Assertion loop over an unproven collection' 'for\s*\(.*\bof\s+await\s+.*\.all\(\s*\)|cy\s*\.[^;]*\.each\(|\)\s*\.each\(\s*\(' "$ALL_CODE_GLOB" 'triage'
+
+# #11c: a committed skip with no reason records neither why coverage was dropped nor when it
+# should return. Unlike #7 a skip is counted in every run report, so this is maintenance, not a
+# silent always-pass bug — but a quarantine meant for one sprint outlives the bug it hid. Grep
+# cannot see a reason on the preceding line or a reason string in a second argument, so this is
+# LLM-TRIAGE: Phase 2 skips any hit carrying a reason, a ticket, a date, or a gating condition.
+run_check P2 '#11c' 'Skip without a reason or an expiry' '^\s*(?:test|it|describe|suite)\s*\.\s*(?:skip|fixme)\s*\(|^\s*x(?:it|describe)\s*\(' "$ALL_CODE_GLOB" 'triage'
+
 # Grep cannot see whether the branch body contains an assertion or only a setup/navigation
 # action. Keep every candidate visible, but outside the mechanical P0 exit gate.
 run_check P0 '#5a' 'Conditional assertion bypass' 'if.*(isVisible\(|is\(.*:visible.*\))' "$ALL_CODE_GLOB" 'triage'

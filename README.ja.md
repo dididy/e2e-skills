@@ -10,7 +10,9 @@
   <a href="https://github.com/openai/codex"><img alt="Codex" src="https://img.shields.io/badge/Codex-compatible-412991?style=flat-square&labelColor=black&logo=openai&logoColor=white"></a>
   <a href="https://playwright.dev"><img alt="Playwright | Cypress" src="https://img.shields.io/badge/Playwright_%7C_Cypress-supported-2EAD33?style=flat-square&labelColor=black&logo=playwright&logoColor=white"></a>
   <a href="#merged-upstream-fixes"><img alt="Merged PRs" src="https://img.shields.io/badge/merged_PRs-14-1FC07C?style=flat-square&labelColor=black&logo=github"></a>
-  <a href="https://agents.md"><img alt="Runs in 55+ agents" src="https://img.shields.io/badge/runs_in-55%2B_agents-37B0E6?style=flat-square&labelColor=black"></a>
+  <a href="https://github.com/vercel-labs/skills#supported-agents"><img alt="Runs in 55+ agents" src="https://img.shields.io/badge/runs_in-55%2B_agents-37B0E6?style=flat-square&labelColor=black"></a>
+  <a href="https://www.skills.sh/voidmatcha/e2e-skills"><img alt="Installs on skills.sh" src="https://img.shields.io/badge/skills.sh_installs-500%2B-1FC07C?style=flat-square&labelColor=black"></a>
+  <a href="https://www.kimi.ai/resources/software-testing-skills"><img alt="Listed in Kimi testing skills" src="https://img.shields.io/badge/%F0%9F%8E%89_listed_in-Kimi_testing_skills-8B5CF6?style=flat-square&labelColor=black"></a>
   <a href="./LICENSE"><img alt="License" src="https://img.shields.io/github/license/voidmatcha/e2e-skills?style=flat-square&labelColor=black&color=37B0E6"></a>
 </p>
 
@@ -18,9 +20,11 @@
 <a href="README.md">🇺🇸 English</a> | <a href="README.ko.md">🇰🇷 한국어</a> | <strong>🇯🇵 日本語</strong> | <a href="README.zh-cn.md">🇨🇳 简体中文</a>
 </p>
 
-<!-- README-CANONICAL-REVISION: sha256=39c8ee0a192f21cfa900a17c837657fa31267cf4fa4c0e11f99363f300c34430; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
+<!-- README-CANONICAL-REVISION: sha256=cc753242cd6de7e74646d533e267dafebcbc0081ea27d501a33f50c5fa05d8ee; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
 
 `e2e-skills` は、AI コーディングエージェントが Playwright/Cypress の E2E テスト作業に使える 4 つのワークフローを提供します。Playwright カバレッジの生成、既存のテスト仕様または PR/diff 範囲の変更レビュー、失敗した Playwright レポートのデバッグ、失敗した Cypress レポートのデバッグを扱います。レビューカタログのうち、機械的に判定できる部分集合を検出する決定論的スキャナーも含まれます。
+
+人間または AI が作成したテストでは、`e2e-reviewer` を独立した品質ゲートとして利用できます。合格したテストが、タイトルに書かれた動作を本当に証明しているかを確認します。
 
 | 必要なこと | スキル | 結果 |
 | --- | --- | --- |
@@ -37,6 +41,26 @@ false-green 検出はレビューワークフローの重要な一部ですが�
 > code-server では、コミット済みの `it.only` が 7 か月にわたって 8 件のテストを静かに無効化していました。そのうち 1 件の skip されたテストはすでに壊れていたにもかかわらず、CI は green のままでした。
 
 **実行可能な例:** [React optimistic-write の証明](examples/react-optimistic-write/README.md) は、optimistic UI には画面に見える状態だけでなく、リクエストと永続化の証明も必要な理由を示します。
+
+## 役割分担
+
+フレームワーク別の支援ツールを比べると、役割は単純です。
+
+| 必要 | 最適な選択 |
+| --- | --- |
+| 計画から Playwright coverage を生成 | [Playwright Test Agents](https://playwright.dev/docs/test-agents) |
+| Cypress ワークフローを公式ドキュメントとともに作成・説明・活用 | [Cypress AI Skills / Cypress AI Toolkit](https://docs.cypress.io/app/tooling/ai-skills) |
+| false-green のレビューと失敗レポートのデバッグ | `e2e-skills` |
+
+`e2e-skills` はこうした公式ツールキットを補完します。テストが名前どおりの動作を本当に証明しているか、変更が静かな通過を生んでいないか、そして失敗した Playwright/Cypress artifact が実際に何を示しているかに焦点を当てます。
+
+<p align="center">
+  <a href="https://www.kimi.ai/resources/software-testing-skills">
+    <img src="docs/assets/kimi-software-testing-skills.png" alt="Kimi 公式サイトの「AI Software Testing Skills for Smarter QA Automation」に掲載された e2e-skills" width="100%" />
+  </a>
+  <br />
+  <sub><a href="https://www.kimi.ai/resources/software-testing-skills">Kimi 公式サイトの「AI Software Testing Skills for Smarter QA Automation」で紹介されています。</a></sub>
+</p>
 
 <a id="merged-upstream-fixes"></a>
 
@@ -131,7 +155,7 @@ npx --yes skills@1.5.21 add voidmatcha/e2e-skills --skill '*' -g -a codex
 
 Codex の delegation では、`e2e-reviewer`、`playwright-debugger`、`cypress-debugger` が native role または同等の inline fallback を使えます。`playwright-test-generator` には、より厳格な V6 境界があります。独立した fresh-context reviewer がない場合は、`CANNOT_VERIFY` と `PARTIAL/BLOCKED` を報告します。
 
-ここでいう native role とは、optional な subagent である `e2e-finding-verifier` と `e2e-failure-classifier` のことで、**Codex はこの 2 つを plugin から install できません。** Codex の plugin manifest に agents フィールドはなく、agent role は config layer からのみ読み込まれるため、`codex plugin add` も `skills` CLI もこれらを登録しません。supported な経路は 2 つです。`bash scripts/dev/install-codex-agents.sh` を実行して `~/.codex/agents/` に global install するか、この repository の checkout で作業すると、Codex session が install 手順なしで `.codex/agents/` を認識します。どちらも省略して構いません。inline fallback が動作します。packaging boundary については、contributor 向けの [AGENTS.md](AGENTS.md) を参照してください。
+ここでいう native role とは、optional な subagent である `e2e-finding-verifier` と `e2e-failure-classifier` のことで、**Codex はこの 2 つを plugin から install できません。** Codex の plugin manifest に agents フィールドはなく、agent role は config layer からのみ読み込まれるため、`codex plugin add` も `skills` CLI もこれらを登録しません。supported な経路は 2 つです。`bash scripts/dev/install-codex-agents.sh` を実行して `~/.codex/agents/` に global install するか、この repository の checkout で作業すると、Codex session が install 手順なしで `.codex/agents/` を認識します。どちらも省略して構いません。inline fallback が動作します。packaging boundary については [AGENTS.md](AGENTS.md) を参照してください。
 
 別ルートとして、Codex plugin marketplace からもインストールできます:
 
@@ -228,7 +252,7 @@ Debug the failed Cypress report in cypress/reports/.
 | 2 | **Missing Then** | Cancel 操作とテキスト復元は検証している。でも input はまだ visible? | restored state と dismissed state の両方を検証する |
 | 3 | **Error swallowing** | spec 内の `try/catch`、POM 内の `.catch(() => {})` | error で fail させる。POM methods から silent catch を取り除く |
 | 3b | **Cypress `uncaught:exception` suppression** | `cy.on('uncaught:exception', () => false)` がアプリケーションエラーを一律に握りつぶす | handler を特定の known errors に限定し、unknown errors は re-throw する |
-| 4 | **Vacuous or retry-weakening assertion** (P0/P1) | P0: invariant predicates と Locator truthiness。P1: weak attachment proof、one-shot values/URL、zero-timeout retry/deadline hazards、証明されていない absence、promised accessible name を省いた ARIA snapshots | 意味のある境界と web-first auto-retrying assertions を使う。absence の前に presence を証明し、promised accessible names を load-bearing に保つ |
+| 4 | **Vacuous or retry-weakening assertion** (P0/P1) | P0: invariant predicates と Locator truthiness。P1: weak attachment proof、one-shot values/URL、zero-timeout retry/deadline hazards、証明されていない absence、空の可能性があるコレクションの assertion loop、promised accessible name を省いた ARIA snapshots | 意味のある境界と web-first auto-retrying assertions を使う。absence の前に presence を証明し、assertion loop の前にコレクションが空でないことを証明し、promised accessible names を load-bearing に保つ |
 | 5 | **Bypass patterns** (5a P0, 5b P1) | `if (await el.isVisible()) { expect(...) }`; comment なしの `{ force: true }` | 常に assert する。env checks は `beforeEach` に移し、force:true には `// JUSTIFIED:` を追加する |
 | 7 | **Focused test leak** | `test.only(...)` が commit され、CI は 1 件だけ実行して残りを静かに skip する | `.only` を削除する。local focus には `--grep` または `--spec` を使う |
 | 8 | **Missing assertion** | 捨てられた locator/boolean が scenario 唯一の verification になっている | `await expect(locator).toBeVisible()` を追加する。independent verification/failure evidence がすでにある場合は #8 を skip する |
@@ -259,7 +283,7 @@ Debug the failed Cypress report in cypress/reports/.
 
 | # | パターン | 修正前 | 修正後 |
 |---|---------|--------|-------|
-| 11 | **YAGNI + Zombie Specs** | 一度も呼ばれない `clickEdit()`; unjustified empty wrapper class; 別 spec と丸ごと重複した spec | unused members と zombie specs を削除する。single-use helpers は meaningless indirection を明確に減らす場合だけ inline する |
+| 11 | **YAGNI + Zombie Specs** | 一度も呼ばれない `clickEdit()`; unjustified empty wrapper class; 別 spec と丸ごと重複した spec; 理由も再確認の目安もない skip | unused members と zombie specs を削除する。残す skip には理由と期限を明記し、single-use helpers は meaningless indirection を明確に減らす場合だけ inline する |
 | 21 | **Manually-captured session-file dependency** | manual capture script でしか生成されない `storageState: 'auth/member.json'` — CI にはなく、静かに期限切れになる | session を programmatically regenerate する (API-login helper または `setup` project)。manual files は programmatic fallback 付き cache としてのみ使う |
 | 23 | **Fixture ignores render guards** | Liked-tab fixture が `liked: false` を seed し、card component がすべての item を `return null` する。empty UI が infra flake に見える | seed 前に item component の early returns/filters を読み、対象 view のすべての guard を通る fields を seed する |
 
@@ -284,6 +308,8 @@ Debug the failed Cypress report in cypress/reports/.
 | F13 | **エラー握りつぶし** | `.catch(() => {})` が実際の失敗を隠している |
 | F14 | **アニメーション競合** | 内容がまだ描画されていない、または一時的な要素が観測前に削除される |
 | F15 | **ハイドレーション競合** | 操作は成功するが効果がない — SSR ページのハイドレーションがまだ完了しておらず、次のアサーションで失敗する |
+
+ここでは F11 と F12 に framework 共通の名称を使用しています。各 `debugger` は、同じ stable code に対応する framework 固有の名称を報告します。
 
 
 デバッガーはプロダクト回帰と壊れやすいテストを分けて分類し、根拠と具体的な修正を返します。失敗した Playwright または Cypress テスト artifact がないアプリケーションや backend は診断しません。
@@ -336,9 +362,9 @@ non-public benchmark runs では、`--isolation-wrapper` は required hook で�
 
 いいえ。変更のたびにアプリケーションと実際の E2E suite を実行してください。このバンドルはテスト品質をレビューし、Playwright カバレッジを生成し、既存の失敗を診断します。テスト runner ではありません。
 
-### AI が生成した E2E テストをレビューするには?
+### AI が生成した Playwright/Cypress テストはマージ前にどうレビューすればいいですか?
 
-マージ前に、生成された spec を `e2e-reviewer` に渡してください。各テストが名前どおりのユーザー向け動作を証明しているか確認し、決定論的なスキャナー候補と、文脈による判断が必要な指摘を分けて報告します。
+マージ前に、生成された spec を `e2e-reviewer` に渡してください。各テストが名前どおりのユーザー向け動作を本当に証明しているか確認し、false-green のリスクを拾い、決定論的なスキャナー候補と文脈による判断が必要な指摘を分けて報告します。
 
 ### Playwright だけでなく Cypress もサポートしますか?
 
@@ -354,6 +380,7 @@ Claude Code、Codex、そして `skills` CLI がサポートする 55+ hosts は
 
 ## 詳細ドキュメント
 
+- [AI が生成した Playwright/Cypress E2E テストをレビューする方法](docs/review-ai-generated-e2e-tests.md)
 - [Playwright/Cypress E2E テストスメル 24 種](docs/e2e-test-smells.md)
 - [ルールの自己監査](docs/rule-self-audit.md)
 - [オープンソースの事例集](docs/case-studies.md)

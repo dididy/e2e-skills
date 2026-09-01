@@ -50,8 +50,14 @@ PY
 PASS=0
 FAIL=0
 BACKUPS=()
+PARITY_SECURITY_BACKUP=""
 
 cleanup() {
+  local parity_security_backup="${PARITY_SECURITY_BACKUP:-}"
+  PARITY_SECURITY_BACKUP=""
+  if [ -n "$parity_security_backup" ] && [ -f "$parity_security_backup" ]; then
+    /bin/mv -f -- "$parity_security_backup" scripts/ci/pre-push-security.sh || true
+  fi
   # Best-effort restore: under `set -e` an early `mv` failure would otherwise
   # leave the remaining .parity-backup files on disk.
   for b in "${BACKUPS[@]:-}"; do
@@ -66,7 +72,19 @@ cleanup() {
   [ "${TRIGGER_FIXTURE_CREATED:-0}" = "1" ] &&
     rm -f "${TRIGGER_FIXTURE_FILE:-}" || true
 }
-trap cleanup EXIT INT TERM
+
+handle_signal() {
+  local signal="$1"
+  local status=143
+  [ "$signal" = "INT" ] && status=130
+  trap - "$signal"
+  cleanup
+  /bin/kill -s "$signal" "$$" 2>/dev/null || exit "$status"
+}
+
+trap cleanup EXIT
+trap 'handle_signal INT' INT
+trap 'handle_signal TERM' TERM
 
 backup() {
   cp "$1" "$1.parity-backup"
@@ -106,12 +124,51 @@ claim_case() {
   [ $(( (CASE_INDEX - 1) % PARITY_SHARD_COUNT )) -eq "$PARITY_SHARD_INDEX" ]
 }
 
+run_review_without_duplicate_security() {
+  # ci-local runs the real security gate before entering this disposable-copy
+  # mutation suite, and assert_security_fails below executes it again for every
+  # security-specific mutation. Ordinary review mutations only need to prove
+  # that review.sh detects their expected contract drift. Replacing the nested
+  # security invocation inside this marked disposable copy avoids repeating the
+  # same unchanged gate for every case without creating a skip path in either
+  # canonical script.
+  local output_name="$1"
+  local security="scripts/ci/pre-push-security.sh"
+  local review_output=""
+  [ "$output_name" = "output" ] || return 2
+  PARITY_SECURITY_BACKUP="${security}.parity-real"
+  [ ! -e "$PARITY_SECURITY_BACKUP" ] || {
+    echo "test-parity: stale security backup in disposable copy" >&2
+    return 2
+  }
+  /bin/mv -- "$security" "$PARITY_SECURITY_BACKUP" || return 2
+  if ! printf '%s\n' '#!/bin/bash -p' 'exit 0' >"$security"; then
+    /bin/mv -f -- "$PARITY_SECURITY_BACKUP" "$security" || true
+    PARITY_SECURITY_BACKUP=""
+    return 2
+  fi
+  /bin/chmod 700 "$security" || {
+    /bin/mv -f -- "$PARITY_SECURITY_BACKUP" "$security" || true
+    PARITY_SECURITY_BACKUP=""
+    return 2
+  }
+
+  local status=0
+  review_output=$(/bin/bash scripts/ci/review.sh --quiet 2>&1) || status=$?
+  /bin/rm -f -- "$security"
+  /bin/mv -- "$PARITY_SECURITY_BACKUP" "$security" || return 2
+  PARITY_SECURITY_BACKUP=""
+  printf -v "$output_name" '%s' "$review_output"
+  return "$status"
+}
+
 assert_fails() {
   local name="$1"
   local expected="$2"
-  local output
+  local output=""
+  local status=0
   claim_case || return 0
-  output=$(bash scripts/ci/review.sh --quiet 2>&1 || true)
+  run_review_without_duplicate_security output || status=$?
   if grep -qF "$expected" <<<"$output"; then
     echo "  [PASS] $name"
     PASS=$((PASS + 1))
@@ -124,10 +181,10 @@ assert_fails() {
 
 assert_passes() {
   local name="$1"
-  local output
+  local output=""
   local status=0
   claim_case || return 0
-  output=$(bash scripts/ci/review.sh --quiet 2>&1) || status=$?
+  run_review_without_duplicate_security output || status=$?
   if [ "$status" -eq 0 ]; then
     echo "  [PASS] $name"
     PASS=$((PASS + 1))

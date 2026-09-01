@@ -546,7 +546,9 @@ case = {
     "assertions": [{"type": "contains", "value": "x"}],
 }
 try:
-    module.run_once(sys.argv[2], case, "with_skill", 1)
+    # Give a loaded host enough time to start bash, spawn the nested process,
+    # and flush its PID before exercising the timeout cleanup path.
+    module.run_once(sys.argv[2], case, "with_skill", 5)
 except subprocess.TimeoutExpired as exc:
     evidence = exc.evidence
     assert exc.cleanup_attempted is True
@@ -594,7 +596,10 @@ case = {
     "assertions": [{"type": "contains", "value": "x"}],
 }
 try:
-    module.run_once(sys.argv[2], case, "with_skill", 1)
+    # This runner has the same startup work as the timeout case above, plus a
+    # parent whose SIGTERM behavior differs from its child. Keep startup load
+    # from turning the process-group assertion into a missing-PID-file failure.
+    module.run_once(sys.argv[2], case, "with_skill", 5)
 except subprocess.TimeoutExpired as exc:
     assert exc.cleanup_attempted is True
     assert getattr(exc, "cleanup_failures", []) == []

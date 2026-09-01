@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 
@@ -5745,13 +5746,30 @@ def run_checks_in_parallel(*checks: Callable[[], None]) -> None:
     )
     workers = min(len(checks), ceiling)
     failures: list[tuple[str, BaseException]] = []
+    durations: dict[str, float] = {}
+    duration_lock = threading.Lock()
+
+    def run_timed(check: Callable[[], None]) -> None:
+        started = time.monotonic()
+        try:
+            check()
+        finally:
+            with duration_lock:
+                durations[check.__name__] = time.monotonic() - started
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(check): check.__name__ for check in checks}
+        futures = {pool.submit(run_timed, check): check.__name__ for check in checks}
         for future in concurrent.futures.as_completed(futures):
             try:
                 future.result()
             except BaseException as error:  # noqa: BLE001 - re-raised below with its name
                 failures.append((futures[future], error))
+    print(f"reviewer scanner workers: {workers}")
+    print("reviewer scanner slowest checks:")
+    for name, duration in sorted(
+        durations.items(), key=lambda item: (-item[1], item[0])
+    )[:10]:
+        print(f"  {duration:7.2f}s  {name}")
     if failures:
         for name, error in sorted(failures):
             print(f"reviewer scanner: FAILED {name}: {error!r}", file=sys.stderr)

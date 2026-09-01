@@ -1386,8 +1386,15 @@ command = [
     str(temp / "isolation-wrapper"),
     "--case",
     "playwright-split-context",
+    # Not 1: the fake runner has to start bash, spawn the TERM-ignoring child,
+    # and write its pid file before this timeout fires. Under a loaded CI the
+    # startup alone exceeds a second, and the runner then exits before the child
+    # exists — failing the assertion below on machine load rather than on a
+    # cleanup regression. The fake child loops forever, so any value proves the
+    # same thing; 10 leaves room and still returns well inside the 30-second
+    # wait() ceiling.
     "--timeout",
-    "1",
+    "10",
     "--output",
     str(temp / "timeout-report.json"),
 ]

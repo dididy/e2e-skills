@@ -15,13 +15,13 @@ Detailed specification for the 24 anti-patterns that Phase 1, Phase 2, and Phase
 <!-- Manual index: keep in sync with the SKILL.md Quick Reference table. CI 3b/3c does not validate this block. -->
 ## Pattern index
 
-Navigation aid only — the SKILL.md Quick Reference table and the per-pattern sections below are authoritative for severity; if this table ever disagrees, they win. Find a pattern here, then read its section below. Sub-IDs are documented inside their base block: `#4a–#4j` in `#### 4.`, `#5a`/`#5b` in `#### 5.`, `#8a`/`#8b` in `#### 8.`, `#9b`/`#9c` in `#### 9.`, `#10a`–`#10f` in `#### 10.` (`#4`, `#5`, and `#10` span two severities — the base section carries both).
+Navigation aid only — the SKILL.md Quick Reference table and the per-pattern sections below are authoritative for severity; if this table ever disagrees, they win. Find a pattern here, then read its section below. Sub-IDs are documented inside their base block: `#4a–#4k` in `#### 4.`, `#5a`/`#5b` in `#### 5.`, `#8a`/`#8b` in `#### 8.`, `#9b`/`#9c` in `#### 9.`, `#11a`–`#11c` in `#### 11.`, `#10a`–`#10f` in `#### 10.` (`#4`, `#5`, and `#10` span two severities — the base section carries both).
 
 | Severity | Pattern IDs |
 |----------|-------------|
 | **P0 — Must Fix** (silent always-pass) | #1 name-assertion mismatch, #2 missing Then, #3 error swallowing, #3b Cypress uncaught:exception, #4 invariant/vacuous-object assertions (#4a/#4f), #5a conditional bypass (in #5), #7 focused-test leak, #8 missing assertion (#8a/#8b), #12 missing auth |
-| **P1 — Should Fix** (poor diagnostics or retry robustness) | #4 non-retrying/weak assertions (#4b–#4e/#4g–#4j), #5b force:true (in #5), #6 raw DOM query, #9 hard-coded sleep (#9b/#9c), #10 flaky patterns (#10a/#10b/#10c), #13 inconsistent POM, #14 hardcoded creds, #15 missing await on expect, #16 missing await on action, #17 discouraged direct Page selector API, #18 expect.soft overuse, #19 module-level state, #20 unmocked writes, #22 optimistic UI |
-| **P2 — Nice to Fix** (maintenance) | #11 YAGNI + zombie specs, #21 manual session file, #23 fixture render guards |
+| **P1 — Should Fix** (poor diagnostics or retry robustness) | #4 non-retrying/weak assertions (#4b–#4e/#4g–#4k), #5b force:true (in #5), #6 raw DOM query, #9 hard-coded sleep (#9b/#9c), #10 flaky patterns (#10a/#10b/#10c), #13 inconsistent POM, #14 hardcoded creds, #15 missing await on expect, #16 missing await on action, #17 discouraged direct Page selector API, #18 expect.soft overuse, #19 module-level state, #20 unmocked writes, #22 optimistic UI |
+| **P2 — Nice to Fix** (maintenance) | #11 YAGNI + zombie specs (#11a/#11b) + reason-less skips (#11c), #21 manual session file, #23 fixture render guards |
 
 ### P0 — Must Fix (silent always-pass)
 
@@ -186,7 +186,7 @@ expect(page.getByText('1/31/2025')).not.to.be.null;
 expect(page.locator('.selector')).toBeDefined();
 ```
 
-**Sub-IDs:** `#4a` numeric invariant candidate (LLM-TRIAGE), `#4b` vacuous `toBeAttached()` (LLM-TRIAGE — see below), `#4c-4e` one-shot state/content reads (one combined scanner check), `#4f` Locator truthiness/nullness, `#4g` `timeout: 0` (dedicated block below), `#4h` one-shot `page.url()`, `#4i` absence assertion on a locator never proven able to match (LLM-TRIAGE), and `#4j` under-specified ARIA snapshot accessible names (LLM-only). The scanner does not emit `#4j`.
+**Sub-IDs:** `#4a` numeric invariant candidate (LLM-TRIAGE), `#4b` vacuous `toBeAttached()` (LLM-TRIAGE — see below), `#4c-4e` one-shot state/content reads (one combined scanner check), `#4f` Locator truthiness/nullness, `#4g` `timeout: 0` (dedicated block below), `#4h` one-shot `page.url()`, `#4i` absence assertion on a locator never proven able to match (LLM-TRIAGE), `#4j` under-specified ARIA snapshot accessible names (LLM-only), and `#4k` assertion loop over an unproven collection (LLM-TRIAGE). The scanner does not emit `#4j`.
 
 **#4a helper-invariant semantics:** Syntax alone is not enough: `value > 0` can
 be a meaningful assertion. When the asserted value comes from a helper supplied
@@ -200,7 +200,7 @@ candidate as LLM triage rather than proving Playwright scope; known unit-test
 framework imports do not establish E2E scope.
 
 **Severity rule:** #4a and #4f are P0 because their predicates are true
-independently of product behavior. #4b–#4e and #4g–#4j are P1: they can fail,
+independently of product behavior. #4b–#4e and #4g–#4k are P1: they can fail,
 but provide weak, non-retrying, or under-specified evidence and therefore create
 timing, diagnostic, selector-rot, or accessibility-contract risk. Do not call a
 one-shot or partial-match assertion "always-passing."
@@ -332,6 +332,44 @@ await expect(page.getByRole('main')).toMatchAriaSnapshot(`
 - **SKIP** named nodes (`- button "Submit order"` or a deliberate regular-expression name) because the snapshot already constrains the accessible name.
 
 **Fix:** include the stable accessible name in the ARIA snapshot, or add a separate web-first `toHaveAccessibleName()` assertion when keeping the snapshot structure-only is clearer. Use `// JUSTIFIED:` only when label independence is part of the test's explicit intent.
+
+<!-- 4k is a bold sub-block, NOT a "#### 4k." header — see the 4g note above (CI Check 3c). -->
+**4k. Assertion loop over an unproven collection** `[grep-detectable + LLM-TRIAGE]` `[P1]` — every assertion lives inside a loop over a collection that was never proven non-empty, so zero matches means zero assertions and the test passes having verified nothing.
+
+Sibling of `#4i`: the root cause is the same unproven locator, moved from an absence assertion into an iteration count. `locator.all()` resolves immediately without waiting or retrying, so a selector that rotted — or a page that had not finished rendering — yields an empty array and the loop body never runs.
+
+```typescript
+// BAD — if .order-row matches nothing, this asserts nothing and still passes.
+for (const row of await page.locator('.order-row').all()) {
+  await expect(row).toContainText('Shipped');
+}
+
+// GOOD — the count is asserted first, so an empty collection fails here
+const rows = page.locator('[data-testid="order-row"]');
+await expect(rows).toHaveCount(3);
+for (const row of await rows.all()) {
+  await expect(row).toContainText('Shipped');
+}
+```
+
+Cypress `.each()` has the same hazard, with one difference: `cy.get()` retries
+until at least one element matches, so a genuinely empty selector fails the
+`cy.get()` itself. The silent shape appears when the chain cannot fail that way
+— `cy.get('body').find('.row').each(...)` after a passing parent, or `.filter()`
+narrowing an already-resolved set to nothing.
+
+**Why it matters:** `expect-expect` and every "test has no assertion" check see the `expect` in the source and pass it, because the assertion is syntactically present. Only its execution count is zero. That is why this survives lint and review alike, and why it belongs with the silent-always-pass family rather than with `#8`.
+
+**Rule:** a loop whose body carries the test's only assertions must be preceded by a count or presence assertion on the same collection. Anchor the finding at the loop header.
+
+**Detection (grep + LLM):** the scanner flags `for (const x of await <locator>.all())` and Cypress `.each(` as `[P1?][LLM-TRIAGE]`, because grep cannot see whether a count assertion precedes it. Phase 2 resolves each hit:
+
+- **SKIP** — a `toHaveCount`, `toHaveLength`, `should('have.length'...)`, or an explicit non-empty check on the same collection appears earlier in the test or its `beforeEach`.
+- **SKIP** — the loop is not carrying the test's verification: it performs setup, collects values for a later assertion, or the test asserts something else that would fail independently.
+- **SKIP** — `// JUSTIFIED:` on the preceding line.
+- **FLAG P1** — the loop body holds the only assertions and nothing constrains the collection size.
+
+**Fix:** assert the expected count first. When the count is genuinely variable, assert `not.toHaveCount(0)` — or collect and assert on the array length — before iterating.
 
 #### 5. Bypass Patterns `[grep-detectable]` (5a P0, 5b P1)
 
@@ -813,9 +851,9 @@ assertion explains why the test is insufficient but is not the causal line.
 
 Weak but not wrong. Address when refactoring or before adopting wider conventions.
 
-#### 11. YAGNI + Zombie Specs `[LLM-only]`
+#### 11. YAGNI + Zombie Specs `[LLM-only; 11c grep-detectable]`
 
-Two sub-patterns: unused code in Page Objects, and zombie spec files.
+Three sub-patterns: unused code in Page Objects, zombie spec files, and skips that record no reason.
 
 **11a. YAGNI in Page Objects and Utility Modules** — POM or utility/helper file
 has locators, methods, or exported functions never referenced by any spec or
@@ -866,6 +904,36 @@ when no documented convention explains them.
 | search-page.ts | (class body empty) | — | REVIEW |
 | basic.spec.ts | (entire file) | covered by full.spec.ts | DELETE |
 ```
+
+**11c. Skip without a reason or an expiry** `[grep-detectable + LLM-TRIAGE]` — a committed `test.skip()` / `test.fixme()` / `it.skip` / `xit` carries no reason comment, reason string, or tracking reference, so nothing records why the coverage was dropped or when it should come back.
+
+A skipped test is a zombie in the same sense as `11b`: it looks like coverage in the file and contributes none. The difference from `#7` is visibility — a leaked `.only` silently disables the rest of the suite, while a skip is counted in every run report. That is why this is P2 maintenance and not a P0 always-pass bug: the signal exists, but nothing forces anyone to act on it, so a quarantine meant to last a sprint outlives the bug it was hiding.
+
+```typescript
+// BAD — no reason, no ticket, no date. Nothing says when this comes back.
+test.skip('checkout applies the promo code', async ({ page }) => { /* … */ });
+
+// GOOD — reasoned skips are intentional and must not be flagged
+// JUSTIFIED: promo service has no sandbox; tracked in PROJ-4821, revisit 2026-Q4
+test.skip('checkout applies the promo code', async ({ page }) => { /* … */ });
+
+// GOOD — a conditional skip whose reason is the condition itself
+test.skip(({ browserName }) => browserName === 'webkit', 'clipboard API unsupported');
+```
+
+**Rule:** every committed skip carries a reason and something that makes it revisitable — a ticket reference, a date, or a condition that will stop being true. Do not flag a skip that has one. This does not weaken the standing guidance elsewhere in this file that recommends `test.skip()` as a fix: those recommendations mean a *reasoned* skip.
+
+**Detection (grep + LLM):** the scanner flags bare `test.skip(` / `test.fixme(` / `it.skip(` / `describe.skip(` / `xit(` / `xdescribe(` as `[P2?][LLM-TRIAGE]`. Grep cannot see a reason that lives on the preceding line or in a second argument, so Phase 2 resolves each hit:
+
+- **SKIP** — a reason string is passed to the call, or a conditional form gates it.
+- **SKIP** — a comment on the preceding line explains why, especially one naming a ticket or a date.
+- **SKIP** — `// JUSTIFIED:` on the preceding line.
+- **FLAG P2** — nothing in the call, the preceding comment, or the test title explains the skip.
+
+**Fix:** add the reason and a revisit anchor, or delete the test. A test nobody can justify keeping skipped is coverage the suite is not providing; deleting it at least makes the gap honest.
+
+**Note:** `eslint-plugin-playwright`'s `no-skipped-test` flags every skip including reasoned ones, so a project that already enables it does not need this check for Playwright. It has no Cypress equivalent, and it cannot distinguish a reasoned skip from an abandoned one.
+
 
 #### 21. Manually-Captured Session-File Dependency `[LLM-only]`
 

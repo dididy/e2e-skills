@@ -10,7 +10,9 @@
   <a href="https://github.com/openai/codex"><img alt="Codex" src="https://img.shields.io/badge/Codex-compatible-412991?style=flat-square&labelColor=black&logo=openai&logoColor=white"></a>
   <a href="https://playwright.dev"><img alt="Playwright | Cypress" src="https://img.shields.io/badge/Playwright_%7C_Cypress-supported-2EAD33?style=flat-square&labelColor=black&logo=playwright&logoColor=white"></a>
   <a href="#merged-upstream-fixes"><img alt="Merged PRs" src="https://img.shields.io/badge/merged_PRs-14-1FC07C?style=flat-square&labelColor=black&logo=github"></a>
-  <a href="https://agents.md"><img alt="Runs in 55+ agents" src="https://img.shields.io/badge/runs_in-55%2B_agents-37B0E6?style=flat-square&labelColor=black"></a>
+  <a href="https://github.com/vercel-labs/skills#supported-agents"><img alt="Runs in 55+ agents" src="https://img.shields.io/badge/runs_in-55%2B_agents-37B0E6?style=flat-square&labelColor=black"></a>
+  <a href="https://www.skills.sh/voidmatcha/e2e-skills"><img alt="Installs on skills.sh" src="https://img.shields.io/badge/skills.sh_installs-500%2B-1FC07C?style=flat-square&labelColor=black"></a>
+  <a href="https://www.kimi.ai/resources/software-testing-skills"><img alt="Listed in Kimi testing skills" src="https://img.shields.io/badge/%F0%9F%8E%89_listed_in-Kimi_testing_skills-8B5CF6?style=flat-square&labelColor=black"></a>
   <a href="./LICENSE"><img alt="License" src="https://img.shields.io/github/license/voidmatcha/e2e-skills?style=flat-square&labelColor=black&color=37B0E6"></a>
 </p>
 
@@ -18,7 +20,9 @@
 <strong>🇺🇸 English</strong> | <a href="README.ko.md">🇰🇷 한국어</a> | <a href="README.ja.md">🇯🇵 日本語</a> | <a href="README.zh-cn.md">🇨🇳 简体中文</a>
 </p>
 
-`e2e-skills` gives AI coding agents four focused workflows for Playwright and Cypress E2E work: generate Playwright coverage, review existing specs or PR/diff-scoped test changes, debug failed Playwright reports, and debug failed Cypress reports. It also includes a deterministic scanner for the mechanically detectable subset of the review catalog.
+`e2e-skills` gives AI coding agents four focused workflows for Playwright and Cypress E2E work: generate Playwright coverage, review existing specs or PR/diff-scoped test changes for false greens, debug failed Playwright reports, and debug failed Cypress reports. It also includes a deterministic scanner for the mechanically detectable subset of the review catalog.
+
+Use `e2e-reviewer` as an independent quality gate for human-written or AI-generated specs: it checks whether a passing test actually proves the behavior named in its title.
 
 | Need | Skill | Result |
 | --- | --- | --- |
@@ -35,6 +39,26 @@ False-green detection is one important part of the review workflow, not the bund
 > In code-server, a committed `it.only` silently disabled eight tests for seven months. One skipped test was already broken while CI remained green.
 
 **Executable example:** [React optimistic-write proof](examples/react-optimistic-write/README.md) shows why optimistic UI needs request and persistence proof, not just visible state.
+
+## How it fits
+
+If you're comparing framework-specific assistants, the split is simple:
+
+| Need | Best fit |
+| --- | --- |
+| Generate Playwright coverage from a plan | [Playwright Test Agents](https://playwright.dev/docs/test-agents) |
+| Author, explain, or tap into Cypress workflows with official docs | [Cypress AI Skills / Cypress AI Toolkit](https://docs.cypress.io/app/tooling/ai-skills) |
+| Review Playwright/Cypress specs for false greens and debug failing reports | `e2e-skills` |
+
+`e2e-skills` complements those official toolkits. It focuses on whether a test actually proves the behavior it names, whether a change introduced a silent pass, and what a failing Playwright or Cypress artifact says happened.
+
+<p align="center">
+  <a href="https://www.kimi.ai/resources/software-testing-skills">
+    <img src="docs/assets/kimi-software-testing-skills.png" alt="Kimi's official website listing e2e-skills in AI Software Testing Skills for Smarter QA Automation" width="100%" />
+  </a>
+  <br />
+  <sub><a href="https://www.kimi.ai/resources/software-testing-skills">Featured on Kimi's official website: “AI Software Testing Skills for Smarter QA Automation”.</a></sub>
+</p>
 
 <a id="merged-upstream-fixes"></a>
 
@@ -226,7 +250,7 @@ Tests pass when the feature is broken. No real verification is happening.
 | 2 | **Missing Then** | Cancel action, verify text restored — but input still visible? | Verify both restored state and dismissed state |
 | 3 | **Error swallowing** | `try/catch` in spec, `.catch(() => {})` in POM | Let errors fail; remove silent catch from POM methods |
 | 3b | **Cypress `uncaught:exception` suppression** | `cy.on('uncaught:exception', () => false)` blanket-swallows app errors | Scope handler to specific known errors; re-throw unknown errors |
-| 4 | **Vacuous or retry-weakening assertion** (P0/P1) | P0: invariant predicates and Locator truthiness. P1: weak attachment proof; one-shot values/URL; zero-timeout retry/deadline hazards; unproven absence; ARIA snapshots that omit a promised accessible name | Use meaningful bounds and web-first auto-retrying assertions; prove presence before absence and keep promised accessible names load-bearing |
+| 4 | **Vacuous or retry-weakening assertion** (P0/P1) | P0: invariant predicates and Locator truthiness. P1: weak attachment proof; one-shot values/URL; zero-timeout retry/deadline hazards; unproven absence; assertion loops over possibly empty collections; ARIA snapshots that omit a promised accessible name | Use meaningful bounds and web-first auto-retrying assertions; prove presence before absence, prove collections non-empty before assertion loops, and keep promised accessible names load-bearing |
 | 5 | **Bypass patterns** (5a P0, 5b P1) | `if (await el.isVisible()) { expect(...) }`; `{ force: true }` without comment | Always assert; move env checks to `beforeEach`; add `// JUSTIFIED:` to force:true |
 | 7 | **Focused test leak** | `test.only(...)` committed — CI runs one test, silently skips the rest | Delete `.only`; use `--grep` or `--spec` for local focus |
 | 8 | **Missing assertion** | Discarded locator/boolean is the scenario's only verification | Add `await expect(locator).toBeVisible()`; skip #8 when independent verification/failure evidence already exists |
@@ -257,7 +281,7 @@ Weak but not wrong — addressed when refactoring.
 
 | # | Pattern | Before | After |
 |---|---------|--------|-------|
-| 11 | **YAGNI + Zombie Specs** | `clickEdit()` never called; unjustified empty wrapper class; entire spec duplicated by another | Delete unused members and zombie specs; inline single-use helpers only when that clearly removes meaningless indirection |
+| 11 | **YAGNI + Zombie Specs** | `clickEdit()` never called; unjustified empty wrapper class; entire spec duplicated by another; skip with no reason or revisit anchor | Delete unused members and zombie specs; justify and time-bound remaining skips; inline single-use helpers only when that clearly removes meaningless indirection |
 | 21 | **Manually-captured session-file dependency** | `storageState: 'auth/member.json'` produced only by a manual capture script — absent on CI, silently expires | Regenerate session programmatically (API-login helper or `setup` project); manual files only as a cache with a programmatic fallback |
 | 23 | **Fixture ignores render guards** | Liked-tab fixture seeds `liked: false`; the card component `return null`s every item — empty UI looks like infra flake | Read the item component's early returns/filters before seeding; seed fields to pass every guard for the view under test |
 
@@ -282,6 +306,8 @@ Both debuggers use the same stable F1–F15 root-cause taxonomy. Playwright acce
 | F13 | **Error Swallowing** | `.catch(() => {})` hiding actual failure |
 | F14 | **Animation Race** | Content not yet rendered, or a transient element removed before it is observed |
 | F15 | **Hydration Race** | Action succeeds but has no effect — SSR page not yet hydrated; fails at the next assertion |
+
+F11 and F12 use unified cross-framework names here. Each debugger reports its framework-specific label for the same stable code.
 
 
 The debuggers classify product regressions separately from brittle tests and return evidence plus a concrete fix. They do not diagnose an application or backend without a failing Playwright or Cypress test artifact.
@@ -334,9 +360,9 @@ Point `e2e-reviewer` at the relevant spec directory. It combines deterministic c
 
 No. Run the application and its real E2E suite after every change. This bundle reviews test quality, generates Playwright coverage, and diagnoses existing failures; it is not a test runner.
 
-### How do I review AI-generated E2E tests?
+### How do I review AI-generated Playwright or Cypress tests before merge?
 
-Point `e2e-reviewer` at the generated specs before merge. It checks whether each test proves its stated user-visible outcome, then separates deterministic scanner candidates from context-dependent findings.
+Point `e2e-reviewer` at the generated specs before merge. It checks whether each test proves its stated user-visible outcome, catches false-green risk, and separates deterministic scanner candidates from context-dependent findings.
 
 ### Does it support Cypress as well as Playwright?
 
@@ -352,6 +378,7 @@ Claude Code, Codex, and the 55+ hosts supported by the `skills` CLI can load the
 
 ## Detailed documentation
 
+- [How to review AI-generated Playwright and Cypress E2E tests](docs/review-ai-generated-e2e-tests.md)
 - [24 Playwright and Cypress E2E test smells](docs/e2e-test-smells.md)
 - [Self-audit of the rules](docs/rule-self-audit.md)
 - [Open-source case studies](docs/case-studies.md)

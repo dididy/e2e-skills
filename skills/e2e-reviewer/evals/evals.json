@@ -646,6 +646,36 @@
         "Does not invent E2E findings or top priorities when there are no changed in-scope E2E artifacts",
         "Includes a Review Scope and Evidence header"
       ]
+    },
+    {
+      "id": 37,
+      "prompt": "Review the Playwright E2E tests in evals/files/assertion-loop.spec.ts. Find any anti-patterns, weak assertions, or quality issues.",
+      "expected_output": "Should detect exactly one #4k assertion loop over an unproven collection (P1): line 7, where the test's only assertions live inside a loop over '.order-row' and no count or presence assertion constrains the collection, so zero matches asserts nothing and the test still passes. The scanner tags all four loops [LLM-TRIAGE]; Phase 2 must skip the other three — the loop preceded by toHaveCount(3) (line 16), the loop that only collects labels for a later assertion (line 24), and the loop that performs clicks while the real assertion follows it (line 32). Reporting any of those three is a false positive.",
+      "files": [
+        "evals/files/assertion-loop.spec.ts"
+      ],
+      "assertions": [
+        "Detects the unproven assertion loop on line 7 as #4k (P1) — report it as a loop whose body holds the test's only assertions with nothing constraining the collection size, so an empty match verifies nothing.",
+        "Does NOT flag line 16: 'await expect(rows).toHaveCount(3)' precedes the loop, so an empty collection fails before the body is reached. Reporting it is a false positive.",
+        "Does NOT flag line 24: the loop only collects text into 'labels'; the verification is the expect after the loop, which fails independently. Reporting it is a false positive.",
+        "Does NOT flag line 32: the loop performs clicks and the test's assertion follows it. Reporting it is a false positive.",
+        "Does not claim ESLint covers this: expect-expect sees the expect inside the loop body and passes it, because only the execution count is zero."
+      ]
+    },
+    {
+      "id": 38,
+      "prompt": "Review the Playwright E2E tests in evals/files/reasonless-skip.spec.ts. Find any anti-patterns, weak assertions, or quality issues.",
+      "expected_output": "Should detect exactly one #11c skip without a reason or an expiry (P2): line 3, where test.skip carries no reason string, no preceding explanation, and no ticket or date, so nothing records why the coverage was dropped or when it returns. The scanner tags the bare skips [LLM-TRIAGE]; Phase 2 must skip the other two — the skip on line 9 explained by the preceding PROJ-4821 comment with a revisit date, and the conditional skip on line 14 whose reason is its own condition plus the 'clipboard API unsupported' string. Reporting either is a false positive.",
+      "files": [
+        "evals/files/reasonless-skip.spec.ts"
+      ],
+      "assertions": [
+        "Detects the bare skip on line 3 as #11c (P2) — report it as a skip that records neither a reason nor a revisit anchor.",
+        "Does NOT flag line 9: the preceding comment names the blocking service, a ticket (PROJ-4821), and a revisit quarter. Reporting it is a false positive.",
+        "Does NOT flag line 14: the conditional form gates the skip on browserName and passes 'clipboard API unsupported' as its reason. Reporting it is a false positive.",
+        "Does not recommend removing reasoned skips — this skill recommends test.skip() with a reason as the fix for other patterns, and #11c targets only skips that explain nothing.",
+        "Reports it as P2 maintenance, not P0: a skip is counted in every run report, so it is visible coverage loss rather than a silent always-pass bug."
+      ]
     }
   ]
 }

@@ -10,7 +10,9 @@
   <a href="https://github.com/openai/codex"><img alt="Codex" src="https://img.shields.io/badge/Codex-compatible-412991?style=flat-square&labelColor=black&logo=openai&logoColor=white"></a>
   <a href="https://playwright.dev"><img alt="Playwright | Cypress" src="https://img.shields.io/badge/Playwright_%7C_Cypress-supported-2EAD33?style=flat-square&labelColor=black&logo=playwright&logoColor=white"></a>
   <a href="#merged-upstream-fixes"><img alt="Merged PRs" src="https://img.shields.io/badge/merged_PRs-14-1FC07C?style=flat-square&labelColor=black&logo=github"></a>
-  <a href="https://agents.md"><img alt="Runs in 55+ agents" src="https://img.shields.io/badge/runs_in-55%2B_agents-37B0E6?style=flat-square&labelColor=black"></a>
+  <a href="https://github.com/vercel-labs/skills#supported-agents"><img alt="Runs in 55+ agents" src="https://img.shields.io/badge/runs_in-55%2B_agents-37B0E6?style=flat-square&labelColor=black"></a>
+  <a href="https://www.skills.sh/voidmatcha/e2e-skills"><img alt="Installs on skills.sh" src="https://img.shields.io/badge/skills.sh_installs-500%2B-1FC07C?style=flat-square&labelColor=black"></a>
+  <a href="https://www.kimi.ai/resources/software-testing-skills"><img alt="Listed in Kimi testing skills" src="https://img.shields.io/badge/%F0%9F%8E%89_listed_in-Kimi_testing_skills-8B5CF6?style=flat-square&labelColor=black"></a>
   <a href="./LICENSE"><img alt="License" src="https://img.shields.io/github/license/voidmatcha/e2e-skills?style=flat-square&labelColor=black&color=37B0E6"></a>
 </p>
 
@@ -18,9 +20,11 @@
 <a href="README.md">🇺🇸 English</a> | <strong>🇰🇷 한국어</strong> | <a href="README.ja.md">🇯🇵 日本語</a> | <a href="README.zh-cn.md">🇨🇳 简体中文</a>
 </p>
 
-<!-- README-CANONICAL-REVISION: sha256=39c8ee0a192f21cfa900a17c837657fa31267cf4fa4c0e11f99363f300c34430; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
+<!-- README-CANONICAL-REVISION: sha256=cc753242cd6de7e74646d533e267dafebcbc0081ea27d501a33f50c5fa05d8ee; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
 
 `e2e-skills`는 AI 코딩 에이전트가 Playwright와 Cypress E2E 테스트를 생성·검토하고 실패 원인을 분석할 때 쓰는 네 가지 Agent Skills 모음입니다. 새 테스트 생성은 Playwright를 지원하고, 기존 테스트나 PR/diff 범위의 변경 검토와 실패 분석은 Playwright와 Cypress를 지원합니다. 검토 목록 가운데 규칙만으로 판별할 수 있는 항목을 찾는 `deterministic scanner`도 포함합니다.
+
+`e2e-reviewer`는 사람이나 AI가 작성한 테스트를 검토하는 독립적인 품질 게이트입니다. 통과한 테스트가 제목에 명시된 동작을 실제로 입증하는지 확인합니다.
 
 | 필요 | 스킬 | 결과 |
 | --- | --- | --- |
@@ -30,13 +34,33 @@
 | 실패한 Cypress 실행 분석 | `cypress-debugger` | F1–F15 근본 원인, 근거, 수정안 |
 | `deterministic local scan` | `skills/e2e-reviewer/scripts/scan.sh` | 대상 프로젝트의 패키지 없이 규칙으로 찾은 후보 |
 
-생성기는 테스트가 부족한 영역을 분석하고 실제 브라우저로 탐색한 뒤, 시나리오 승인을 받아 테스트를 생성하고 각 후보를 검증합니다. `playwright-debugger`와 `cypress-debugger`는 실패한 실행 산출물에서 시작해 분류된 근본 원인과 근거, 구체적인 수정안을 제시합니다.
+생성기는 테스트가 부족한 영역을 분석하고 실제 브라우저에서 대상 흐름을 탐색합니다. 시나리오가 승인되면 테스트를 생성하고 각 후보를 검증합니다. `playwright-debugger`와 `cypress-debugger`는 실패한 실행 산출물을 바탕으로 근본 원인을 분류하고, 판단 근거와 구체적인 수정안을 제시합니다.
 
 false-green 탐지는 테스트 검토 기능의 중요한 부분이지만, 이 프로젝트의 전부는 아닙니다. `e2e-reviewer`가 찾은 문제를 고친 PR 14건이 Storybook, SvelteKit, code-server, Strapi, Carbon Design System, Ghost, MUI X를 비롯한 [업스트림 프로젝트에 병합되었습니다](#merged-upstream-fixes).
 
 > code-server에서는 저장소에 들어간 `it.only` 하나 때문에 CI가 7개월 동안 테스트 8개를 조용히 건너뛰었습니다. 건너뛴 테스트 중 하나는 실행하면 실패하는 상태였지만 CI는 계속 통과했습니다.
 
-**실행 예제:** [React optimistic-write 검증 예제](examples/react-optimistic-write/README.md)에서는 화면 변화만으로 서버 요청과 저장까지 증명할 수 없는 이유를 보여줍니다.
+**실행 예제:** [React optimistic-write 검증](examples/react-optimistic-write/README.md)에서는 화면 변화만으로 서버 요청과 저장까지 증명할 수 없는 이유를 보여줍니다.
+
+## 역할 분담
+
+프레임워크별 도우미는 다음처럼 역할이 나뉩니다.
+
+| 필요 | 가장 잘 맞는 선택 |
+| --- | --- |
+| 계획에서 Playwright 커버리지를 생성 | [Playwright Test Agents](https://playwright.dev/docs/test-agents) |
+| 공식 문서를 바탕으로 Cypress 워크플로 작성·설명·활용 | [Cypress AI Skills / Cypress AI Toolkit](https://docs.cypress.io/app/tooling/ai-skills) |
+| false-green 검토와 실패 보고서 디버깅 | `e2e-skills` |
+
+`e2e-skills`는 이러한 공식 툴킷을 보완합니다. 테스트가 이름에 명시된 동작을 실제로 입증하는지, 변경으로 인해 실패해야 할 테스트가 통과하게 됐는지, 실패한 Playwright/Cypress 실행 산출물에서 무엇을 확인할 수 있는지에 초점을 맞춥니다.
+
+<p align="center">
+  <a href="https://www.kimi.ai/ko/resources/software-testing-skills">
+    <img src="docs/assets/kimi-software-testing-skills.png" alt="Kimi 공식 사이트의 AI 소프트웨어 테스트 스킬 가이드에 소개된 e2e-skills" width="100%" />
+  </a>
+  <br />
+  <sub><a href="https://www.kimi.ai/ko/resources/software-testing-skills">Kimi 공식 사이트의 “더 스마트한 QA 자동화를 위한 AI 소프트웨어 테스트 스킬”에 소개되었습니다.</a></sub>
+</p>
 
 <a id="merged-upstream-fixes"></a>
 
@@ -63,7 +87,7 @@ false-green 탐지는 테스트 검토 기능의 중요한 부분이지만, 이 
 
 ## false-green 테스트 살펴보기
 
-**false-green** 테스트는 이름에 적힌 동작이 되든 안 되든 통과합니다. 불안정한(flaky) 테스트와는 다릅니다. 불안정한 테스트는 가끔 실패하므로 재시도 대시보드나 flake 분석이 결국 잡아냅니다. false-green 테스트는 **검증 대상 기능이 의도대로 동작하지 않아도 실패하지 않으므로**, 통과·실패 상태만 감시해서는 드러나지 않습니다.
+**false-green** 테스트는 이름에 적힌 동작이 실제로 작동하는지와 관계없이 통과합니다. 불안정한(flaky) 테스트는 가끔 실패하므로 재시도 대시보드나 flake 분석에서 결국 포착됩니다. 반면 false-green 테스트는 **제품에 문제가 있어도 실패하지 않기 때문에**, 통과·실패 상태만 감시해서는 드러나지 않습니다.
 
 이 Playwright 테스트는 그럴듯해 보이지만 `Locator` 객체가 생성됐다는 사실만 증명합니다.
 
@@ -98,11 +122,13 @@ Summary: 2 total hit(s), 2 P0
 
 이 실행은 P0 문제를 보고하므로 `scan.sh`는 exit 1로 종료됩니다.
 
-`eslint-plugin-playwright`도 `no-unnecessary-assertions`로 이 형태를 찾습니다. 커밋 시점의 `lint`가 잡을 수 있는 문제를 맡고, 나머지는 스캐너가 보완하도록 규칙을 켜 두세요.
+`eslint-plugin-playwright`도 `no-unnecessary-assertions` 규칙으로 이 형태를 찾습니다. 커밋 시점의 `lint`가 잡을 수 있는 문제는 이 규칙에 맡기고, 나머지는 스캐너로 보완하세요.
 
 ## 테스트가 실패할 수 있음을 증명하기
 
-좋은 matcher만으로는 부족합니다. 동작이 깨졌을 때 테스트가 실제로 실패해야 합니다. 후보마다 V2는 핵심 검증문을 뒤집고, V3는 승인된 임시 복사본에 근거가 확인된 제품 결함을 주입한 뒤 미리 지정한 위치와 불일치로 실패할 것을 요구합니다. 원본은 바이트 단위로 유지하며 제한 시간, 브라우저 충돌, 설정 오류는 인정하지 않고 안전하지 않은 검증은 `CANNOT_VERIFY`로 보고합니다.
+좋은 matcher만으로는 부족합니다. 동작이 깨지면 테스트가 실제로 실패해야 합니다. V2는 각 후보의 핵심 검증문을 뒤집습니다. V3는 승인된 임시 복사본에 근거가 확인된 제품 결함을 주입하고, 테스트가 미리 지정한 위치에서 예상한 불일치로 실패하는지 확인합니다.
+
+이때 원본은 바이트 단위로 그대로 유지합니다. 제한 시간 초과, 브라우저 충돌, 설정 오류로 인한 실패는 인정하지 않으며, 안전하게 검증할 수 없는 경우에는 `CANNOT_VERIFY`로 보고합니다.
 
 ## 설치하고 사용해 보기
 
@@ -129,9 +155,16 @@ npx --yes skills@1.5.21 add voidmatcha/e2e-skills --skill '*' -g -a claude-code
 npx --yes skills@1.5.21 add voidmatcha/e2e-skills --skill '*' -g -a codex
 ```
 
-Codex에서는 `e2e-reviewer`, `playwright-debugger`, `cypress-debugger` 작업을 전용 role에 맡기거나 동등한 inline fallback을 사용할 수 있습니다. `playwright-test-generator`에는 더 엄격한 V6 경계가 적용됩니다. 새 문맥에서 검토할 별도 리뷰어가 없으면 `CANNOT_VERIFY`와 `PARTIAL/BLOCKED`를 보고합니다.
+Codex에서는 `e2e-reviewer`, `playwright-debugger`, `cypress-debugger` 작업을 전용 에이전트에 맡기거나 현재 세션에서 같은 절차를 직접 수행할 수 있습니다. `playwright-test-generator`에는 더 엄격한 V6 경계가 적용됩니다. 새 문맥에서 검토할 별도 리뷰어가 없으면 `CANNOT_VERIFY`와 `PARTIAL/BLOCKED`를 보고합니다.
 
-여기서 말하는 전용 role은 선택적 서브에이전트 `e2e-finding-verifier`와 `e2e-failure-classifier`이며, **Codex는 이 둘을 플러그인으로 설치할 수 없습니다.** Codex 플러그인 매니페스트에는 agents 필드가 없고 agent role은 config 레이어에서만 로드되므로, `codex plugin add`도 `skills` CLI도 이 둘을 등록하지 않습니다. 지원되는 경로는 두 가지입니다. `bash scripts/dev/install-codex-agents.sh`를 실행해 `~/.codex/agents/`에 전역 설치하거나, 이 저장소의 체크아웃에서 작업하면 Codex 세션이 별도 설치 없이 `.codex/agents/`를 인식합니다. 둘 다 건너뛰어도 괜찮습니다. inline fallback이 동작합니다. 패키징 경계는 [AGENTS.md](AGENTS.md)에서 확인할 수 있습니다.
+여기서 전용 에이전트는 선택적 서브에이전트인 `e2e-finding-verifier`와 `e2e-failure-classifier`입니다. **Codex는 이 둘을 플러그인으로 설치할 수 없습니다.** Codex 플러그인 매니페스트에는 agents 필드가 없고 에이전트 역할은 config 레이어에서만 불러오므로, `codex plugin add`와 `skills` CLI 모두 이 둘을 등록하지 않습니다.
+
+지원되는 설치 방법은 두 가지입니다.
+
+- `bash scripts/dev/install-codex-agents.sh`를 실행해 두 에이전트를 `~/.codex/agents/`에 전역 설치합니다.
+- 이 저장소의 체크아웃에서 작업합니다. Codex 세션이 별도 설치 없이 `.codex/agents/`를 인식합니다.
+
+두 방법을 모두 건너뛰어도 현재 세션에서 같은 절차를 직접 수행할 수 있습니다. 패키징 경계는 [AGENTS.md](AGENTS.md)에서 확인할 수 있습니다.
 
 Codex 플러그인 마켓플레이스를 쓰는 다른 설치 경로:
 
@@ -182,15 +215,15 @@ Debug the failed Cypress report in cypress/reports/.
 
 ## 범위와 한계
 
-새 E2E 테스트를 만들거나 기존 테스트를 검토하고, 실패한 Playwright/Cypress 실행의 원인을 분석할 때 이 스킬 묶음을 사용하세요. 실제 애플리케이션과 E2E 테스트 모음에 더해 사용하는 도구이지, 이를 대신하지는 않습니다. 일반적인 `lint` preset이나 프레임워크에 상관없이 쓰는 테스트 도구도 아닙니다. Playwright와 Cypress를 지원하되, 새 테스트 생성은 현재 Playwright만 지원합니다.
+새 E2E 테스트를 만들거나 기존 테스트를 검토하고, 실패한 Playwright/Cypress 실행의 원인을 분석할 때 이 스킬 묶음을 사용하세요. 이 도구는 실제 애플리케이션과 E2E 테스트 모음을 보완하며, 이를 대신하지 않습니다. 범용 `lint` preset이나 프레임워크에 구애받지 않는 테스트 도구도 아닙니다. Playwright와 Cypress를 지원하되, 새 테스트 생성은 현재 Playwright만 지원합니다.
 
 함께 제공되는 셸 스크립트와 artifact reader는 macOS/Linux 셸을 대상으로 합니다. Windows 사용자는 WSL에서 실행하고 scan/report artifact를 WSL filesystem 안에 두어야 합니다.
 
-새로 만든 테스트가 통과한다고 해서 충분한 것은 아닙니다. `Locator`나 `Promise` 자체를 검증하거나, 테스트 이름에 적힌 동작과 무관한 상태를 확인하거나, 핵심 검증문이 실패 여부를 좌우하지 않을 수 있습니다. 그래서 생성기는 적용 가능한 [V1–V6 검증](skills/playwright-test-generator/verification-rules.md)을 모두 통과하기 전까지 새 테스트를 후보로 취급합니다.
+새로 만든 테스트가 통과하는 것만으로는 충분하지 않습니다. `Locator`나 `Promise` 자체를 검증하거나, 테스트 이름에 적힌 동작과 무관한 상태를 확인하거나, 핵심 검증문이 테스트 결과에 영향을 주지 않을 수도 있습니다. 그래서 생성기는 적용 가능한 [V1–V6 검증](skills/playwright-test-generator/verification-rules.md)을 모두 통과하기 전까지 새 테스트를 후보로 취급합니다.
 
 ## 검토 방식
 
-실행 가능한 테스트 코드를 만드는 것과 제품에 문제가 생겼을 때 제대로 실패하는 테스트를 만드는 것은 별개의 일입니다. 이 절차는 규칙 기반 검사와 코드의 의도를 읽는 판단을 분리합니다.
+실행 가능한 테스트 코드를 만드는 것과 제품에 문제가 생겼을 때 제대로 실패하는 테스트를 만드는 것은 별개의 일입니다. 이 절차는 규칙으로 찾을 수 있는 문제와 문맥을 읽어 판단해야 하는 문제를 구분합니다.
 
 1. 스캐너는 Locator의 참·거짓 판정, focused test, 누락된 `await`, 모든 오류를 무시하는 처리처럼 규칙만으로 판별할 수 있는 후보를 찾습니다.
 2. `e2e-reviewer`는 문제를 확정하기 전에 테스트 이름, 동작, 검증문, 헬퍼, Page Object, fixture, 설정을 읽습니다.
@@ -214,7 +247,7 @@ Debug the failed Cypress report in cypress/reports/.
 
 목록에는 ID가 안정적으로 유지되는 Playwright/Cypress `test smell` 24개가 들어 있습니다. 대표적인 허위 통과 유형으로는 Locator의 참·거짓 판정, 검증문 누락, 오류 무시, focused test, 인증 누락, 네트워크 호출을 입증하지 않는 `optimistic UI` 검증이 있습니다. [전체 분류와 근거](docs/e2e-test-smells.md)를 참고하세요.
 
-일부 패턴은 테스트뿐 아니라 애플리케이션도 검토 범위에 있어야 확인할 수 있습니다. `#22`의 `optimistic UI`가 가장 분명한 예입니다. 클릭이 실제로 쓰기 요청을 보내는지는 spec만으로 결정할 수 없으므로, 테스트만 있는 저장소에서는 추측해서 문제를 보고하지 않습니다. 오탐을 줄이기 위한 의도적인 제한이며, 실행 가능한 예제를 컴포넌트와 함께 제공하는 이유이기도 합니다.
+일부 패턴은 테스트뿐 아니라 애플리케이션까지 검토해야 판단할 수 있습니다. `#22`의 `optimistic UI`가 대표적인 예입니다. 클릭으로 쓰기 요청이 실제 전송되는지는 spec만 보고 판단할 수 없습니다. 따라서 테스트만 있는 저장소에서는 추측으로 문제를 보고하지 않습니다. 오탐을 줄이기 위한 의도적인 제한이며, 실행 가능한 예제를 컴포넌트와 함께 제공하는 이유이기도 합니다.
 
 ### 24개 패턴: 심각도별 분류
 
@@ -228,7 +261,7 @@ Debug the failed Cypress report in cypress/reports/.
 | 2 | **Then 누락** | 취소한 뒤 텍스트 복원만 확인하고 입력란이 사라졌는지는 확인하지 않음 | 복원된 상태와 입력란이 닫힌 상태를 모두 검증 |
 | 3 | **오류 무시** | 테스트의 `try/catch`, POM의 `.catch(() => {})` | 오류가 테스트 실패로 이어지게 하고 POM 메서드에서 실패를 숨기는 catch 제거 |
 | 3b | **Cypress `uncaught:exception` 억제** | `cy.on('uncaught:exception', () => false)`가 모든 애플리케이션 오류를 무시 | 이미 알려진 특정 오류에만 핸들러를 적용하고 알 수 없는 오류는 다시 throw |
-| 4 | **무의미하거나 재시도를 약화하는 검증문** (P0/P1) | P0: 항상 같은 결과를 내는 조건식과 Locator의 참·거짓 판정. P1: 약한 DOM 연결 확인, 한 번만 읽은 값/URL, 제한 시간 0으로 인한 재시도·마감 위험, 사전 입증 없는 요소 부재, 약속한 접근성 이름이 빠진 ARIA 스냅샷 | 의미 있는 범위와 자동 재시도를 지원하는 web-first 검증문 사용. 부재를 확인하기 전에 존재를 입증하고, 약속한 접근성 이름을 핵심 검증 조건으로 유지 |
+| 4 | **무의미하거나 재시도를 약화하는 검증문** (P0/P1) | P0: 항상 같은 결과를 내는 조건식과 Locator의 참·거짓 판정. P1: 약한 DOM 연결 확인, 한 번만 읽은 값/URL, 제한 시간 0으로 인한 재시도·마감 위험, 사전 입증 없는 요소 부재, 비어 있을 수 있는 컬렉션을 도는 검증문, 약속한 접근성 이름이 빠진 ARIA 스냅샷 | 의미 있는 범위와 자동 재시도를 지원하는 web-first 검증문 사용. 부재를 확인하기 전에 존재를 입증하고, 반복문을 실행하기 전에 컬렉션이 비어 있지 않은지 확인하며, 약속한 접근성 이름을 핵심 검증 조건으로 유지 |
 | 5 | **우회 패턴** (5a P0, 5b P1) | `if (await el.isVisible()) { expect(...) }`, 근거 주석 없는 `{ force: true }` | 조건 없이 항상 검증. 환경 확인은 `beforeEach`로 이동하고 `force: true`에는 `// JUSTIFIED:` 추가 |
 | 7 | **Focused test 유출** | `test.only(...)`가 커밋되어 CI가 테스트 하나만 실행하고 나머지는 조용히 건너뜀 | `.only` 삭제. 로컬에서 일부만 실행할 때는 `--grep` 또는 `--spec` 사용 |
 | 8 | **검증문 누락** | 사용하지 않는 locator/boolean이 시나리오의 유일한 검증 | `await expect(locator).toBeVisible()` 추가. 별도의 검증이나 실패 근거가 이미 있으면 #8 제외 |
@@ -259,7 +292,7 @@ Debug the failed Cypress report in cypress/reports/.
 
 | # | 패턴 | 수정 전 | 수정 후 |
 |---|---------|--------|-------|
-| 11 | **YAGNI와 좀비 테스트** | 호출되지 않는 `clickEdit()`, 근거 없이 비어 있는 wrapper class, 다른 테스트와 완전히 중복되는 테스트 | 사용하지 않는 멤버와 좀비 테스트 삭제. 의미 없는 간접 계층을 분명히 줄일 수 있을 때만 한 번 쓰는 헬퍼를 인라인화 |
+| 11 | **YAGNI와 좀비 테스트** | 호출되지 않는 `clickEdit()`, 근거 없이 비어 있는 wrapper class, 다른 테스트와 완전히 중복되는 테스트, 이유나 재검토 기준이 없는 skip | 사용하지 않는 멤버와 좀비 테스트 삭제. 남겨 두는 skip에는 이유와 기한을 명시하고, 의미 없는 간접 계층을 분명히 줄일 수 있을 때만 한 번 쓰는 헬퍼를 인라인화 |
 | 21 | **수동으로 캡처한 세션 파일 의존성** | 수동 캡처 스크립트로만 만드는 `storageState: 'auth/member.json'`이 CI에는 없고 예고 없이 만료 | API 로그인 헬퍼 또는 `setup` 프로젝트로 세션을 자동 생성. 수동 파일은 자동 생성 대체 경로가 있는 캐시로만 사용 |
 | 23 | **렌더링 가드를 무시하는 fixture** | liked 탭의 fixture가 `liked: false`를 넣어 카드 컴포넌트가 모든 항목에서 `return null`을 실행. 빈 UI가 인프라 불안정처럼 보임 | 데이터를 넣기 전에 항목 컴포넌트의 조기 반환과 필터를 읽고, 테스트할 화면의 모든 가드를 통과하도록 필드 설정 |
 
@@ -285,6 +318,8 @@ Debug the failed Cypress report in cypress/reports/.
 | F14 | **애니메이션 경합** | 콘텐츠가 아직 렌더링되지 않았거나 일시적인 요소가 관찰 전에 사라짐 |
 | F15 | **Hydration 경합** | 동작은 성공하지만 효과가 없음. SSR 페이지의 hydration이 끝나기 전에 다음 검증문이 실행되어 실패 |
 
+여기서는 F11과 F12에 프레임워크 공통 이름을 사용합니다. 각 `debugger`는 같은 고정 코드에 해당하는 프레임워크별 이름을 보고합니다.
+
 
 두 `debugger` 스킬은 제품 회귀와 깨지기 쉬운 테스트를 구분해 분류하고, 근거와 구체적인 수정안을 제시합니다. 실패한 Playwright 또는 Cypress 테스트 산출물이 없으면 애플리케이션이나 백엔드를 진단하지 않습니다.
 
@@ -296,11 +331,15 @@ Debug the failed Cypress report in cypress/reports/.
 /bin/bash -p skills/e2e-reviewer/scripts/scan.sh path/to/tests
 ```
 
-스캐너에는 PCRE2를 지원하는 `rg`와 Python 3가 필요합니다. Python이 NUL-safe 후보 식별 레코드를 생성하고 검증하므로 후보 드리프트나 손상된 레코드는 fail-closed로 처리됩니다. 이 필수 기록 작업은 선택적인 Tier 2 AST 도구와 별개입니다. 기본적으로 대상 프로젝트가 제어하는 ESLint 실행 파일, 플러그인, 파서, 설정을 실행하지 않으며 도구도 내려받지 않습니다. `E2E_SMELL_ALLOW_PROJECT_ESLINT=1`은 신뢰하는 체크아웃에서 프로젝트 ESLint 실행을 명시적으로 켭니다. `E2E_SMELL_NO_ESLINT_DOWNLOAD=0`과 `E2E_SMELL_NO_AST_GREP_DOWNLOAD=0`은 각각 고정 버전 다운로드를 명시적으로 켭니다. 이식성 확인에서 미리 설치된 호스트 실행 파일을 무시해야 할 때는 `E2E_SMELL_DISABLE_AST_GREP=1`을 설정합니다.
+스캐너에는 PCRE2를 지원하는 `rg`와 Python 3가 필요합니다. Python은 NUL-safe 후보 식별 레코드를 생성하고 검증합니다. 따라서 후보 드리프트나 손상된 레코드는 fail-closed로 처리됩니다. 이 필수 기록 작업은 선택적인 Tier 2 AST 도구와 별개입니다.
+
+기본적으로 대상 프로젝트가 제어하는 ESLint 실행 파일, 플러그인, 파서, 설정을 실행하지 않으며 도구도 내려받지 않습니다. 신뢰하는 체크아웃에서 프로젝트 ESLint를 실행하려면 `E2E_SMELL_ALLOW_PROJECT_ESLINT=1`을 설정합니다. 고정 버전 도구 다운로드는 `E2E_SMELL_NO_ESLINT_DOWNLOAD=0`과 `E2E_SMELL_NO_AST_GREP_DOWNLOAD=0`으로 각각 명시적으로 허용합니다.
+
+이식성을 확인할 때 미리 설치된 호스트 실행 파일을 무시하려면 `E2E_SMELL_DISABLE_AST_GREP=1`을 설정합니다.
 
 > **읽기 범위.**
 > <!-- README-I18N-CONTRACT:SCANNER-READ-SCOPE:START -->
-> 공통 소스 범위는 요청한 path 아래입니다. 번들 lexical filter를 포함한 포함 검사는 그 소스를 보고합니다. 프레임워크 출처 확인은 포함 프로젝트의 다른 위치에 있는 relative fixture/support import도 읽을 수 있습니다.
+> 번들 검사는 요청한 path 아래의 소스를 보고합니다. 프레임워크 출처 확인은 포함 프로젝트의 다른 위치에 있는 relative fixture/support import도 읽을 수 있습니다.
 > <!-- README-I18N-CONTRACT:SCANNER-READ-SCOPE:END -->
 
 <!-- README-CONTRACT:SCANNER-EXTENSIONS:START -->
@@ -311,7 +350,7 @@ Tier 3는 기본으로 제공되는 대체 경로입니다. 선택적으로 사�
 
 ## ESLint 플러그인과의 차이
 
-`eslint-plugin-playwright`와 `eslint-plugin-cypress`는 커밋할 때마다 구문 규칙을 확인하기에 좋은 출발점입니다. `e2e-skills`는 여기에 두 가지 계층을 더합니다.
+`eslint-plugin-playwright`와 `eslint-plugin-cypress`는 커밋마다 적용하기 좋은 구문 규칙 기준선입니다. `e2e-skills`는 여기에 두 가지 계층을 더합니다.
 
 - 사용자가 명시적으로 허용하지 않는 한 대상 프로젝트의 `lint` 도구를 실행하지 않는 안전한 기본 설정의 스캐너
 - 테스트 의도나 여러 파일의 관계를 확인해야 하는 문제를 위한 의미 검토
@@ -323,9 +362,9 @@ Tier 3는 기본으로 제공되는 대체 경로입니다. 선택적으로 사�
 ### 통과하지만 아무것도 테스트하지 않는 Playwright 또는 Cypress 테스트를 어떻게 찾나요?
 
 <!-- README-I18N-CONTRACT:CORE-SAFETY:START -->
-`e2e-reviewer`는 안정적인 ID와 P0/P1/P2 심각도가 있는 목록 패턴 24개를 모두 검토합니다. 독립 실행 `scan.sh` 스캐너는 규칙만으로 판별할 수 있는 일부 항목만 다룹니다. 스캐너 결과는 검토 후보일 뿐 확정된 문제가 아닙니다. 이 스킬은 판정을 내리기 전에 테스트 의도와 주변 코드를 확인합니다.
+`e2e-reviewer`는 목록에 있는 패턴 24개를 모두 검토합니다. 각 패턴에는 고정 ID와 P0/P1/P2 심각도가 지정돼 있습니다. 독립 실행 `scan.sh` 스캐너는 규칙만으로 판별할 수 있는 일부 항목만 다룹니다. 스캐너 결과는 검토 후보일 뿐 확정된 문제가 아닙니다. 이 스킬은 판정을 내리기 전에 테스트 의도와 주변 코드를 확인합니다.
 
-두 `debugger` 스킬은 안정적인 F1–F15 분류에 맞춰 실패를 분류합니다. 이 스킬들과 생성기는 저장소를 신뢰하고 환경 변수와 플래그를 포함한 정확한 명령을 승인한 뒤에만 대상 프로젝트가 제어하는 코드를 실행합니다.
+두 `debugger` 스킬은 고정된 F1–F15 분류 체계에 따라 실패를 분류합니다. 이 스킬들과 생성기는 저장소를 신뢰하고 환경 변수와 플래그를 포함한 정확한 명령을 승인한 뒤에만 대상 프로젝트가 제어하는 코드를 실행합니다.
 
 비공개 벤치마크 실행에서는 `--isolation-wrapper`가 필수 훅이지만, 그 자체로 실제 격리를 보장하지는 않습니다. 지속적 통합(CI)은 래퍼 계약을 검증하지만 파일시스템, 프로세스, 네트워크 격리를 입증하지는 않습니다.
 <!-- README-I18N-CONTRACT:CORE-SAFETY:END -->
@@ -336,13 +375,13 @@ Tier 3는 기본으로 제공되는 대체 경로입니다. 선택적으로 사�
 
 아니요. 변경할 때마다 애플리케이션과 실제 E2E 테스트 모음을 실행하세요. 이 스킬 묶음은 테스트 품질을 검토하고, Playwright 테스트를 작성하며, 기존 실패를 진단합니다. 테스트 실행기는 아닙니다.
 
-### AI가 생성한 E2E 테스트는 어떻게 리뷰하나요?
+### AI가 생성한 Playwright 또는 Cypress 테스트는 병합 전에 어떻게 리뷰하나요?
 
-병합하기 전에 생성된 테스트를 `e2e-reviewer`에 지정하세요. 각 테스트가 이름에 적힌 사용자 동작을 실제로 입증하는지 확인하고, 규칙으로 찾은 후보와 테스트 의도·주변 코드를 살펴야 판단할 수 있는 문제를 구분해 보고합니다.
+병합하기 전에 생성된 테스트를 `e2e-reviewer`로 검토하세요. 각 테스트가 이름에 명시된 사용자 동작을 실제로 입증하는지 확인하고 false-green 위험을 찾아냅니다. 또한 규칙만으로 찾을 수 있는 후보와 테스트 의도·주변 코드를 함께 살펴야 판단할 수 있는 문제를 구분해 보고합니다.
 
 ### Playwright뿐 아니라 Cypress도 지원하나요?
 
-리뷰와 실패 분석은 두 프레임워크를 모두 지원합니다. 새 테스트 생성은 현재 Playwright만 지원합니다. `cypress-debugger`는 mochawesome과 JUnit 보고서를 받습니다.
+검토와 실패 분석은 두 프레임워크를 모두 지원합니다. 새 테스트 생성은 현재 Playwright만 지원합니다. `cypress-debugger`는 mochawesome과 JUnit 보고서를 받습니다.
 
 ### CI에서만 실패하는 테스트도 디버깅할 수 있나요?
 
@@ -350,10 +389,11 @@ Tier 3는 기본으로 제공되는 대체 경로입니다. 선택적으로 사�
 
 ### 어떤 AI 코딩 에이전트가 지원되나요?
 
-Claude Code, Codex와 `skills` CLI가 지원하는 55개 이상의 실행 환경에서 공개 `SKILL.md` 계약을 불러올 수 있습니다. 실행 환경별 에이전트 파일을 선택적으로 설치하면 지원되는 환경에서 작업 분담이 나아지지만, 공개 스킬은 해당 파일 없이도 사용할 수 있습니다.
+Claude Code와 Codex, 그리고 `skills` CLI가 지원하는 55개 이상의 실행 환경에서 공개 `SKILL.md` 계약을 불러올 수 있습니다. 실행 환경별 에이전트 파일을 선택적으로 설치하면 지원되는 환경에서 작업 분담이 나아지지만, 공개 스킬은 해당 파일 없이도 사용할 수 있습니다.
 
 ## 상세 문서
 
+- [AI가 생성한 Playwright와 Cypress E2E 테스트를 검토하는 방법](docs/review-ai-generated-e2e-tests.md)
 - [Playwright와 Cypress E2E `test smell` 24개](docs/e2e-test-smells.md)
 - [규칙 자체 감사](docs/rule-self-audit.md)
 - [오픈소스 사례 연구](docs/case-studies.md)

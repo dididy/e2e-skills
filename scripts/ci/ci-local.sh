@@ -56,9 +56,47 @@ if [ "${E2E_SKILLS_SKIP_SMELL_SCAN:-0}" = "1" ]; then
   exit 2
 fi
 
-step() { [ "$QUIET" = "1" ] || echo "-- $* --"; }
+CURRENT_STEP=""
+CURRENT_STEP_STARTED=0
+STEP_NAMES=()
+STEP_DURATIONS=()
+
+finish_step() {
+  [ "$QUIET" = "1" ] && return
+  [ -n "$CURRENT_STEP" ] || return 0
+
+  local elapsed=$((SECONDS - CURRENT_STEP_STARTED))
+  echo "-- completed: $CURRENT_STEP (${elapsed}s) --"
+  STEP_NAMES[${#STEP_NAMES[@]}]="$CURRENT_STEP"
+  STEP_DURATIONS[${#STEP_DURATIONS[@]}]="$elapsed"
+  CURRENT_STEP=""
+}
+
+step() {
+  [ "$QUIET" = "1" ] && return
+  finish_step
+  CURRENT_STEP="$*"
+  CURRENT_STEP_STARTED=$SECONDS
+  echo "-- $CURRENT_STEP --"
+}
+
+print_timing_summary() {
+  [ "$QUIET" = "1" ] && return
+  finish_step
+  echo ""
+  echo "CI stage timings (slowest first):"
+  {
+    local index
+    for ((index = 0; index < ${#STEP_NAMES[@]}; index++)); do
+      printf '%d\t%s\n' "${STEP_DURATIONS[$index]}" "${STEP_NAMES[$index]}"
+    done
+  } | /usr/bin/sort -t $'\t' -k1,1nr | while IFS=$'\t' read -r duration name; do
+    printf '  %5ss  %s\n' "$duration" "$name"
+  done
+}
 fail() { echo "ci-local: $1 failed" >&2; exit 1; }
 
+step "Python isolation bootstrap"
 source "$REPO_ROOT/scripts/ci/lib/init-python-isolation.sh" ||
   fail "isolated Python initialization"
 run_python -c 'import sys; assert __debug__; raise SystemExit(0)' ||
@@ -81,6 +119,7 @@ done <<< "$SHELL_FILES"
 [ "$SHELL_FILE_COUNT" -gt 0 ] || fail "shell enumeration returned zero files"
 [ "$QUIET" = "1" ] || echo "  all $SHELL_FILE_COUNT shell scripts parse"
 
+step "Source and security contracts"
 run_python scripts/ci/test-shell-enumeration.py ||
   fail "test-shell-enumeration.py"
 run_python scripts/ci/test-security-gates.py ||
@@ -187,9 +226,11 @@ step "Labeled reviewer holdout"
 LC_ALL=C LC_CTYPE=C LANG=C /bin/bash -p scripts/ci/test-reviewer-holdout.sh ||
   fail "test-reviewer-holdout.sh"
 
-step "Reviewer and debugger benchmark contracts"
+step "Reviewer scanner contracts"
 run_python scripts/ci/test-reviewer-scanner.py ||
   fail "test-reviewer-scanner.py"
+
+step "Reviewer benchmark contracts"
 run_python scripts/ci/test-reviewer-holdout-v3.py ||
   fail "test-reviewer-holdout-v3.py"
 run_python scripts/ci/test-reviewer-fault-causal.py ||
@@ -208,6 +249,8 @@ run_python scripts/ci/test-generator-faultkill-v1.py ||
   fail "test-generator-faultkill-v1.py"
 run_python scripts/ci/test-generator-faultkill-runner.py ||
   fail "test-generator-faultkill-runner.py"
+
+step "Independent review contracts"
 run_python scripts/ci/test-independent-review.py ||
   fail "test-independent-review.py"
 run_python scripts/ci/test-independent-review-evidence.py ||
@@ -222,19 +265,18 @@ run_python scripts/ci/test-independent-review-v6-evidence.py ||
 # reference tokenizer. run_python's interpreter has never had it, so those checks
 # used to skip themselves silently; the suites now fail closed and run inside
 # one hash-locked replay venv instead.
+step "Reference tokenizer contracts"
 /bin/bash -p scripts/ci/run-reference-tokenizer-suites.sh \
   scripts/ci/test-independent-review-v7.py \
   scripts/ci/test-independent-review-v8.py \
   scripts/ci/test-independent-review-v10.py ||
   fail "run-reference-tokenizer-suites.sh"
-/bin/bash -p scripts/ci/run-independent-review-v7-evidence.sh ||
-  fail "run-independent-review-v7-evidence.sh"
-# v10 pins v8's protocol and freeze digests but never re-derives v8's attempt
-# reports, so the v8 archive still needs its own validator on every commit.
-/bin/bash -p scripts/ci/run-independent-review-v8-evidence.sh ||
-  fail "run-independent-review-v8-evidence.sh"
-/bin/bash -p scripts/ci/run-independent-review-v10-evidence.sh ||
-  fail "run-independent-review-v10-evidence.sh"
+# Each unit suite above also invokes its matching standalone evidence wrapper
+# under a poisoned environment and asserts the canonical result. Repeating the
+# same three wrappers here rebuilt three identical hash-locked venvs without
+# adding coverage. The wrappers remain standalone reproduction commands.
+
+step "Reviewer evidence contracts"
 run_python scripts/ci/test-reviewer-evidence-v3.py ||
   fail "test-reviewer-evidence-v3.py"
 run_python scripts/ci/test-reviewer-evidence.py ||
@@ -297,6 +339,7 @@ for SELF_SCAN_ROOT in skills scripts; do
 done
 
 [ "$QUIET" = "1" ] || {
+  print_timing_summary
   echo ""
   echo "========================================"
   echo "  ci-local: all checks passed"

@@ -10,16 +10,20 @@
   <a href="https://github.com/openai/codex"><img alt="Codex" src="https://img.shields.io/badge/Codex-compatible-412991?style=flat-square&labelColor=black&logo=openai&logoColor=white"></a>
   <a href="https://playwright.dev"><img alt="Playwright | Cypress" src="https://img.shields.io/badge/Playwright_%7C_Cypress-supported-2EAD33?style=flat-square&labelColor=black&logo=playwright&logoColor=white"></a>
   <a href="#merged-upstream-fixes"><img alt="Merged PRs" src="https://img.shields.io/badge/merged_PRs-14-1FC07C?style=flat-square&labelColor=black&logo=github"></a>
-  <a href="https://agents.md"><img alt="Runs in 55+ agents" src="https://img.shields.io/badge/runs_in-55%2B_agents-37B0E6?style=flat-square&labelColor=black"></a>
+  <a href="https://github.com/vercel-labs/skills#supported-agents"><img alt="Runs in 55+ agents" src="https://img.shields.io/badge/runs_in-55%2B_agents-37B0E6?style=flat-square&labelColor=black"></a>
+  <a href="https://www.skills.sh/voidmatcha/e2e-skills"><img alt="Installs on skills.sh" src="https://img.shields.io/badge/skills.sh_installs-500%2B-1FC07C?style=flat-square&labelColor=black"></a>
+  <a href="https://www.kimi.ai/resources/software-testing-skills"><img alt="Listed in Kimi testing skills" src="https://img.shields.io/badge/%F0%9F%8E%89_listed_in-Kimi_testing_skills-8B5CF6?style=flat-square&labelColor=black"></a>
   <a href="./LICENSE"><img alt="License" src="https://img.shields.io/github/license/voidmatcha/e2e-skills?style=flat-square&labelColor=black&color=37B0E6"></a>
 </p>
 
 <p align="center">
 <a href="README.md">🇺🇸 English</a> | <a href="README.ko.md">🇰🇷 한국어</a> | <a href="README.ja.md">🇯🇵 日本語</a> | <strong>🇨🇳 简体中文</strong>
 </p>
-<!-- README-CANONICAL-REVISION: sha256=39c8ee0a192f21cfa900a17c837657fa31267cf4fa4c0e11f99363f300c34430; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
+<!-- README-CANONICAL-REVISION: sha256=cc753242cd6de7e74646d533e267dafebcbc0081ea27d501a33f50c5fa05d8ee; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
 
 `e2e-skills` 为 AI 编程代理提供四个面向 E2E 测试工作的聚焦工作流：生成 Playwright 覆盖、审查现有 spec 或 PR/diff 范围内的测试变更、调试失败的 Playwright 报告，以及调试失败的 Cypress 报告。它还包含一个确定性扫描器，用于发现审查目录中可机械判定的子集。
+
+对于人工或 AI 编写的测试，可以把 `e2e-reviewer` 用作独立的质量门禁。它会检查一个通过的测试是否真的证明了标题所描述的行为。
 
 | 需求 | Skill | 结果 |
 | --- | --- | --- |
@@ -36,6 +40,26 @@ false-green 检测是审查工作流的重要组成部分，但不是整个 bund
 > 在 code-server 中，一个提交进仓库的 `it.only` 曾默默禁用 8 个测试长达 7 个月。其中一个被跳过的测试早已损坏，而 CI 仍然保持绿色。
 
 **可执行示例：** [React 乐观写入证明](examples/react-optimistic-write/README.md) 展示了为什么乐观 UI 需要请求和持久化证明，而不只是可见状态。
+
+## 如何分工
+
+如果对比按框架划分的助手，分工其实很简单。
+
+| 需求 | 最佳选择 |
+| --- | --- |
+| 从计划生成 Playwright 覆盖 | [Playwright Test Agents](https://playwright.dev/docs/test-agents) |
+| 结合官方文档来编写、解释或接入 Cypress 工作流 | [Cypress AI Skills / Cypress AI Toolkit](https://docs.cypress.io/app/tooling/ai-skills) |
+| 审查 false-green 并调试失败报告 | `e2e-skills` |
+
+`e2e-skills` 是对这些官方工具包的补充。它关注测试是否真的证明了名称所写的行为、一次改动是否引入了静默通过，以及失败的 Playwright/Cypress artifact 实际说明了什么。
+
+<p align="center">
+  <a href="https://www.kimi.ai/resources/software-testing-skills">
+    <img src="docs/assets/kimi-software-testing-skills.png" alt="Kimi 官方网站的《AI Software Testing Skills for Smarter QA Automation》中收录的 e2e-skills" width="100%" />
+  </a>
+  <br />
+  <sub><a href="https://www.kimi.ai/resources/software-testing-skills">已收录于 Kimi 官方网站的《AI Software Testing Skills for Smarter QA Automation》。</a></sub>
+</p>
 
 <a id="merged-upstream-fixes"></a>
 
@@ -130,7 +154,7 @@ npx --yes skills@1.5.21 add voidmatcha/e2e-skills --skill '*' -g -a codex
 
 对于 Codex 委派，`e2e-reviewer`、`playwright-debugger` 和 `cypress-debugger` 可以使用 native roles，也可以使用等价的 inline fallbacks。`playwright-test-generator` 的 V6 边界更严格：如果没有独立的 fresh-context reviewer，它会报告 `CANNOT_VERIFY` 和 `PARTIAL/BLOCKED`。
 
-这里所说的 native roles 就是两个可选子代理 `e2e-finding-verifier` 和 `e2e-failure-classifier`，而 **Codex 无法通过插件安装它们。** Codex 的插件清单没有 agents 字段，agent role 只从 config 层加载，因此 `codex plugin add` 和 `skills` CLI 都不会注册它们。受支持的路径有两条：运行 `bash scripts/dev/install-codex-agents.sh` 将两者全局安装到 `~/.codex/agents/`，或者在本仓库的 checkout 中工作，此时 Codex 会话无需任何安装步骤即可识别 `.codex/agents/`。两者都跳过也没问题，你会得到 inline fallback。贡献者可查看 [AGENTS.md](AGENTS.md) 了解打包边界。
+这里所说的 native roles 就是两个可选子代理 `e2e-finding-verifier` 和 `e2e-failure-classifier`，而 **Codex 无法通过插件安装它们。** Codex 的插件清单没有 agents 字段，agent role 只从 config 层加载，因此 `codex plugin add` 和 `skills` CLI 都不会注册它们。受支持的路径有两条：运行 `bash scripts/dev/install-codex-agents.sh` 将两者全局安装到 `~/.codex/agents/`，或者在本仓库的 checkout 中工作，此时 Codex 会话无需任何安装步骤即可识别 `.codex/agents/`。两者都跳过也没问题，你会得到 inline fallback。有关打包边界，请参阅 [AGENTS.md](AGENTS.md)。
 
 也可以走 Codex plugin marketplace 路径：
 
@@ -227,7 +251,7 @@ Debug the failed Cypress report in cypress/reports/.
 | 2 | **Then 缺失** | 执行 cancel action，验证文本已恢复，但输入框仍然可见？ | 同时验证已恢复状态和已关闭状态 |
 | 3 | **吞掉错误** | spec 中的 `try/catch`，POM 中的 `.catch(() => {})` | 让错误导致失败；从 POM methods 中移除 silent catch |
 | 3b | **Cypress `uncaught:exception` 抑制** | `cy.on('uncaught:exception', () => false)` blanket-swallows app errors | 将 handler 限定到特定已知错误；重新抛出未知错误 |
-| 4 | **空洞或削弱重试的断言** (P0/P1) | P0：不变量谓词和 Locator 真值判断。P1：较弱的挂载证明；一次性读取的值/URL；zero-timeout 重试/截止时间风险；未证明的缺失状态；遗漏已承诺 accessible name 的 ARIA snapshots | 使用有意义的边界和 web-first 自动重试断言；先证明存在，再证明不存在，并让已承诺的 accessible names 保持 load-bearing |
+| 4 | **空洞或削弱重试的断言** (P0/P1) | P0：不变量谓词和 Locator 真值判断。P1：较弱的挂载证明；一次性读取的值/URL；zero-timeout 重试/截止时间风险；未证明的缺失状态；可能为空的集合上的断言循环；遗漏已承诺 accessible name 的 ARIA snapshots | 使用有意义的边界和 web-first 自动重试断言；先证明存在，再证明不存在，在断言循环前证明集合非空，并让已承诺的 accessible names 保持 load-bearing |
 | 5 | **绕过模式** (5a P0, 5b P1) | `if (await el.isVisible()) { expect(...) }`；没有注释的 `{ force: true }` | 始终断言；把环境检查移到 `beforeEach`；给 force:true 添加 `// JUSTIFIED:` |
 | 7 | **Focused test 泄漏** | 提交了 `test.only(...)` — CI 只运行一个测试，默默跳过其余测试 | 删除 `.only`；使用 `--grep` 或 `--spec` 做本地聚焦 |
 | 8 | **断言缺失** | 被丢弃的 locator/boolean 是该场景唯一的验证 | 添加 `await expect(locator).toBeVisible()`；当独立 verification/failure evidence 已存在时跳过 #8 |
@@ -258,7 +282,7 @@ Debug the failed Cypress report in cypress/reports/.
 
 | # | 模式 | 修改前 | 修改后 |
 |---|---------|--------|-------|
-| 11 | **YAGNI + Zombie Specs** | `clickEdit()` 从未被调用；无理由的空 wrapper class；整个 spec 被另一个 spec 重复 | 删除未使用成员和 zombie specs；只有在确实能移除无意义间接层时，才内联 single-use helpers |
+| 11 | **YAGNI + Zombie Specs** | `clickEdit()` 从未被调用；无理由的空 wrapper class；整个 spec 被另一个 spec 重复；没有理由或复查期限的 skip | 删除未使用成员和 zombie specs；为保留的 skip 写明理由和期限；只有在确实能移除无意义间接层时，才内联 single-use helpers |
 | 21 | **手动捕获的 session 文件依赖** | `storageState: 'auth/member.json'` 只由手动 capture script 生成；CI 上会缺失，也会悄悄过期 | 以编程方式重新生成 session（API-login helper 或 `setup` project）；manual files 只作为带 programmatic fallback 的 cache |
 | 23 | **Fixture 忽略渲染保护条件** | Liked-tab fixture seed 了 `liked: false`；card component 对每个 item 都 `return null`，让空 UI 看起来像 infra flake | 在 seeding 前读取 item component 的 early returns/filters；seed fields 以通过被测 view 的每个 guard |
 
@@ -283,6 +307,8 @@ Debug the failed Cypress report in cypress/reports/.
 | F13 | **吞掉错误** | `.catch(() => {})` 隐藏实际 failure |
 | F14 | **动画竞态** | 内容尚未渲染，或 transient element 在被观察前移除 |
 | F15 | **Hydration 竞态** | Action 成功但没有效果：SSR page 尚未 hydrated；在下一个 assertion 失败 |
+
+这里的 F11 和 F12 使用跨框架的统一名称。每个 `debugger` 会为同一个稳定代码报告对应框架的专用名称。
 
 
 调试器会把产品回归与脆弱测试分开分类，并返回证据和具体修复。没有失败的 Playwright 或 Cypress 测试 artifact 时，它们不会诊断应用或 backend。
@@ -335,9 +361,9 @@ debuggers 会按稳定的 F1–F15 taxonomy 对 failures 分类。只有在你�
 
 不会。每次修改后都要运行应用及其真实 E2E suite。这套 bundle 用于审查测试质量、生成 Playwright 覆盖，并诊断已有失败；它不是 test runner。
 
-### 如何审查 AI 生成的 E2E 测试？
+### 如何在合并前审查 AI 生成的 Playwright 或 Cypress 测试？
 
-合并前，将生成的 spec 交给 `e2e-reviewer`。它会检查每个测试是否真正证明了名称所描述的用户可见结果，并区分确定性的扫描候选项和需要结合上下文判断的发现。
+合并前，将生成的 spec 交给 `e2e-reviewer`。它会检查每个测试是否真正证明了名称所描述的用户可见结果，捕捉 false-green 风险，并区分确定性的扫描候选项和需要结合上下文判断的发现。
 
 ### 它是否同时支持 Cypress 和 Playwright？
 
@@ -353,6 +379,7 @@ Claude Code、Codex，以及 `skills` CLI 支持的 55+ 宿主都可以加载公
 
 ## 详细文档
 
+- [如何审查 AI 生成的 Playwright 和 Cypress E2E 测试](docs/review-ai-generated-e2e-tests.md)
 - [24 个 Playwright 和 Cypress E2E 测试异味](docs/e2e-test-smells.md)
 - [规则自审](docs/rule-self-audit.md)
 - [开源案例研究](docs/case-studies.md)
