@@ -449,9 +449,15 @@ def test_bounded_capture_overflow_and_timeout_cleanup() -> None:
         prefix="e2e-fixture-timeout-cleanup-"
     ) as raw:
         sentinel = Path(raw) / "child-survived"
+        # The timeout has to outlast interpreter startup plus a nested Popen,
+        # or the parent is killed before "started" is ever flushed and the
+        # assertion below fails under CPU contention rather than on a real
+        # regression. Every interval is scaled so the ordering still holds:
+        # timeout fires, then the group dies, then the child's write would have
+        # landed.
         child = (
             "import pathlib,time; "
-            "time.sleep(1.0); "
+            "time.sleep(4.0); "
             "pathlib.Path({!r}).write_text('leak')".format(str(sentinel))
         )
         parent = (
@@ -464,19 +470,19 @@ def test_bounded_capture_overflow_and_timeout_cleanup() -> None:
             [sys.executable, "-c", parent],
             Path.cwd(),
             environment,
-            timeout=0.3,
+            timeout=1.5,
             output_limit_bytes=4096,
         )
         return_code, output, _ = result
         assert return_code == 124
         assert output.startswith("started\n")
-        time.sleep(1.2)
+        time.sleep(5.0)
         assert not sentinel.exists(), "timeout left a process-group child running"
 
         inherited_pipe_sentinel = Path(raw) / "inherited-pipe-child-survived"
         child = (
             "import pathlib,time; "
-            "time.sleep(0.8); "
+            "time.sleep(4.0); "
             "pathlib.Path({!r}).write_text('leak')".format(
                 str(inherited_pipe_sentinel)
             )
@@ -490,13 +496,13 @@ def test_bounded_capture_overflow_and_timeout_cleanup() -> None:
             [sys.executable, "-c", parent_exits],
             Path.cwd(),
             environment,
-            timeout=0.3,
+            timeout=1.5,
             output_limit_bytes=4096,
         )
         return_code, output, _ = result
         assert return_code == 124
         assert output.startswith("parent-exited\n")
-        time.sleep(1.0)
+        time.sleep(5.0)
         assert not inherited_pipe_sentinel.exists(), (
             "exited parent left an inherited-pipe child running"
         )

@@ -3,10 +3,15 @@
 codex-cli reads this file for every discovered skill, plugin-installed or not
 (`codex-rs/ext/skills/src/loader/metadata.rs`), and accepts only `interface`,
 `policy`, and `dependencies`. That loader has no `deny_unknown_fields` and warns
-then falls back to defaults on a parse error, so an invented key is silently
-discarded at runtime instead of reported. This parser is strict precisely
-because the runtime is not: the repository shipped four inert files for
-months without any surface saying so.
+then falls back to defaults on a parse error — it fails open on purpose, so
+optional metadata never blocks loading SKILL.md — which means an invented key is
+silently discarded at runtime instead of reported. A type error on a known field
+is worse: it drops all three sections at once. This parser is strict precisely
+because the runtime is not: the repository shipped four inert files for months
+without any surface saying so.
+
+Struct shape and behavior verified against openai/codex `rust-v0.151.0`, the tag
+matching the locally installed build.
 
 Standard library only, and a deliberately small YAML subset rather than PyYAML.
 """
@@ -31,11 +36,20 @@ POLICY_KEYS = {"allow_implicit_invocation"}
 REQUIRED_TOP_KEYS = {"interface"}
 ALLOWED_TOP_KEYS = REQUIRED_TOP_KEYS | {"policy", "dependencies"}
 
-# codex-rs/skills/src/interface.rs drops an over-length field rather than
-# truncating it, so an unnoticed overrun silently removes the value.
+# Verified against openai/codex `rust-v0.151.0`, codex-rs/skills/src/interface.rs:
+# MAX_NAME_LEN = 64 and MAX_DESCRIPTION_LEN = 1024, the latter shared by both
+# short_description and default_prompt. An over-length field is DROPPED, not
+# truncated — `resolve_str` warns and returns None, so the value silently
+# vanishes from the Codex UI while the skill still loads.
+#
+# Codex counts Unicode chars after collapsing internal whitespace runs; this
+# check counts raw characters, which can only be larger, so it errs toward
+# flagging a value Codex would have accepted. That is the safe direction.
 DISPLAY_NAME_MAX_LEN = 64
 SHORT_DESCRIPTION_MAX_LEN = 1024
 DEFAULT_PROMPT_MAX_LEN = 1024
+# Exactly "#RRGGBB": seven characters, six ASCII hex digits. Codex accepts no
+# three- or eight-digit form and drops anything else.
 BRAND_COLOR_PATTERN = re.compile(r"#[0-9A-Fa-f]{6}")
 TRIGGER_FIXTURE_KEYS = {"id", "query", "should_trigger"}
 TRIGGER_ID_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)+")

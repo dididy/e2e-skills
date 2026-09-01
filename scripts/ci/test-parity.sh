@@ -394,7 +394,7 @@ restore "$file"
 
 # Case 6: the canonical reviewer taxonomy must agree with SKILL.md even
 # after manifest descriptions stop storing the full 24-pattern phrase list.
-file="scripts/ci/lib/manifest_phrase_contract.py"
+file="scripts/ci/lib/reviewer_taxonomy_contract.py"
 backup "$file"
 mutate "$file" '"Name-Assertion"' '"Renamed-Assertion"'
 assert_fails \
@@ -428,7 +428,7 @@ path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 PY_QR_ORDER
 assert_fails \
   "Check 5 — Quick Reference row order drift" \
-  "Quick Reference must keep stable numeric row order"
+  "Quick Reference rows must list numeric IDs in order followed by suffixed IDs"
 restore "$file"
 
 # Case 7: docs orphan — add a publishable docs file with no incoming reference.

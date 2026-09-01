@@ -19,7 +19,7 @@ diagnostics look platform-neutral.
 - The browser fixture archive completed **36/36 cells**: each strong Playwright/Cypress test passed on correct behavior and failed after its paired application fault, while the deliberately weakened test stayed green against that fault.
 - The exact-artifact reviewer benchmark contains **12 proven false-green cases and 12 separate clean guards**. Ten fault cases are byte-identical operator mutants; two remove only answer-leading comments. It measures recognition of known fault shapes, not production accuracy.
 - The current reviewer holdout is a **pre-live corpus** with 24 expected findings and 24 matched false-positive guards. No live v5 result is claimed.
-- The v5 protocol can no longer complete. It preregistered `Claude Code 2.1.220`, that build is no longer installed or retained, and v5 requires a complete three-host matrix. Protocol **v6** reused the v5 corpus byte-for-byte — identical case and corpus digests — and changed only the frozen CLI identity. **v6 has now died the same way**: it preregistered `Claude Code 2.1.239`, that build has been pruned, and six of its nine cells need the Claude host. Five partial reports are archived in [reviewer-holdout-v6](reviewer-holdout-v6/README.md). No v6 result is claimed.
+- The v5 protocol can no longer complete. It preregistered `Claude Code 2.1.220`, that build is no longer installed or retained, and v5 requires a complete three-host matrix. Protocol **v6** reused the v5 corpus byte-for-byte — identical case and corpus digests — and changed only the frozen CLI identity. **v6 stalled the same way**: it preregistered `Claude Code 2.1.239`, the local installer has since rotated that build away, and six of its nine cells need the Claude host. The build is still served by the vendor channel, so the matrix is recoverable by re-fetching it, not permanently lost. Five partial reports are archived in [reviewer-holdout-v6](reviewer-holdout-v6/README.md). No v6 result is claimed.
 - Completed independent robustness gates v4, v5, v7, and v8 all failed their preregistered all-attempt criteria. V6 and v9 were superseded before model calls. V10 is frozen but has not been run.
 - Findings have contributed to **14 merged upstream PRs**. Those are self-selected case studies, not a representative validation sample.
 
@@ -30,7 +30,7 @@ diagnostics look platform-neutral.
 | [Browser fault injection](fixture-faults/README.md) | Complete, 36/36 cells | The bundled fault operators distinguish strong tests from paired weak tests for the archived fixtures | Reviewer accuracy, generator quality, or production prevalence |
 | [`reviewer-fault-causal-v3.json`](../scripts/evals/reviewer-fault-causal-v3.json) | 12 false-green cases + 12 clean guards; 10 fault cases are byte-identical mutants | Exact linkage between known false-green shapes and reviewer expectations | A sealed or independently sampled holdout |
 | [`reviewer-holdout-v5.json`](../scripts/evals/reviewer-holdout-v5.json) | Pre-live; 24 findings + 24 guards | A balanced public corpus and preregistered evaluation surface | Any live v5 accuracy or skill-lift result |
-| [Reviewer holdout v6](reviewer-holdout-v6/README.md) | Terminated incomplete; 5 of 9 cells, 2 execution-complete | An auditable record of a protocol killed by CLI pruning, and one same-host no-skill/catalog-only contrast | Any v6 matrix result, any `full` arm measurement, or generalization |
+| [Reviewer holdout v6](reviewer-holdout-v6/README.md) | Incomplete; 5 of 9 cells, 2 execution-complete | An auditable record of a protocol stalled by local CLI rotation, and one same-host no-skill/catalog-only contrast | Any v6 matrix result, any `full` arm report, or generalization |
 | [Independent product reviews](independent-product-review-v1/README.md) | v4/v5/v7/v8 failed; v6/v9 not run; v10 frozen/not run | Repeated adversarial defect discovery and remediation tracking | A passing release gate, full-product coverage, or generalized accuracy |
 | [Reviewer holdout v2](reviewer-holdout-v2/README.md) | Invalidated for performance estimation | An auditable negative result: apparent false positives exposed oracle omissions | A clean precision estimate |
 | [Debugger protocol](../docs/debugger-benchmark/README.md) | Synthetic 30-case corpus; no independent oracle audit | F1-F15 framework/category coverage and replayable scoring contracts | Independently established debugger accuracy |
@@ -60,17 +60,22 @@ Both matter more than they look:
   (`0.146.0` to `0.147.0` to `0.149.0`), and Claude Code moved as well. Passing
   the plain command name makes the recorded identity a race, not a pin.
 - Pass the versioned install path instead. Retained release directories are what
-  make an older pinned identity reproducible at all; once a build is pruned, any
-  protocol pinned to it is permanently unrunnable, which is exactly what happened
-  to v5's Claude host.
-- Pruning has now killed two protocols in a row. v5 pinned `Claude Code 2.1.220`
-  and v6 pinned `2.1.239`; the Claude installer retains roughly four recent
-  versions, so both pins expired within days of being cut. Exact-equality
-  enforcement against an auto-pruned channel does not buy reproducibility — the
-  build is gone either way — it only guarantees the protocol expires.
+  make an older pinned identity reproducible from an ordinary checkout; once the
+  installer rotates a build away, a protocol pinned to it stops being runnable
+  without manual recovery, which is what stalled v5's Claude host.
+- Local rotation has now stalled two protocols in a row. v5 pinned `Claude Code
+  2.1.220` and v6 pinned `2.1.239`; the Claude installer keeps roughly four
+  recent versions, so both pins left the local install within days of being cut.
+  Neither build was deleted at the source: the vendor release channel still
+  serves both, and the runner accepts an explicit `--runner-path`, so re-fetching
+  the pinned build completes the matrix. What exact-equality enforcement costs is
+  that the protocol cannot be run from a normal checkout the moment the local
+  build rotates, and it buys nothing the comparator's within-matrix identity
+  checks do not already provide.
 
-Treat a pinned identity as reproducible only while that exact build is still
-addressable on disk. This is provenance, not attestation.
+Treat a pinned identity as reproducible while that exact build is still
+addressable — on disk, or re-fetchable from the vendor channel, which is a
+convenience and not a guarantee. This is provenance, not attestation.
 
 ## External research
 

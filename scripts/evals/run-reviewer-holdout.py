@@ -173,11 +173,12 @@ ARM_COMPARISON_PROTOCOL_IDS = {
     "reviewer-holdout-v6",
 }
 # Each version declares the CLI identity it was cut against. Two policies exist
-# because exact pinning killed two protocols in a row: v5 pinned Claude Code
-# 2.1.220 and v6 pinned 2.1.239, the installer retains only a few recent builds,
-# and both pins expired before their matrix ran. Refusing to start does not
-# preserve reproducibility once the build is pruned — it only makes the protocol
-# permanently unrunnable.
+# because exact pinning stranded two protocols in a row: v5 pinned Claude Code
+# 2.1.220 and v6 pinned 2.1.239, the installer keeps only a few recent builds,
+# and both pins left the local install before their matrix was finished. The
+# builds are still served by the vendor channel and --runner-path takes a
+# manually re-fetched binary, so this is recoverable rather than permanent — but
+# refusing to start from an ordinary checkout is what stops a rerun happening.
 #
 # "exact" stays the default and keeps v5 and v6 bound to the build named in
 # their frozen JSON. "minimum" accepts that build or a later one and records the
@@ -2896,7 +2897,10 @@ def main() -> int:
         runner_identity = command_output([runner_exec, "--version"])
     else:
         runner_identity = runner_exec
-    identity_policy = "exact"
+    # Left as None when no identity check ran — a custom runner, or a protocol
+    # with no execution_identity. Recording "exact" there would be an
+    # attestation the harness never actually made.
+    identity_policy = None
     identity_match = None
     if isinstance(execution_identity, dict) and args.runner in {"codex", "claude"}:
         expected_identity = execution_identity["expected_cli_versions"][args.runner]

@@ -1,5 +1,58 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **`test-fixture-faults.py` no longer fails under CPU contention.** Two
+  process-cleanup cases gave the parent 300ms to start a Python interpreter,
+  spawn a nested one, and flush a line before the timeout fired, so a loaded
+  machine failed the output assertion instead of a real regression. Every
+  interval is rescaled and the ordering the test proves is unchanged.
+- **`manifest_phrase_contract.py` is now `reviewer_taxonomy_contract.py`.** It
+  stopped holding manifest phrases when 1.15.0 moved the taxonomy out of the
+  package descriptions; the name described what it no longer did.
+
+- **Corrected a false claim about why holdout v5 and v6 stalled.** The 1.14.0
+  notes, `benchmarks/STATUS.md`, `benchmarks/reviewer-holdout-v6/README.md`,
+  and `AGENTS.md` all said the pinned Claude Code builds had been pruned and the
+  protocols were "permanently unrunnable". Only the local installer rotated
+  those builds away. The vendor release channel still serves both `2.1.220` and
+  `2.1.239`, and the runner accepts an explicit `--runner-path`, so re-fetching
+  a pinned build completes the matrix. The `minimum` version policy is unchanged
+  and still worth having — a protocol that needs a manual download before it can
+  start is one nobody reruns — but its stated justification was wrong and is now
+  accurate.
+- **Restored the live-exploration scope to the package descriptions.** The
+  1.15.0 shortening dropped "live exploration only on local/disposable or
+  externally isolated approved non-production targets" from all three manifests,
+  and narrowed the CI guard to the generator's trigger surfaces in the same
+  commit, so nothing caught it. A user reading the marketplace listing had no
+  indication the generator drives a real browser. The phrase is back and the
+  guard now covers the package descriptions again.
+- **Reports no longer claim an identity policy that was never applied.**
+  `execution_identity_policy` was written as `"exact"` even when no identity
+  check ran — a custom runner, or a protocol without `execution_identity`. It is
+  now `None` in that case, so a provenance artifact stops asserting a check the
+  harness did not make.
+- **The Quick Reference order check no longer hardcodes the pattern set.** It
+  derived the expected order from a literal `1..23 + "3b"`, so adding pattern
+  `#24` in the correct position failed with a row-order error. The order is now
+  derived from the IDs present, and `AGENTS.md` records that `review.sh` needs no
+  edit when a pattern is added.
+- **Documented the verified source of the skill-manifest limits.** The 64/1024
+  caps in `skill_metadata_contract.py` carried no citation. They are correct,
+  confirmed against `openai/codex` `rust-v0.151.0` (`MAX_NAME_LEN`,
+  `MAX_DESCRIPTION_LEN`), and the module now records that an over-length field is
+  dropped rather than truncated, and that Codex counts Unicode characters after
+  collapsing whitespace.
+- **Corrected the v6 archive's account of `full-opus`.** The README said it
+  never ran. `opus.log` shows it completed all 60 scheduled runs with zero
+  infrastructure errors; only its report file was lost. The conclusion that no
+  usable `full`-arm report survives is unchanged, because the per-run records
+  the primary metric needs are gone, but the stated fact was false and
+  contradicted the same file's own list of lost reports.
+
 ## [1.15.0] - 2026-08-30
 
 ### Added
@@ -75,21 +128,20 @@
   the real schema; the directory binding that the removed `name` field used to
   provide is now the `$<skill>` invocation required in each `default_prompt`.
 
-- **Exact CLI pinning made two protocols permanently unrunnable.** v5 pinned
-  `Claude Code 2.1.220` and v6 pinned `2.1.239`; the installer retains only a
-  few recent builds, so both pins expired before their matrix could run.
-  Refusing to start does not preserve reproducibility once a build is pruned —
-  the build is gone either way — it only guarantees the protocol expires. The
-  property an arm comparison actually needs, one identity across every cell of
-  one matrix, is already enforced by `compare-reviewer-holdouts.py`
+- **Exact CLI pinning stranded two protocols.** v5 pinned `Claude Code 2.1.220`
+  and v6 pinned `2.1.239`; the installer keeps only a few recent builds, so both
+  pins left the local install before their matrix was finished. The property an
+  arm comparison actually needs, one identity across every cell of one matrix,
+  is already enforced by `compare-reviewer-holdouts.py`
   (`arm_runner_identity_mismatch`, `arm_runner_binding_mismatch`) together with
   the 12-hour matrix window, and never depended on the cut-time constant. New
-  protocols can now pin a floor instead of a single expiring build.
-- **Reviewer holdout v6 archived as terminated incomplete.** Five of nine cells
-  survived, two of them execution-complete. `benchmarks/reviewer-holdout-v6/`
-  records the reports, the driver logs, why the protocol died, and which single
-  arm contrast the partial data actually supports. No v6 accuracy or skill-lift
-  result is claimed.
+  protocols can now pin a floor instead of a single build the installer will
+  rotate away.
+- **Reviewer holdout v6 archived as incomplete.** Five of nine cells survived,
+  two of them execution-complete. `benchmarks/reviewer-holdout-v6/` records the
+  reports, the driver logs, why the run stalled, and which single arm contrast
+  the partial data actually supports. No v6 accuracy or skill-lift result is
+  claimed.
 
 - `ci-local.sh` drops inherited `__pycache__` trees before verification runs.
   Python invalidates a cached `.pyc` by source mtime, which misses an edit made

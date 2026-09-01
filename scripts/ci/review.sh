@@ -373,7 +373,7 @@ import sys
 
 sys.path.insert(0, 'scripts/ci/lib')
 from strict_json import load_manifest_json
-from manifest_phrase_contract import REVIEWER_TAXONOMY
+from reviewer_taxonomy_contract import REVIEWER_TAXONOMY
 
 errors = []
 
@@ -776,10 +776,6 @@ if (
         "reviewer taxonomy contract must contain exactly the 24 Quick Reference IDs"
     )
 
-expected_qr_order = [str(pattern_id) for pattern_id in range(1, 24)] + ["3b"]
-if qr_order != expected_qr_order:
-    errors.append("Quick Reference must keep stable numeric row order")
-
 severity_rank = {"P0": 0, "P1": 1, "P2": 2}
 
 def pattern_id_key(pid):
@@ -787,6 +783,19 @@ def pattern_id_key(pid):
     if not match:
         return (10**9, pid)
     return (int(match.group(1)), match.group(2))
+
+# The stable convention is every plain numeric ID in order, then suffixed IDs
+# such as "3b" appended last — not interleaved after their base. Derive it from
+# the IDs actually present rather than hardcoding 1..23 + "3b", so adding a
+# pattern is a Quick Reference edit and not also a literal here.
+expected_qr_order = sorted(
+    (pid for pid in qr_ids if pid.isdigit()), key=pattern_id_key
+) + sorted((pid for pid in qr_ids if not pid.isdigit()), key=pattern_id_key)
+if qr_order != expected_qr_order:
+    errors.append(
+        "Quick Reference rows must list numeric IDs in order followed by "
+        f"suffixed IDs; expected {expected_qr_order!r}, got {qr_order!r}"
+    )
 
 expected_contract_order = [
     pid

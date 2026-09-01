@@ -1,13 +1,14 @@
-# Reviewer holdout v6 evidence — terminated incomplete
+# Reviewer holdout v6 evidence — incomplete
 
-Protocol `reviewer-holdout-v6` never completed its preregistered matrix and
-**cannot be completed on any current machine.** This directory preserves the
-five reports that survived, the driver logs, and the reason the protocol died,
-rather than deleting a partial run.
+Protocol `reviewer-holdout-v6` never completed its preregistered matrix, and
+finishing it now requires manually re-fetching a CLI build that the standard
+installer no longer keeps. This directory preserves the five reports that
+survived, the driver logs, and why the run stalled, rather than deleting a
+partial run.
 
 No v6 accuracy result is claimed. No skill-lift result is claimed.
 
-## Why it cannot complete
+## Why it stalled
 
 v6 preregisters an exact CLI identity:
 
@@ -17,23 +18,29 @@ claude: Claude Code 2.1.239
 ```
 
 `scripts/evals/run-reviewer-holdout.py` enforces that identity by equality and
-refuses to run on any other build. Claude Code retains only a short window of
-installed versions, and `2.1.239` has since been pruned; the retained builds are
-`2.1.247`, `2.1.248`, `2.1.250`, `2.1.251`. The codex build is still retained,
-but `arm_comparison.required_matrix` is
+refuses to run on any other build. The Claude Code installer keeps only a short
+window of versions, and `2.1.239` is no longer among them locally; the retained
+builds are `2.1.247`, `2.1.248`, `2.1.250`, `2.1.251`. The codex build is still
+installed, but `arm_comparison.required_matrix` is
 `exact-three-profiles-by-three-hosts`, and six of the nine cells need the Claude
 host.
 
-This is the same failure that ended v5, which preregistered `Claude Code 2.1.220`.
-A protocol that pins an exact build from an auto-updating, auto-pruning
-distribution channel becomes unrunnable within days. See the "Execution identity
-drift" section of `../STATUS.md`.
+This is not a permanent loss. The vendor release channel still serves both
+`2.1.239` and v5's `2.1.220`, and the runner takes an explicit `--runner-path`
+with no trusted-root restriction, matching identity on `--version` output alone.
+Re-fetching the pinned build and passing its path would complete the matrix.
+What the exact pin actually costs is that a protocol stops being runnable from
+an ordinary checkout the moment the local installer rotates the build, which is
+also what stalled v5. Treat CDN retention as convenience, not a guarantee. See
+the "Execution identity drift" section of `../STATUS.md`.
 
 ## What survived
 
-Nine cells were preregistered. Four were lost before they were copied out of a
-temporary directory (`full-codex`, `catalog-only-codex`, `no-skill-codex`,
-`full-opus`). Five reports remain, in `reports/`:
+Nine cells were preregistered. Every cell ran; four reports were lost before
+they were copied out of a temporary directory (`full-codex`,
+`catalog-only-codex`, `no-skill-codex`, `full-opus`), and the archived logs
+preserve only their aggregate summary lines. Five reports remain, in
+`reports/`:
 
 | Report | Arm | Model | Execution complete | Status | Unique P / R / F1 | Infra errors |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -53,9 +60,14 @@ protocol applies one threshold set to every arm, including `no-skill`. A
 baseline arm that receives no pattern contracts is supposed to miss those
 thresholds. Read `status_reasons` in each report for the specific metric.
 
-**The `full` arm has no usable measurement on any host.** `full-codex` was lost
-and `full-opus` never ran. `full-fable` lost 22 of 60 scheduled runs, and a
-label needs 2 of 3 repetitions to become majority-stable, so the missing runs
+**The `full` arm has no usable report on any host.** `full-codex` and
+`full-opus` were both lost. `full-opus` did run to completion — `opus.log`
+preserves its aggregate line (60/60 scoreable, 0 infrastructure errors,
+precision 0.907, recall 0.944, `FAIL` on thresholds) — but only that summary
+survives, not the per-run records the protocol's primary unique
+majority-stable metric is computed from. `full-fable` lost 22 of 60 scheduled
+runs, and a label needs 2 of 3 repetitions to become majority-stable, so the
+missing runs
 suppress stable labels and depress its unique recall (0.625). That figure is an
 artifact of infrastructure loss and must not be read as the full arm performing
 worse than `catalog-only`.

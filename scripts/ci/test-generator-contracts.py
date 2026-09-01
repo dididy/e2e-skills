@@ -1507,11 +1507,17 @@ def main() -> None:
         claude_marketplace["plugins"][0]["description"],
         codex_plugin["description"],
     )
+    # The package description is what a user reads before installing, so the
+    # live-exploration scope has to survive here too, not only on the trigger
+    # surfaces. Narrowing this to the trigger surfaces once already dropped the
+    # phrase from all three manifests without any check noticing.
     for package_description in package_descriptions:
+        assert approved_live_phrase in " ".join(package_description.split())
         assert package_description == (
             "Four agent skills for Playwright and Cypress end-to-end tests: "
-            "generate new Playwright coverage, review existing specs or PR "
-            "diffs, and debug failed runs."
+            "generate new Playwright coverage with live exploration only on "
+            "local/disposable or externally isolated approved non-production "
+            "targets, review existing specs or PR diffs, and debug failed runs."
         )
     assert "with live browser exploration" not in "\n".join(
         generator_trigger_surfaces + package_descriptions
