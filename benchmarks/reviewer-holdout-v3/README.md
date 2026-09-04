@@ -155,12 +155,22 @@ oracle.
 
 The latest completed, pre-hardening Codex rerun completed 24/24 calls with no
 infrastructure errors.
-Stable unique precision/recall/F1 are each 0.9583 (23 TP, 1 FP, 1 FN), with
-zero stable guard hits. Repeated precision/recall/F1 are
-0.9054/0.9306/0.9178 (67 TP, 7 FP, 5 FN). The preregistered verdict remains
-`FAIL` because P0 stable-label recall is 0.8571 against the 0.90 floor. The
-stable error is an exact #1-versus-#2 taxonomy/anchor disagreement on the same
-missing restoration proof; it was not post-hoc rescored.
+
+- stable unique TP / FP / FN: 21 / 1 / 3
+- stable precision / recall / F1: 0.9545 / 0.8750 / 0.9130
+- stable false-positive-guard hits: 0 / 24
+- repeated TP / FP / FN: 57 / 15 / 15
+- repeated precision / recall / F1: 0.7917 / 0.7917 / 0.7917
+- P0 stable-label recall: 1.0000
+
+Stable unique precision/recall/F1 are 0.9545/0.8750/0.9130 (21 TP, 1 FP, 3
+FN), with zero stable guard hits. Repeated precision/recall/F1 are
+0.7917/0.7917/0.7917 (57 TP, 15 FP, 15 FN). P0 stable-label recall is 1.0000
+against the 0.90 floor. The preregistered verdict remains `FAIL` because the
+repeated precision floor requires at least 0.90. The three stable misses are
+#15, #16, and #21; the one stable false positive is the exact #1-versus-#2
+taxonomy/anchor disagreement described in `anchor-convention-audit.md`. It was
+not post-hoc rescored.
 Its evaluated skill digest is
 `400a93e8a6955491b938911188b9503968979d87bf428a7fdd17b95d4de115fc`.
 `evidence-status.json` records the current checked-out skill digest and marks

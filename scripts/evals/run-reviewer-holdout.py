@@ -1597,10 +1597,33 @@ def trusted_runner_search_path() -> str:
     return os.pathsep.join(str(path) for path in directories)
 
 
+def find_all_trusted_executables(runner: str) -> list[Path]:
+    """Every distinct install of `runner` across the trusted search roots.
+
+    Directory order in `trusted_runner_search_path()` is not a freshness
+    signal (a Homebrew formula and a standalone installer drift independently
+    and either can lag), so callers must not treat the first PATH hit as
+    authoritative when more than one install exists. Returns resolved,
+    deduplicated paths in trusted-directory order; version selection among
+    them happens in `resolve_runner_executable`.
+    """
+    seen: dict[Path, None] = {}
+    for directory in trusted_runner_search_path().split(os.pathsep):
+        candidate = Path(directory) / runner
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            seen.setdefault(candidate.resolve(), None)
+    return list(seen)
+
+
 def resolve_runner_executable(
     runner: str, explicit_path: Path | None = None
 ) -> str:
-    """Resolve the runner before entering an untrusted staged workspace."""
+    """Resolve the runner before entering an untrusted staged workspace.
+
+    For a bare `codex`/`claude` name, this deterministically selects the
+    highest *actually installed* version among every trusted install root —
+    never the first one a hardcoded directory order happens to list first.
+    """
     if explicit_path is not None:
         executable = explicit_path.expanduser().resolve()
     else:
@@ -1608,15 +1631,24 @@ def resolve_runner_executable(
         if candidate.is_absolute() or len(candidate.parts) > 1:
             executable = candidate.resolve()
         else:
-            resolved = shutil.which(runner, path=trusted_runner_search_path())
-            if resolved is None:
+            found = find_all_trusted_executables(runner)
+            if not found:
                 hint = (
                     "; pass an explicit --runner-path"
                     if runner in {"codex", "claude"}
                     else ""
                 )
                 raise ValueError(f"runner not found in trusted install roots: {runner}{hint}")
-            executable = Path(resolved).resolve()
+            if len(found) == 1:
+                executable = found[0]
+            else:
+                ranked = []
+                for path in found:
+                    identity = command_output([str(path), "--version"])
+                    version = parse_cli_version(runner, identity, declared=False)
+                    ranked.append((version is not None, version or (), str(path), path))
+                ranked.sort(reverse=True)
+                executable = ranked[0][3]
     if not executable.is_file() or not os.access(executable, os.X_OK):
         raise ValueError(f"runner is not an executable file: {executable}")
     return str(executable)

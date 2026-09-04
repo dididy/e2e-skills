@@ -5740,7 +5740,8 @@ run_check P1 '#4h' 'One-shot page.url assertion' '^[[:space:]]*[A-Za-z_$][A-Za-z
 # (renamed class, framework migration, component rewrite) keeps passing forever while proving
 # nothing. Grep finds the assertion but cannot tell whether the same locator is ever proven
 # able to match, so this is LLM-TRIAGE: Phase 2 looks for a positive assertion or an action on
-# that locator earlier in the test (or its beforeEach) before reporting. Empty-state tests are
+# that locator anywhere in the test (before or after the hit, or in its beforeEach) before
+# reporting; proof direction does not matter. Empty-state tests are
 # the main legitimate shape and are expected to dominate raw hits.
 run_check P1 '#4i' 'Absence assertion never proven able to match' '\.not\.toBeVisible\(|\.not\.toBeAttached\(|(?<!\.not)\.toBeHidden\(|(?<!\.not)\.toHaveCount\(\s*0\s*\)|\.should\(.[^)]*not\.(exist|be\.visible)' "$ALL_CODE_GLOB" 'triage'
 

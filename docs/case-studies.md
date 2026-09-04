@@ -1,6 +1,6 @@
-# E2E Silent-Pass Case Studies
+# E2E Test-Trust Case Studies
 
-These are self-selected, real merged upstream PRs found while reviewing Playwright/Cypress suites with `e2e-skills/e2e-reviewer`. They provide adoption and concrete case evidence, not a representative validation sample or an accuracy estimate. The common pattern: CI was green, but the test either asserted nothing, skipped the assertion, or checked a value that could never fail.
+These are self-selected, real merged upstream PRs found while reviewing Playwright/Cypress suites with `e2e-skills/e2e-reviewer`. They provide adoption and concrete case evidence, not a representative validation sample or an accuracy estimate. Most repaired false-green checks that asserted nothing or could never fail; the missing-`await` cases instead repaired P1 sequencing and failure-attribution defects. Do not treat every merged case as proof of a silent pass.
 
 ## Carbon Design System: locator truthiness did not prove progress state
 

@@ -57,6 +57,7 @@
     "Expected labels are author-created synthetic judgments and have not yet been independently adjudicated.",
     "TODO: commission a blinded independent oracle audit before using this corpus for release-grade quality claims.",
     "Three repeated calls measure within-prompt stability but are not independent samples; Wilson intervals therefore use only the 30 unique cases.",
+    "The strict-majority stability rule uses the full six-axis classification tuple; this is deliberately conservative and can mark a case unstable even when its F-code alone is stable.",
     "The fixed three-model matrix contains two provider families and does not establish performance for other hosts, models, versions, or settings.",
     "F-code classification measures diagnosis triage, not whether a proposed fix repairs a live application.",
     "Host and model strings are provenance claims, not cryptographic attestation."

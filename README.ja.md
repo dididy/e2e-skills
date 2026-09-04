@@ -20,7 +20,7 @@
 <a href="README.md">🇺🇸 English</a> | <a href="README.ko.md">🇰🇷 한국어</a> | <strong>🇯🇵 日本語</strong> | <a href="README.zh-cn.md">🇨🇳 简体中文</a>
 </p>
 
-<!-- README-CANONICAL-REVISION: sha256=cc753242cd6de7e74646d533e267dafebcbc0081ea27d501a33f50c5fa05d8ee; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
+<!-- README-CANONICAL-REVISION: sha256=00280715ddce428f3996aa92b20b5be672f7709b8e9757f1b2231df4e90f5c2e; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
 
 `e2e-skills` は、AI コーディングエージェントが Playwright/Cypress の E2E テスト作業に使える 4 つのワークフローを提供します。Playwright カバレッジの生成、既存のテスト仕様または PR/diff 範囲の変更レビュー、失敗した Playwright レポートのデバッグ、失敗した Cypress レポートのデバッグを扱います。レビューカタログのうち、機械的に判定できる部分集合を検出する決定論的スキャナーも含まれます。
 
@@ -212,6 +212,10 @@ Debug the failed Cypress report in cypress/reports/.
 
 生成したテストが通るだけでは不十分です。`Locator` や `Promise` 自体を検証していたり、テスト名に記した動作と無関係な状態を見ていたり、主要な assertion がテストの成否に影響していないことがあります。そのため生成器は、適用可能な [V1–V6 verification](skills/playwright-test-generator/verification-rules.md) をすべて通過するまで、新しい spec を候補として扱います。
 
+テスト一式を生成する前に、各シナリオが既存のテストとは異なるユーザーリスクを扱うか、E2E が適切なテスト層か、失敗原因を特定できる根拠があるかを確認します。初回導入またはリスクの高い作業では、代表シナリオを 1 件だけ `e2e-reviewer` と V1–V6 で検証してから、残りのテストを生成します。
+
+テスト生成は CLI-first、verification-first のフローに従います。ライブ探索では、互換性のあるプロジェクトローカルの Playwright CLI（`playwright cli`）、別途インストール済みの `@playwright/cli` パッケージが提供するコマンド（`playwright-cli`）、`agent-browser`、実行環境に既に接続されている Playwright MCP、制限付き ARIA fallback の順に使います。非推奨のスコープなし `playwright-cli` パッケージは使用しません。これらは探索手段であり、テストランナーではありません。生成した候補は、必ずリポジトリ標準の Playwright Test コマンドで実行します。プロジェクトが Playwright Test Agents をサポートし、それらが初期化済みであれば、admission gate に応じて根拠付きの計画案を補助できます。ただし、最終実装はこの生成器が担い、V1–V6 verification を合格条件とします。
+
 ## レビューの仕組み
 
 有効なテストコードを生成することと、プロダクトが間違っているときに失敗するテストを生成することは別です。このワークフローは、機械的な検出と意味的な判断を分離します。
@@ -227,9 +231,9 @@ Debug the failed Cypress report in cypress/reports/.
 
 現在の根拠で支えられる主張は限定的です。このプロジェクトには動作で裏付けた開発根拠とアップストリームにマージされた 14 件の修正がありますが、一般化されたレビュー精度は主張しません。
 
-- ブラウザー障害注入は **36/36 Playwright/Cypress セル**で完了しています。
+- ブラウザー障害注入は、**12 個の障害演算子と 3 種類の期待結果を組み合わせた Playwright/Cypress セル 36 件すべて**で完了しています。
 - exact レビューベンチマークは **証明済みの false-green 事例 12 件と正常コードの保護事例 12 件**を対象にしています。10 件の障害事例は byte-identical operator mutants です。
-- Independent robustness gates v4、v5、v7、v8 は事前登録した基準を満たしませんでした。V6 と v9 は未実行で、v10 は凍結済みですが未実行です。
+- Independent product-review robustness gates v4、v5、v7、v8 は事前登録した基準を満たしませんでした。v6 と v9 は未実行で、v10 は凍結済みですが未実行です。v1 から v10 は、現在のリリースゲートではなく、過去の robustness evidence として保持しています。
 - デバッガー protocol は再実行可能な 30-case synthetic corpus を提供しますが、独立に確立されたデバッガー精度は主張しません。
 
 スコア、失敗したゲート、置き換えられた実行、主張の境界については [ベンチマーク状況](benchmarks/STATUS.md) を参照してください。[研究根拠台帳](docs/llm-generated-e2e-test-evidence.md) は、隣接する unit-test や custom-agent studies をこのプロジェクトの測定値として扱わず、59 件の外部 source を監査しています。

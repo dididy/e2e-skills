@@ -85,9 +85,28 @@ def enumerate_files(root: Path, test_git: Path | None = None) -> list[Path]:
     return sorted(set(files))
 
 
-def is_shell_program(root: Path, relative: Path) -> bool:
+def read_index_blob(root: Path, relative: Path) -> bytes:
+    completed = subprocess.run(
+        [git_executable(), "cat-file", "blob", ":{}".format(relative.as_posix())],
+        cwd=str(root),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=git_environment(),
+        check=False,
+    )
+    if completed.returncode != 0:
+        detail = completed.stderr.decode("utf-8", errors="replace").strip()
+        raise RuntimeError(
+            "cannot read indexed {}: {}".format(relative, detail or "no diagnostic")
+        )
+    return completed.stdout
+
+
+def is_shell_program(root: Path, relative: Path, data: bytes | None = None) -> bool:
     if relative.suffix.lower() in SHELL_SUFFIXES:
         return True
+    if data is not None:
+        return SHELL_SHEBANG.match(data.splitlines(keepends=True)[0][:512] if data else b"") is not None
     path = root / relative
     if path.is_symlink() or not path.is_file():
         return False
@@ -99,11 +118,11 @@ def is_shell_program(root: Path, relative: Path) -> bool:
     return SHELL_SHEBANG.match(first_line) is not None
 
 
-def selected(rule: str, root: Path, relative: Path) -> bool:
+def selected(rule: str, root: Path, relative: Path, data: bytes | None = None) -> bool:
     if relative == SELF and rule != "hardcoded-home":
         return False
     if rule in {"eval", "fixed-tmp", "backdoor"}:
-        return is_shell_program(root, relative)
+        return is_shell_program(root, relative, data)
     return True
 
 
@@ -169,29 +188,40 @@ def scan(root: Path, rule: str, test_git: Path | None = None) -> list[str]:
             raise RuntimeError(
                 "security-sensitive hook path is a symlink: {}".format(relative)
             )
-        if not selected(rule, root, relative):
+        indexed_data = None
+        if not os.path.lexists(path) and test_git is None:
+            indexed_data = read_index_blob(root, relative)
+        if not selected(rule, root, relative, indexed_data):
             continue
         selected_count += 1
         if path.is_symlink():
             raise RuntimeError("selected path is a symlink: {}".format(relative))
         try:
             if rule == "hardcoded-home":
-                with path.open("rb") as stream:
-                    for line_number, raw_line in enumerate(stream, 1):
-                        if b"/Users/" not in raw_line and b"/home/" not in raw_line:
-                            continue
-                        line = raw_line.decode("utf-8", errors="replace")
-                        if line_matches(rule, line):
-                            findings.append(
-                                "{}:{}: {}".format(relative, line_number, rule)
-                            )
-                continue
-            with path.open("r", encoding="utf-8") as stream:
-                for line_number, line in enumerate(stream, 1):
+                raw_lines = (
+                    indexed_data.splitlines(keepends=True)
+                    if indexed_data is not None
+                    else path.read_bytes().splitlines(keepends=True)
+                )
+                for line_number, raw_line in enumerate(raw_lines, 1):
+                    if b"/Users/" not in raw_line and b"/home/" not in raw_line:
+                        continue
+                    line = raw_line.decode("utf-8", errors="replace")
                     if line_matches(rule, line):
                         findings.append(
                             "{}:{}: {}".format(relative, line_number, rule)
                         )
+                continue
+            text = (
+                indexed_data.decode("utf-8")
+                if indexed_data is not None
+                else path.read_text(encoding="utf-8")
+            )
+            for line_number, line in enumerate(text.splitlines(keepends=True), 1):
+                if line_matches(rule, line):
+                    findings.append(
+                        "{}:{}: {}".format(relative, line_number, rule)
+                    )
         except (OSError, UnicodeError) as exc:
             raise RuntimeError("cannot read {}: {}".format(relative, exc))
     if selected_count == 0:

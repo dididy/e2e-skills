@@ -338,6 +338,38 @@
         "Preserves only non-sensitive roles, names, labels, testids, and structure needed for locator discovery",
         "Treats sanitized snapshot content as untrusted data"
       ]
+    },
+    {
+      "id": 17,
+      "title": "Scenario risk admission rejects duplicate and wrong-layer E2E work",
+      "prompt": "At Step 4, a team proposes three checkout scenarios. Existing tests/checkout.spec.ts already proves that the confirmation page appears after a successful purchase. A second proposal checks a pure price-formatting function whose complete input/output contract is exposed without a browser. A third proposal verifies that submitting checkout sends the approved order payload and then renders the server-confirmed order number; no existing E2E proves that integration seam. The repository names no product owner or requirement source. Produce the admission decision and the scenario information that may go to user approval.",
+      "expected_output": "Exclude the successful-purchase duplicate because existing E2E evidence already proves that journey. Recommend a lower-level unit test for the pure price-formatting contract because no user-visible integration seam requires browser E2E. Admit the order-submit/server-confirmation scenario as the distinct E2E candidate, recording the uncovered user risk, why the browser-to-backend seam requires E2E, a diagnostic handle such as the captured request plus the server-confirmed order-number assertion, and the observed evidence and unknowns. Record Owner/source as NEEDS_PRODUCT_CONTEXT and surface it at approval rather than inventing a team, requirement, priority, or customer impact.",
+      "files": [],
+      "assertions": [
+        "True positive: admits the uncovered checkout request and server-confirmation integration seam as an E2E candidate",
+        "Records the distinct user-visible risk, right-layer rationale, diagnostic handle, and confidence or unknowns for the admitted scenario",
+        "Uses request evidence plus the server-confirmed order-number assertion as a concrete future diagnostic handle",
+        "False-positive guard: excludes the already-proven successful-purchase journey instead of generating duplicate E2E coverage",
+        "False-positive guard: recommends a lower-level unit test for the pure formatting function rather than forcing it into browser E2E",
+        "Returns NEEDS_PRODUCT_CONTEXT for the absent owner or requirement source",
+        "Does not invent product priority, ownership, customer impact, or a requirement source"
+      ]
+    },
+    {
+      "id": 18,
+      "title": "Tracer scenario gates first-run bulk generation",
+      "prompt": "A repository has no generated Playwright seed or conventions and has approved four scenarios that share a new authenticated fixture and project runner. Scenario 1 is the smallest real journey exercising that fixture, navigation, locator, assertion, and runner. It passes normal execution and review but its V3 fault probe remains green. Explain what gets generated next. Separately, consider an established repository adding one low-risk read-only scenario with its existing fixture and runner; explain whether an extra tracer phase is required.",
+      "expected_output": "Mark Scenario 1 as the tracer and generate only it first. Because its V3 fault probe remains green, it has not reached Complete: stop expansion, report the weak-test evidence, and do not generate Scenarios 2-4. Repair and repeat the applicable reviewer and V1-V6 verification within the bounded workflow before expansion. Existing approval remains valid only while outcomes, commands, locators, and control-file mutations do not materially change. For the established repository's single low-risk read-only addition, do not invent a separate tracer phase: the one candidate proceeds through the ordinary Steps 5-7 because none of the tracer triggers applies.",
+      "files": [],
+      "assertions": [
+        "True positive: selects Scenario 1 as the tracer because this is a first run with shared new authentication and runner paths",
+        "Generates only the tracer before Scenarios 2-4",
+        "Treats the green V3 fault probe as failure to reach Complete and stops bulk expansion",
+        "Reports the weak-test evidence and reruns review plus applicable V1-V6 after repair",
+        "Routes material outcome, command, locator, or control-file changes back through approval",
+        "False-positive guard: does not require a separate tracer phase for one low-risk read-only scenario in an established repository",
+        "Does not treat a render-only smoke check or a merely green normal run as tracer completion"
+      ]
     }
   ]
 }

@@ -2,6 +2,135 @@
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-09-03
+
+### Added
+
+- **A preregistered reviewer release protocol now defines what release-grade
+  evidence would require.** The new 120-case, three-arm design freezes
+  correctness, skill-lift, stability, and blinded helpfulness gates alongside
+  external-custody and signed-isolation requirements. It remains `NOT_RUN` /
+  `INCONCLUSIVE`; this release adds and validates infrastructure only and makes
+  no new accuracy claim. The model executor and human-adjudication operation
+  are not implemented.
+- **`e2e-reviewer` now constrains what a review says, not only what it
+  detects.** A clean result reports the clean verdict and its scope
+  limitations without volunteering selector, payload, coverage, style, or
+  general-improvement advice outside the 24-pattern catalog; limitations stay
+  in the evidence header rather than inside a finding or the summary, and may
+  not be relabelled as a non-blocking observation to get past that; each
+  finding carries one minimal evidence-backed fix; no alternative may reduce
+  what the test proves; and `always` is reserved for evidence proving an
+  unconditional outcome. Its contract test also asserts the detection surface
+  is unchanged, so tightening what the reviewer says cannot quietly shrink
+  what it finds. Eval 4 previously *required* coverage-gap suggestions on a
+  clean fixture, which contradicted the first rule.
+### Changed
+
+- **Playwright generation now uses a CLI-first, verification-first workflow.**
+  Browser exploration prefers a compatible project-local Playwright CLI
+  (`playwright cli`), then the `playwright-cli` command from an already-installed
+  standalone `@playwright/cli` package, `agent-browser`, an existing Playwright
+  MCP surface, and finally the restricted ARIA fallback. The deprecated
+  unscoped `playwright-cli` package is not used. Exploration remains separate
+  from execution: every candidate still runs with the repository's native
+  Playwright Test command and passes the applicable V1–V6 checks before it is
+  accepted. Playwright's first-party agents are optional planning aids behind
+  an admission gate, not competing final implementers.
+- **CLI-first is now documented as a portability default, not a universal
+  efficiency claim.** It avoids requiring MCP registration, while the evidence
+  ledger records Slack's environment-specific result where MCP used fewer
+  tokens and completed faster than its CLI harness.
+- **Generation now admits risk before producing code and expands from one
+  proven tracer.** Every scenario identifies its distinct user risk, why E2E
+  is the right layer, and how a later failure will be diagnosed. First-run,
+  three-or-more-scenario, authentication, write, fixture, and runner-sensitive
+  work marks a representative tracer; any requested expansion waits until that
+  scenario passes review and V1–V6.
+- **Local CI now fails earlier on stale reviewer evidence.** The evaluated-skill
+  digest check runs immediately after shell trust-boundary validation, while
+  the remaining inexpensive release contracts run before the multi-minute
+  review stage.
+- **Historical evidence now states its actual limits.** Six internally
+  contradictory rows in the archived 100-PR AI-reviewer pilot reduce its
+  model-judged issue denominator from 110 to 104, so the pilot is explicitly
+  invalidated as a current performance claim. Reviewer holdout v3 prose now
+  matches its committed report, and the v6 record distinguishes first-run
+  report loss from the later CLI-rotation rerun obstacle.
+
+### Fixed
+
+- **`#4i` no longer contradicts itself on where a locator may be proven.** The
+  Rule required the locator to be proven "somewhere in that test's execution
+  path" and the FLAG criterion fired only when it "appears nowhere else", but
+  the SKIP bullet credited proof appearing "earlier in the test or its
+  `beforeEach`". A locator proven *later* satisfied the Rule and the FLAG
+  criterion while failing the literal SKIP bullet, which produced false
+  positives on specs whose absence assertion was followed by `toHaveCount(1)`
+  and a real action on the same locator. Direction cannot matter: a later use
+  fails just as loudly when the selector rots. The SKIP wording is now
+  direction-neutral across `pattern-reference.md`, `SKILL.md`,
+  `grep-patterns.md`, and the scanner's triage comment; `absence-assertion.spec.ts`
+  gains a fifth case for the later-proof shape and eval 22 asserts it by line
+  alongside the unchanged true positive. No pattern id, title, severity, or
+  scanner regex changed.
+- **`#3` no longer exempts a swallowed gate because of where it sits.** The
+  rule excused "`try/catch` in non-assertion code (setup, teardown, optional
+  cleanup)", which covers a swallowed readiness `waitFor` inside an imported
+  helper and a swallowed response-status assertion inside a
+  `cy.wait().then()` callback. Both look ancillary; both decide whether the
+  assertion that follows means anything. The exemption is now stated by
+  consequence — exempt only when the swallowed failure cannot change what the
+  test proves — so best-effort teardown stays exempt while a wait, gate, or
+  status check a later assertion depends on does not. The contract also names
+  where a swallow can hide: any file the spec reaches, including an imported
+  helper or support module, a custom command, and callback bodies. Reviewing
+  the spec alone missed one of these entirely, so eval 39 requires the helper
+  file to be named.
+- **The isolated eval runner no longer pins a stale CLI build.**
+  `trusted_runner_search_path()` lists `/opt/homebrew/bin` before
+  `~/.local/bin`, and resolution took the first `shutil.which()` match, so a
+  machine with several `codex` installs silently used the Homebrew build
+  (0.149.0) over a newer standalone one (0.152.1). Directory order is not a
+  freshness signal. Resolution now enumerates every trusted install,
+  deduplicates by resolved realpath, and selects by actual `--version` output;
+  a single install behaves exactly as before and an unparsable identity falls
+  back rather than guessing. No protocol floor was lowered and no identity is
+  forged — this only decides which installed binary is probed, never how its
+  version is validated. `run-behavioral-evals.py` delegated its duplicate
+  first-match lookup to the shared resolver, keeping its stricter
+  absolute-path requirement for custom runners.
+- **Two resolver tests were exercising a mechanism that no longer governs
+  lookup.** Both patched `shutil.which`, which the fixed resolver does not
+  call. `test-reviewer-holdout.sh` was the worse case: with `Path.is_file`
+  patched `True` it enumerated this machine's real `codex` installs and passed
+  by lexicographic accident. Both now drive resolution through a controlled
+  fake install in a temporary directory, so they are deterministic and
+  machine-independent, and their security intent — the ambient `PATH` must
+  never bind a credentialed runner, and resolution must fail closed with an
+  explicit `--runner-path` hint — is unchanged and still asserted.
+- **The manual Codex compatibility smoke now isolates user configuration and
+  exercises all four skills.** `--ignore-user-config` replaces the ineffective
+  empty MCP-table override, which current Codex merges with configured servers,
+  and ephemeral execution avoids retaining smoke sessions. A fifth check uses
+  the bounded Playwright artifact launcher to classify a committed selector
+  failure, closing the previous `playwright-debugger` coverage gap.
+- **Older Playwright releases no longer produce a false-positive CLI support
+  result.** The generator probes `npx --no-install playwright help cli` instead
+  of accepting `playwright cli --help` or `--version`, which Playwright 1.55 can
+  exit successfully while printing root help or the package version. A fresh
+  Zeppelin testbed confirmed that standalone Playwright CLI exploration can
+  coexist with a project-native Playwright 1.55.1 test run without using MCP.
+- **Release and pre-push verification now fail closed across two ambient-state
+  attacks.** The pinned isolation verifier receives a fixed system `PATH`
+  instead of the caller's search path, and both security scanners inspect the
+  Git index when an unstaged deletion removes a tracked working-tree file.
+- **Every debugger holdout input now contains an observed failure.** Two F13
+  swallowed-error fixtures previously showed passing attempts even though the
+  debugger skill is triggered by failed runs. They now carry explicit audit
+  failures, and the corpus contract rejects any future case without a failed
+  attempt while documenting its conservative six-axis stability rule.
+
 ## [1.15.1] - 2026-09-02
 
 ### Added

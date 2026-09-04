@@ -7,9 +7,9 @@
     "claude-fable-5"
   ],
   "prompt_rendering_contract_sha256": "5f0e0af3cb00fdf9df2965d9a2bcba7c7ace137577f73dd7ff5e228d7eebc0c7",
-  "prompt_sha256": "6273d25fad0dd6c7afbfd72b3c77bae3eae40b8df49a4ff9916f5e4d1e9b794c",
-  "prompt_utf8_bytes": 440800,
-  "protocol_sha256": "8f4bb107001a83d4d72dc6a8e9c1d008d847f1065490308fed279cb51f4221be",
+  "prompt_sha256": "dd4f8cc6436f78bf427243a6d4eb7d0417b9b71e93496893105a06bd5deca592",
+  "prompt_utf8_bytes": 452239,
+  "protocol_sha256": "e66523a8af8a763f8ae10edb8c0d099fffd9767ae84771b4599f5401aaaf3541",
   "provenance": {
     "asserts_context_window_fit": false,
     "kind": "local-prompt-size-measurement",
@@ -28,7 +28,7 @@
     "package": "tiktoken",
     "version": "0.11.0"
   },
-  "reference_tokenizer_prompt_tokens": 119584,
-  "reference_tokenizer_token_ids_sha256": "da31cd034202fd99c59647037e7b5e8360bac12f43a1bf773ae8691676d19455",
+  "reference_tokenizer_prompt_tokens": 122922,
+  "reference_tokenizer_token_ids_sha256": "ed71667d39aa5e031f7d3702ba4170d2dc05eb8f0eaa5e0f01a9fe7bd0aa3fba",
   "schema_version": 1
 }

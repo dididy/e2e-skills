@@ -1303,6 +1303,32 @@ def main() -> None:
     assert "identical outcome, exact status, and canonical\nredirect URL" in step_3
     assert "authentication only after the preflight succeeds" in step_3
     assert "before any browser navigation" in step_3
+    cli_pos = step_3.index("official **Playwright CLI** as the primary")
+    project_cli_pos = step_3.index("project-local `playwright cli` entry point")
+    standalone_cli_pos = step_3.index("standalone `@playwright/cli` package")
+    agent_browser_pos = step_3.index("already-installed `agent-browser`")
+    mcp_pos = step_3.index("Playwright MCP only as a tertiary path")
+    aria_pos = step_3.index("restricted ARIA fallback")
+    assert (
+        cli_pos
+        < project_cli_pos
+        < standalone_cli_pos
+        < agent_browser_pos
+        < mcp_pos
+        < aria_pos
+    )
+    assert "deprecated unscoped `playwright-cli` package" in step_3
+    assert "npx --no-install playwright help cli" in step_3
+    assert "`playwright --version`, `playwright cli --version`, or" in step_3
+    assert "printing root output" in step_3
+    assert "Treat Playwright CLI as a separate exploration browser" in step_3
+    assert "does not automatically inherit the project's Playwright Test" in step_3
+    assert "repository-native Playwright Test command in Step 7" in step_3
+    assert "npx --no-install playwright help init-agents" in text
+    assert "confirms project-local\nfirst-party agent support" in text
+    assert "Never let `npx` download a package" in compact_step_3
+    assert "recommend installation; do not install it automatically" in step_3
+    assert "Do not\nregister or install MCP solely for this workflow" in step_3
     assert "runs **before dispatch**" in step_3
     assert (
         "redirects and navigation-triggering clicks, form submissions"
@@ -1528,6 +1554,17 @@ def main() -> None:
         "## Step 4: Scenario Design + User Approval",
         "## Step 5: Code Generation",
     )
+    assert "### Scenario admission" in step_4
+    assert "- Distinct risk:" in step_4
+    assert "- Right layer:" in step_4
+    assert "- Diagnostic handle:" in step_4
+    assert "- Owner/source:" in step_4
+    assert "- Confidence and unknowns:" in step_4
+    assert "Do not generate a duplicate journey" in step_4
+    assert "recommend that layer and exclude the scenario" in step_4
+    assert "surface `NEEDS_PRODUCT_CONTEXT`" in step_4
+    assert "Mark one approved scenario as the **tracer scenario**" in step_4
+    assert "do not choose a\nrender-only smoke check" in step_4
     assert "### Proposed control-file mutations" in step_4
     assert "| Exact target | Action" in step_4
     assert "<root>/AGENTS.md" in step_4
@@ -1546,6 +1583,19 @@ def main() -> None:
         "every proposed target-controlled command is either\n"
         "explicitly approved or skipped"
     ) in step_4
+
+    step_5 = section(
+        text,
+        "## Step 5: Code Generation",
+        "## Step 5b: Conventions & Seed Artifacts (first run on a project)",
+    )
+    assert "generate only that scenario first" in step_5
+    assert "unless the tracer reaches `Complete`" in step_5
+    assert "stop expansion and report the evidence" in step_5
+    assert "rerun Steps 6 and 7 across the final set" in step_5
+    assert "route any material\ndelta back through Step 4" in step_5
+    assert "successful tracer is an intermediate expansion\ngate" in step_5
+    assert "do not emit the final\ncompletion report" in step_5
 
     step_5b = section(
         text,
@@ -1619,6 +1669,7 @@ def main() -> None:
     assert "record V5 `CANNOT_VERIFY` and return `PARTIAL/BLOCKED`" in step_7_words
     assert_failure_handling_contract(text)
     exercise_failure_handling_mutation_guard(text)
+    assert "Tracer: <scenario and PASS before expansion | N/A>" in text
 
     v2 = section(
         verification_rules,

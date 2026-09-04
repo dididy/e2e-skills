@@ -1,14 +1,17 @@
 # Reviewer holdout v6 evidence — incomplete
 
-Protocol `reviewer-holdout-v6` never completed its preregistered matrix, and
-finishing it now requires manually re-fetching a CLI build that the standard
-installer no longer keeps. This directory preserves the five reports that
-survived, the driver logs, and why the run stalled, rather than deleting a
-partial run.
+Protocol `reviewer-holdout-v6` never produced a complete preregistered matrix.
+Reviewer holdout v6 did execute its nine preregistered cells once. The
+incomplete archive is caused by post-run report loss: four reports were lost
+before they were copied out of temporary directories. Finishing the matrix now
+requires manually re-fetching a CLI build that the standard installer no longer
+keeps. CLI rotation is the rerun obstacle, not the reason those first-run
+reports are missing. This directory preserves the five reports that survived,
+the driver logs, and the rerun obstacle, rather than deleting a partial run.
 
 No v6 accuracy result is claimed. No skill-lift result is claimed.
 
-## Why it stalled
+## Rerun obstacle
 
 v6 preregisters an exact CLI identity:
 
@@ -36,8 +39,9 @@ the "Execution identity drift" section of `../STATUS.md`.
 
 ## What survived
 
-Nine cells were preregistered. Every cell ran; four reports were lost before
-they were copied out of a temporary directory (`full-codex`,
+Nine cells were preregistered. Every cell ran once. CLI rotation is the rerun
+obstacle, not the reason those first-run reports are missing. Four reports were
+lost before they were copied out of a temporary directory (`full-codex`,
 `catalog-only-codex`, `no-skill-codex`, `full-opus`), and the archived logs
 preserve only their aggregate summary lines. Five reports remain, in
 `reports/`:

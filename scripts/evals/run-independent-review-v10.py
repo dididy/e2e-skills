@@ -41,7 +41,7 @@ REFERENCE_TOKENIZER_LOCK_SHA256 = "6fbd61316c7988c72ec6023ffa1a0ac38b36ebc0bb9bf
 PINNED_CLAUDE_SHA256 = "8addc857f3fe64d5a0368af9ee50321b50afb4a6918ba3ef018ab84f5dbbe081"
 PINNED_CLAUDE_VERSION = "2.1.220 (Claude Code)"
 PREDECESSOR_FREEZE_SHA256 = "1f8fbab4fa2763b297717ee744dfc96a7f57d7deb92e48e97d6b4941fa9beeae"
-V10_PROTOCOL_HASH = "8f4bb107001a83d4d72dc6a8e9c1d008d847f1065490308fed279cb51f4221be"
+V10_PROTOCOL_HASH = "e66523a8af8a763f8ae10edb8c0d099fffd9767ae84771b4599f5401aaaf3541"
 SHARED_RUNNER_PATH = ROOT / "scripts/evals/run-reviewer-holdout.py"
 sys.path.insert(0, str(ROOT / "scripts/ci/lib"))
 from strict_json import StrictJsonError, load_strict, loads_strict, require_exact_keys

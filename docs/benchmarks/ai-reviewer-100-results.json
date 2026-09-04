@@ -1,5 +1,24 @@
 {
  "benchmark": "e2e-reviewer vs lint vs AI PR reviewers",
+ "correction": {
+  "version": 2,
+  "date": "2026-09-02",
+  "reason": "Six none_material rows had real_issues: 1 despite zero catches by every tool and judge rationales describing no material issue. They were corrected to real_issues: 0, reducing the aggregate denominator from 110 to 104.",
+  "changed_rows": [
+   "adobe/alloy#1539",
+   "adobe/alloy#1546",
+   "RoundingWell/app-frontend#1732",
+   "VaultSparkStudios/call-of-doodie#24",
+   "RaspberryPiFoundation/editor-ui#1498",
+   "raznar/grafana#20"
+  ],
+  "aggregate_changes": {
+   "llm_quality_100.real_issues": {
+    "before": 110,
+    "after": 104
+   }
+  }
+ },
  "corpus": {
   "prs": 100,
   "distinct_repos": 77,
@@ -23,7 +42,7 @@
   "ai_flagged_scanner_missed": 21
  },
  "llm_quality_100": {
-  "real_issues": 110,
+  "real_issues": 104,
   "recall": {
    "ours": 78,
    "lint": 45,
@@ -158,7 +177,7 @@
   {
    "pr": "adobe/alloy#1539",
    "winner": "none_material",
-   "real_issues": 1,
+   "real_issues": 0,
    "caught": {
     "lint": 0,
     "ai": 0,
@@ -434,7 +453,7 @@
   {
    "pr": "adobe/alloy#1546",
    "winner": "none_material",
-   "real_issues": 1,
+   "real_issues": 0,
    "caught": {
     "lint": 0,
     "ai": 0,
@@ -710,7 +729,7 @@
   {
    "pr": "RoundingWell/app-frontend#1732",
    "winner": "none_material",
-   "real_issues": 1,
+   "real_issues": 0,
    "caught": {
     "lint": 0,
     "ai": 0,
@@ -722,7 +741,7 @@
   {
    "pr": "VaultSparkStudios/call-of-doodie#24",
    "winner": "none_material",
-   "real_issues": 1,
+   "real_issues": 0,
    "caught": {
     "lint": 0,
     "ai": 0,
@@ -842,7 +861,7 @@
   {
    "pr": "RaspberryPiFoundation/editor-ui#1498",
    "winner": "none_material",
-   "real_issues": 1,
+   "real_issues": 0,
    "caught": {
     "lint": 0,
     "ai": 0,
@@ -854,7 +873,7 @@
   {
    "pr": "raznar/grafana#20",
    "winner": "none_material",
-   "real_issues": 1,
+   "real_issues": 0,
    "caught": {
     "lint": 0,
     "ai": 0,

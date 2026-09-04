@@ -68,6 +68,37 @@ def run(
 
 
 def main() -> None:
+    ci_local = CI_LOCAL.read_text(encoding="utf-8")
+    early_checks = (
+        "run_python scripts/ci/test-reviewer-evidence-v3.py",
+        "run_python scripts/ci/test-reviewer-release-v1.py",
+        "run_python scripts/ci/test-reviewer-release-runner-v1.py",
+        "run_python scripts/ci/test-generator-contracts.py",
+    )
+    for check in early_checks:
+        assert ci_local.count(check) == 1, f"CI must run {check} exactly once"
+    python_bootstrap_position = ci_local.index('step "Python isolation bootstrap"')
+    evidence_preflight_position = ci_local.index(
+        'step "Evidence freshness preflight"'
+    )
+    shell_syntax_position = ci_local.index('step "Shell syntax"')
+    review_position = ci_local.index('step "Review checks"')
+    preflight_position = ci_local.index('step "Release contract preflight"')
+    scanner_position = ci_local.index('step "Reviewer scanner contracts"')
+    evidence_check_position = ci_local.index(early_checks[0])
+    assert (
+        python_bootstrap_position
+        < shell_syntax_position
+        < evidence_preflight_position
+        < evidence_check_position
+        < ci_local.index('step "Source and security contracts"')
+    )
+    assert preflight_position < review_position < scanner_position
+    assert all(
+        preflight_position < ci_local.index(check) < scanner_position
+        for check in early_checks[1:]
+    )
+
     workflow = WORKFLOW.read_text(encoding="utf-8")
     assert workflow.count("@ast-grep/cli@") == 1
     assert "npm i -g '@ast-grep/cli@0.39.7'" in workflow
@@ -351,6 +382,49 @@ def main() -> None:
         )
         assert clean.returncode == 0, clean.stdout
         assert "secret-scanner: clean" in clean.stdout
+
+        deleted_tracked = repo / "deleted-tracked.py"
+        deleted_tracked.write_text(
+            "token = {!r}\n".format("ghp_" + "q" * 36), encoding="utf-8"
+        )
+        run(["/usr/bin/git", "add", "-f", "deleted-tracked.py"], repo)
+        deleted_tracked.unlink()
+        deleted_clean = run(
+            ["/usr/bin/python3", str(SCANNER), "--repo", str(repo)],
+            ROOT,
+        )
+        assert deleted_clean.returncode == 1, deleted_clean.stdout
+        assert "deleted-tracked.py:1: GitHub personal access token" in (
+            deleted_clean.stdout
+        )
+        deleted_policy = repo / "deleted-policy.sh"
+        deleted_policy.write_text('value=1; eval "$value"\n', encoding="utf-8")
+        run(["/usr/bin/git", "add", "-f", "deleted-policy.sh"], repo)
+        deleted_policy.unlink()
+        deleted_policy_clean = run(
+            [
+                "/usr/bin/python3",
+                str(POLICY_SCANNER),
+                "--repo",
+                str(repo),
+                "--rule",
+                "eval",
+            ],
+            ROOT,
+        )
+        assert deleted_policy_clean.returncode == 1, deleted_policy_clean.stdout
+        assert "deleted-policy.sh:1: eval" in deleted_policy_clean.stdout
+        run(
+            [
+                "/usr/bin/git",
+                "rm",
+                "--cached",
+                "-f",
+                "deleted-tracked.py",
+                "deleted-policy.sh",
+            ],
+            repo,
+        )
 
         extensionless_script = repo / "bin/release"
         extensionless_script.parent.mkdir()

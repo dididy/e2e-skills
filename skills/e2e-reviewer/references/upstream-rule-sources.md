@@ -49,6 +49,62 @@ Correctness families map to focused tests (#7), arbitrary waits (#9), forced int
 
 The repository's full [59-source evidence ledger](https://github.com/voidmatcha/e2e-skills/blob/main/docs/llm-generated-e2e-test-evidence.md) records verified, qualified, and not-cleared claims with denominators and E2E extrapolation limits. Use that evidence to choose falsification rules, never to claim a model accuracy rate.
 
+## Post-hoc convergences and planning inputs
+
+This section distinguishes provenance from later corroboration. An item marked
+**convergence** describes an external source that independently supports a
+design already present here; it did not retroactively originate that design.
+An item marked **planning input** may shape future work but is not part of the
+current skill contract.
+
+- **Convergence — independent verification:** Shopify Engineering's [agentic
+  harness](https://shopify.engineering/building-an-agentic-harness-that-outlasts-the-model)
+  separates generation from verification and allows rejection or downgrade.
+  That independently converges with V6 and the repository's writer/reviewer
+  boundary; no Shopify code or workflow was copied.
+- **Convergence — integrity boundary:** Kent Beck's [“Genie Wants to
+  Leap”](https://newsletter.kentbeck.com/p/genie-wants-to-leap) documents an
+  agent deleting assertions or tests and faking an implementation. This
+  reinforces the existing requirement to preserve original inputs and reject a
+  probe that succeeds by weakening the test or product rather than exposing the
+  intended mismatch.
+- **Convergence — layered evidence:** [TestGen-LLM](https://doi.org/10.1145/3663529.3663839)
+  reports build, reliable-pass, and coverage-improvement filters separately.
+  [Slack's agentic-testing report](https://slack.engineering/agentic-testing-where-agents-fit-in-the-e2e-testing-stack/)
+  measures execution reliability, duration, and cost. These sources reinforce
+  keeping static detection, execution, causal fault detection, stability, and
+  cost as separate claims; neither supplies an `e2e-skills` accuracy or token
+  saving rate.
+- **Planning input — benchmark structure:**
+  [WebTestPilot](https://doi.org/10.1145/3797115) separates manually injected
+  faults from a GitHub-issue-derived bug replication. A future comparative
+  benchmark should preserve that synthetic-fault versus real-bug distinction,
+  while treating WebTestPilot's results as specific to its four-app system and
+  benchmark.
+- **Planning input — pre-generation admission:** Manish Saini's ConfQ 2026 talk,
+  [“AI Can Generate Tests. But It Cannot Generate
+  Trust”](https://www.youtube.com/watch?v=nmgwIm_bHbg), asks whether a proposed
+  test covers a new risk, belongs at the right layer, remains diagnosable, has
+  an owner, and increases confidence. A future generator admission record may
+  borrow and adapt that question structure. It is not a new smell ID and is not
+  current reviewer behavior; business risk and ownership must remain explicit
+  context gaps rather than model guesses.
+- **Planning input — harness presentation:** NAVER D2's Engineering Day 2026
+  talk, [“Building a Playwright E2E Test Harness for AI
+  Agents”](https://www.youtube.com/watch?v=wo0Rsh9hlTo), presents Playwright
+  tests as both executable sensors and agent-readable guides inside a
+  planner/generator/healer and CI-trace loop. Future documentation may borrow
+  that explanatory model only with an oracle-strength qualification: a test is
+  a trustworthy sensor and guide only after its assertion has been shown to
+  encode the intended behavior. The talk's organization-specific context,
+  route count, and CI-run observations are not reviewer behavior or repository
+  performance evidence.
+
+The public evidence ledger gives the quantitative and scope boundaries for the
+first four items. The ConfQ and NAVER items are practitioner framing used only
+for future planning; their directional or organization-specific figures are not
+imported as repository evidence.
+
 ## Adoption rule
 
 Import semantics only when they protect correctness, diagnosability, isolation, or silent-pass safety and can be expressed by an existing stable pattern or V-rule. Do not import style-only rules, auto-healing behavior, package installation, or cloud-service requirements. Every new mechanical detector still needs a true-positive fixture and an exact-line false-positive guard.

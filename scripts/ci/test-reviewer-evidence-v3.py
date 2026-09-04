@@ -536,6 +536,49 @@ def verify_result_digest_provenance() -> None:
             )
 
 
+def verify_historical_codex_metric_prose() -> None:
+    report = read_json(EVIDENCE / "reports/full-codex.json")
+    primary = report["primary_metrics"]["unique"]
+    secondary = report["secondary_metrics"]
+    p0_recall = report["primary_metrics"]["p0_per_label_stability"][
+        "stable_label_recall"
+    ]
+    expected_fragments = [
+        (
+            "stable unique TP / FP / FN: "
+            f"{primary['tp']} / {primary['fp']} / {primary['fn']}"
+        ),
+        (
+            "stable precision / recall / F1: "
+            f"{primary['precision']:.4f} / {primary['recall']:.4f} / "
+            f"{primary['f1']:.4f}"
+        ),
+        (
+            "stable false-positive-guard hits: "
+            f"{primary['stable_guard_hits']} / {primary['guard_labels']}"
+        ),
+        (
+            "repeated TP / FP / FN: "
+            f"{secondary['tp']} / {secondary['fp']} / {secondary['fn']}"
+        ),
+        (
+            "repeated precision / recall / F1: "
+            f"{secondary['precision']:.4f} / {secondary['recall']:.4f} / "
+            f"{secondary['f1']:.4f}"
+        ),
+        f"P0 stable-label recall: {p0_recall:.4f}",
+    ]
+    for path in (RESULT_PATH, README_PATH):
+        content = path.read_text(encoding="utf-8")
+        normalized = " ".join(content.split())
+        for fragment in expected_fragments:
+            if fragment not in normalized:
+                raise ValueError(
+                    f"{path.name} historical Codex metric prose is stale: "
+                    f"missing {fragment!r}"
+                )
+
+
 def verify_complete_evidence(status: dict) -> None:
     verify_manifest()
     protocol = RUNNER.load_protocol(PROTOCOL_PATH)
@@ -669,6 +712,7 @@ def main() -> None:
     status = read_json(STATUS_PATH)
     state = validate_evidence_status(status)
     verify_result_digest_provenance()
+    verify_historical_codex_metric_prose()
     if state == "INCOMPLETE":
         run_incomplete_status_regressions(status)
         print(

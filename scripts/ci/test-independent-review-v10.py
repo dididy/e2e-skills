@@ -209,6 +209,9 @@ def assert_protocol_packet_prompt() -> tuple[dict, dict, dict, str]:
     assert "877,407" in scope["reduction_reason"] and "claude-opus-5" in scope["reduction_reason"]
     assert "seven surfaces only" in scope["claim_boundary"]
     assert "seven surfaces" in packet["independence_notice"]
+    freeze_policy = protocol["packet"]["freeze_policy"]
+    assert "seven surfaces" in freeze_policy
+    assert "33 required" not in freeze_policy and "33 full" not in freeze_policy
     RUNNER.assert_targets_reviewable(bound_ledger, packet)
     RUNNER.assert_packet_scope_is_bound_targets(bound_ledger, packet)
     widened = {**packet, "files": packet["files"] + [{"path": "README.md", "content": "@@1@@ x\n"}]}

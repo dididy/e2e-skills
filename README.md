@@ -210,6 +210,10 @@ The bundled shell scripts and artifact readers target macOS/Linux shells. Window
 
 A green generated test is not enough: it may assert a `Locator` or `Promise`, observe state unrelated to the behavior named by the test, or leave its primary assertion non-load-bearing. The generator therefore treats every new spec as a candidate until all applicable [V1–V6 verification](skills/playwright-test-generator/verification-rules.md) passes.
 
+Before generating a full suite, the generator admits each scenario by distinct user risk, test-layer fit, and diagnostic evidence. For first-run or higher-risk work, it proves one representative tracer scenario through `e2e-reviewer` and V1–V6 before generating the remaining tests.
+
+Generation follows a CLI-first, verification-first flow. Live exploration prefers a compatible project-local Playwright CLI (`playwright cli`), then the command from an already-installed standalone `@playwright/cli` package (`playwright-cli`), `agent-browser`, an existing Playwright MCP surface, and finally the restricted ARIA fallback. The deprecated unscoped `playwright-cli` package is not used. These are exploration sources, not test runners: the generated candidate must still run with the repository's native Playwright Test command. When the project supports Playwright Test Agents and those agents are already initialized, they may contribute evidence-labelled planning suggestions behind an admission gate; this generator remains the final implementer and V1–V6 remains the acceptance boundary.
+
 ## How the review works
 
 Generating valid test code is not the same as generating a test that fails when the product is wrong. The workflow separates mechanical detection from semantic judgment:
@@ -225,9 +229,9 @@ A scanner match is a candidate, not a verdict. Cross-file findings such as missi
 
 The current evidence supports a narrow claim: the project has behavior-backed development evidence and 14 merged upstream fixes, but it does not claim generalized reviewer accuracy.
 
-- Browser fault injection completed **36/36 Playwright/Cypress cells**.
+- Browser fault injection completed **36/36 cells (12 fault operators x 3 expected outcomes)** across Playwright/Cypress fixtures.
 - The exact reviewer benchmark covers **12 proven false-green cases and 12 clean guards**; ten fault cases are byte-identical operator mutants.
-- Independent robustness gates v4, v5, v7, and v8 failed their preregistered criteria. V6 and v9 were not run, and v10 is frozen but not run.
+- Independent product-review robustness gates v4, v5, v7, and v8 failed their preregistered criteria. Independent product-review v6 and v9 were not run, and independent product-review v10 is frozen but not run; v1-v10 are retained as legacy robustness evidence, not current release gates.
 - The debugger protocol provides a replayable 30-case synthetic corpus, but no independently established debugger accuracy is claimed.
 
 See [benchmark status](benchmarks/STATUS.md) for scores, failed gates, superseded runs, and claim boundaries. The [research evidence ledger](docs/llm-generated-e2e-test-evidence.md) audits 59 external sources instead of treating adjacent unit-test or custom-agent studies as measurements of this project.
@@ -384,7 +388,7 @@ Claude Code, Codex, and the 55+ hosts supported by the `skills` CLI can load the
 - [Open-source case studies](docs/case-studies.md)
 - [Benchmark status and negative results](benchmarks/STATUS.md)
 - [External evidence ledger](docs/llm-generated-e2e-test-evidence.md)
-- [Historical AI reviewer benchmark](docs/ai-reviewer-benchmark.md)
+- [Invalidated historical AI reviewer pilot](docs/ai-reviewer-benchmark.md)
 - [Debugger benchmark protocol](docs/debugger-benchmark/README.md)
 - [Framework scope](docs/framework-scope.md)
 - [Roadmap](docs/roadmap.md)

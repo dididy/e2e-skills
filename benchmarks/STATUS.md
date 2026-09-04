@@ -16,34 +16,44 @@ diagnostics look platform-neutral.
 
 `e2e-skills` has useful behavior-backed development evidence and concrete open-source adoption, but it does **not** yet have a passing release-grade benchmark for generalized reviewer accuracy.
 
-- The browser fixture archive completed **36/36 cells**: each strong Playwright/Cypress test passed on correct behavior and failed after its paired application fault, while the deliberately weakened test stayed green against that fault.
+- [Reviewer release v1](reviewer-release-v1/README.md) is the new from-scratch
+  release protocol: 120 externally held sealed cases, three paired arms, blinded
+  human adjudication, and explicit correctness, lift, stability, and user-helpfulness
+  gates. It has not been run and remains `NOT_RUN` / `INCONCLUSIVE`; without a
+  machine-verifiable signed isolation attestation it can produce development
+  evidence only. The current decision is `PROCEED_WITH_INFRASTRUCTURE_ONLY`
+  until those prerequisites exist.
+
+- The browser fixture archive completed **36/36 cells (12 fault operators x 3 expected outcomes)**: for each operator, the strong test passed on correct behavior, the strong test failed after its paired application fault, and the deliberately weakened test stayed green against that fault.
 - The exact-artifact reviewer benchmark contains **12 proven false-green cases and 12 separate clean guards**. Ten fault cases are byte-identical operator mutants; two remove only answer-leading comments. It measures recognition of known fault shapes, not production accuracy.
-- The current reviewer holdout is a **pre-live corpus** with 24 expected findings and 24 matched false-positive guards. No live v5 result is claimed.
-- The v5 protocol can no longer complete. It preregistered `Claude Code 2.1.220`, that build is no longer installed or retained, and v5 requires a complete three-host matrix. Protocol **v6** reused the v5 corpus byte-for-byte — identical case and corpus digests — and changed only the frozen CLI identity. **v6 stalled the same way**: it preregistered `Claude Code 2.1.239`, the local installer has since rotated that build away, and six of its nine cells need the Claude host. The build is still served by the vendor channel, so the matrix is recoverable by re-fetching it, not permanently lost. Five partial reports are archived in [reviewer-holdout-v6](reviewer-holdout-v6/README.md). No v6 result is claimed.
-- Completed independent robustness gates v4, v5, v7, and v8 all failed their preregistered all-attempt criteria. V6 and v9 were superseded before model calls. V10 is frozen but has not been run.
+- Reviewer holdout v5 is a **pre-live corpus** with 24 expected findings and 24 matched false-positive guards. No live Reviewer holdout v5 result is claimed.
+- Reviewer holdout v5 can no longer complete from an ordinary checkout. It preregistered `Claude Code 2.1.220`, that build is no longer installed locally, and the protocol requires a complete three-host matrix.
+- Reviewer holdout v6 reused the Reviewer holdout v5 corpus byte-for-byte — identical case and corpus digests — and changed only the frozen CLI identity. Reviewer holdout v6 did execute its nine preregistered cells once. The incomplete archive is caused by post-run report loss: four reports were lost before they were copied out of temporary directories. CLI rotation is the rerun obstacle, not the reason those first-run reports are missing. It preregistered `Claude Code 2.1.239`, the local installer has since rotated that build away, and six of its nine cells need the Claude host for a rerun. The build is still served by the vendor channel, so the matrix is recoverable by re-fetching it, not permanently lost. Five partial reports are archived in [Reviewer holdout v6](reviewer-holdout-v6/README.md). No Reviewer holdout v6 result is claimed.
+- Completed independent product-review robustness gates v4, v5, v7, and v8 all failed their preregistered all-attempt criteria. Independent product-review v6 and Independent product-review v9 were superseded before model calls. Independent product-review v10 is frozen but has not been run. Archived v1-v10 independent product-review rounds are retained as legacy robustness evidence, not current release gates.
 - Findings have contributed to **14 merged upstream PRs**. Those are self-selected case studies, not a representative validation sample.
 
 ## Evidence map
 
 | Evidence | Status | What it supports | What it does not support |
 | --- | --- | --- | --- |
-| [Browser fault injection](fixture-faults/README.md) | Complete, 36/36 cells | The bundled fault operators distinguish strong tests from paired weak tests for the archived fixtures | Reviewer accuracy, generator quality, or production prevalence |
+| [Reviewer release v1](reviewer-release-v1/README.md) | Preregistered design; `NOT_RUN` / `INCONCLUSIVE` | A release-grade measurement contract once external custody and signed isolation are supplied | Any current accuracy, lift, or helpfulness result |
+| [Browser fault injection](fixture-faults/README.md) | Complete, 36/36 cells (12 fault operators x 3 expected outcomes) | The bundled fault operators distinguish strong tests from paired weak tests for the archived fixtures | Reviewer accuracy, generator quality, or production prevalence |
 | [`reviewer-fault-causal-v3.json`](../scripts/evals/reviewer-fault-causal-v3.json) | 12 false-green cases + 12 clean guards; 10 fault cases are byte-identical mutants | Exact linkage between known false-green shapes and reviewer expectations | A sealed or independently sampled holdout |
-| [`reviewer-holdout-v5.json`](../scripts/evals/reviewer-holdout-v5.json) | Pre-live; 24 findings + 24 guards | A balanced public corpus and preregistered evaluation surface | Any live v5 accuracy or skill-lift result |
-| [Reviewer holdout v6](reviewer-holdout-v6/README.md) | Incomplete; 5 of 9 cells, 2 execution-complete | An auditable record of a protocol stalled by local CLI rotation, and one same-host no-skill/catalog-only contrast | Any v6 matrix result, any `full` arm report, or generalization |
-| [Independent product reviews](independent-product-review-v1/README.md) | v4/v5/v7/v8 failed; v6/v9 not run; v10 frozen/not run | Repeated adversarial defect discovery and remediation tracking | A passing release gate, full-product coverage, or generalized accuracy |
+| [Reviewer holdout v5](../scripts/evals/reviewer-holdout-v5.json) | Pre-live; 24 findings + 24 guards | A balanced public corpus and preregistered evaluation surface | Any live Reviewer holdout v5 accuracy or skill-lift result |
+| [Reviewer holdout v6](reviewer-holdout-v6/README.md) | Incomplete; 5 of 9 reports survived, 2 execution-complete reports | An auditable record of first-run report loss, later rerun blockage from local CLI rotation, and one same-host no-skill/catalog-only contrast | Any Reviewer holdout v6 matrix result, any `full` arm report, or generalization |
+| [Independent product reviews](independent-product-review-v1/README.md) | Legacy evidence; v4/v5/v7/v8 failed, v6/v9 not run, v10 frozen/not run | Repeated adversarial defect discovery and remediation tracking | A current release gate, full-product coverage, or generalized accuracy |
 | [Reviewer holdout v2](reviewer-holdout-v2/README.md) | Invalidated for performance estimation | An auditable negative result: apparent false positives exposed oracle omissions | A clean precision estimate |
 | [Debugger protocol](../docs/debugger-benchmark/README.md) | Synthetic 30-case corpus; no independent oracle audit | F1-F15 framework/category coverage and replayable scoring contracts | Independently established debugger accuracy |
 
 ## Independent review chronology
 
-- **v4:** scores 90.50, 92.50, and 91.50; overall `FAIL` because the first attempt reopened a High-severity issue.
-- **v5:** scores 87.33, 88.00, and 88.00; `COMPLETE` / `FAIL` because every attempt reported at least one High-severity issue.
-- **v6:** `SUPERSEDED_BEFORE_FREEZE` / `NOT_RUN` after a prompt-byte accounting defect was found before model calls.
-- **v7:** attempts `PASS`, `PASS`, `FAIL`; overall `FAIL` because all three attempts were required to pass.
-- **v8:** attempts `INCONCLUSIVE`, `FAIL`, `PASS`; overall `FAIL`.
-- **v9:** superseded before freeze because its preregistered Codex-only host was unavailable; no model calls were made.
-- **v10:** reduced seven-surface packet frozen for Claude Opus/Fable attempts; no result is claimed until the preregistered run completes.
+- **Independent product-review v4:** scores 90.50, 92.50, and 91.50; overall `FAIL` because the first attempt reopened a High-severity issue.
+- **Independent product-review v5:** scores 87.33, 88.00, and 88.00; `COMPLETE` / `FAIL` because every attempt reported at least one High-severity issue.
+- **Independent product-review v6:** `SUPERSEDED_BEFORE_FREEZE` / `NOT_RUN` after a prompt-byte accounting defect was found before model calls.
+- **Independent product-review v7:** attempts `PASS`, `PASS`, `FAIL`; overall `FAIL` because all three attempts were required to pass.
+- **Independent product-review v8:** attempts `INCONCLUSIVE`, `FAIL`, `PASS`; overall `FAIL`.
+- **Independent product-review v9:** superseded before freeze because its preregistered Codex-only host was unavailable; no model calls were made.
+- **Independent product-review v10:** reduced seven-surface packet frozen for Claude Opus/Fable attempts; no result is claimed, and the archive is legacy design evidence rather than an active pending release gate.
 
 The archives intentionally retain failed and superseded rounds instead of rewriting the score after defects or oracle problems are discovered.
 

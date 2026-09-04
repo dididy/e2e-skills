@@ -20,11 +20,45 @@ APPLYING_FIXES = (
     ROOT / "skills" / "e2e-reviewer" / "references" / "applying-fixes.md"
 )
 EVALS = ROOT / "skills" / "e2e-reviewer" / "evals" / "evals.json"
+SWALLOW_FIXTURE = (
+    ROOT
+    / "skills"
+    / "e2e-reviewer"
+    / "evals"
+    / "files"
+    / "swallowed-dependent-gate.spec.ts"
+)
+SWALLOW_HELPER = (
+    ROOT
+    / "skills"
+    / "e2e-reviewer"
+    / "evals"
+    / "files"
+    / "support"
+    / "draft-helper.ts"
+)
+ABSENCE_FIXTURE = (
+    ROOT
+    / "skills"
+    / "e2e-reviewer"
+    / "evals"
+    / "files"
+    / "absence-assertion.spec.ts"
+)
 SCANNER = ROOT / "skills" / "e2e-reviewer" / "scripts" / "scan.sh"
 VERIFICATION_RULES = (
     ROOT / "skills" / "e2e-reviewer" / "references" / "verification-rules.md"
 )
 README = ROOT / "README.md"
+BENCHMARK_STATUS = ROOT / "benchmarks" / "STATUS.md"
+REVIEWER_HOLDOUT_V6_README = (
+    ROOT / "benchmarks" / "reviewer-holdout-v6" / "README.md"
+)
+AI_REVIEW_DOC = ROOT / "docs" / "review-ai-generated-e2e-tests.md"
+AI_REVIEW_BENCHMARK = ROOT / "docs" / "ai-reviewer-benchmark.md"
+AI_REVIEW_100_RESULTS = ROOT / "docs" / "benchmarks" / "ai-reviewer-100-results.json"
+CASE_STUDIES = ROOT / "docs" / "case-studies.md"
+ROADMAP = ROOT / "docs" / "roadmap.md"
 TRANSLATED_READMES = (
     ROOT / "README.ko.md",
     ROOT / "README.ja.md",
@@ -52,6 +86,73 @@ def require_contract(surface: str, contract: str, name: str) -> None:
     assert contract in surface, f"{name} missing contract: {contract}"
 
 
+def require_normalized_contract(surface: str, contract: str, name: str) -> None:
+    normalized_surface = " ".join(surface.split())
+    normalized_contract = " ".join(contract.split())
+    assert normalized_contract in normalized_surface, (
+        f"{name} missing contract: {normalized_contract}"
+    )
+
+
+def verify_ai_reviewer_100_aggregates() -> None:
+    data = json.loads(AI_REVIEW_100_RESULTS.read_text(encoding="utf-8"))
+    per_case = data["per_case"]
+    aggregate = data["llm_quality_100"]
+    correction = data["correction"]
+    corrected_rows = [
+        "adobe/alloy#1539",
+        "adobe/alloy#1546",
+        "RoundingWell/app-frontend#1732",
+        "VaultSparkStudios/call-of-doodie#24",
+        "RaspberryPiFoundation/editor-ui#1498",
+        "raznar/grafana#20",
+    ]
+
+    assert correction["version"] == 2
+    assert correction["date"] == "2026-09-02"
+    assert correction["changed_rows"] == corrected_rows
+    assert correction["aggregate_changes"] == {
+        "llm_quality_100.real_issues": {"before": 110, "after": 104},
+    }
+    assert "reducing the aggregate denominator from 110 to 104" in correction[
+        "reason"
+    ]
+
+    real_issues = sum(case["real_issues"] for case in per_case)
+    caught = {
+        tool: sum(case["caught"][tool] for case in per_case)
+        for tool in ("ours", "lint", "ai")
+    }
+    winners: dict[str, int] = {}
+    for case in per_case:
+        winners[case["winner"]] = winners.get(case["winner"], 0) + 1
+        caught_total = sum(case["caught"].values())
+        rationale = case["judge_rationale"].lower()
+        if case["real_issues"] > 0 and caught_total == 0:
+            assert case["winner"] != "none_material", (
+                "positive issue row cannot also be a no-material-issue row: "
+                f"{case['pr']}"
+            )
+            assert "no p0/p1" not in rationale and "zero genuine" not in rationale, (
+                "positive issue row contradicts its judge rationale: "
+                f"{case['pr']}"
+            )
+
+    assert {
+        case["pr"]: case["real_issues"]
+        for case in per_case
+        if case["pr"] in corrected_rows
+    } == {pr: 0 for pr in corrected_rows}
+    assert aggregate["real_issues"] == real_issues
+    assert aggregate["recall"]["ours"] == caught["ours"]
+    assert aggregate["recall"]["lint"] == caught["lint"]
+    assert aggregate["recall"]["ai_reviewer_inline"] == caught["ai"]
+    assert aggregate["ours_false_positives"] == sum(
+        case["ours_false_positives"] for case in per_case
+    )
+    assert aggregate["winners"] == winners
+
+
 def scanner_extensions(scanner_source: str) -> tuple[str, ...]:
     match = re.search(
         r"^CODE_EXTENSIONS='([^']+)'$",
@@ -75,7 +176,192 @@ def documented_extensions(text: str, start: str, end: str) -> tuple[str, ...]:
     return tuple(re.findall(r"`(\.[a-z]+)`", text[start_index:end_index]))
 
 
+def verify_pattern_4i_direction_neutral() -> None:
+    """#4i's SKIP criterion must match its Rule and FLAG criterion.
+
+    The Rule ("somewhere in that test's execution path") and the FLAG
+    criterion ("appears nowhere else") are both direction-neutral: a locator
+    consumed by a real assertion or action anywhere in the test cannot rot
+    silently, because that use fails when the selector stops matching. A SKIP
+    bullet that only credits proof appearing *earlier* contradicts them and
+    produces false positives on the common shape where the locator is proven
+    later in the same test.
+    """
+    pattern_reference = normalized(PATTERN_REFERENCE)
+
+    require_normalized_contract(
+        pattern_reference,
+        "an absence assertion is only meaningful if the same locator is "
+        "proven capable of matching somewhere in that test's execution path",
+        "pattern-reference.md #4i Rule",
+    )
+    require_normalized_contract(
+        pattern_reference,
+        "anywhere in that test's execution path — before or after the "
+        "absence assertion, or in its `beforeEach`",
+        "pattern-reference.md #4i SKIP (direction-neutral)",
+    )
+    assert (
+        "is clicked/filled/hovered, earlier in the test or its `beforeEach`"
+        not in pattern_reference
+    ), (
+        "pattern-reference.md #4i SKIP still restricts proof to *earlier* in "
+        "the test, contradicting its own Rule and FLAG criterion"
+    )
+
+    # Every surface that restates #4i's SKIP criterion must stay direction-
+    # neutral too, or the taxonomy contradicts itself across surfaces.
+    skill = normalized(SKILL)
+    grep_patterns = normalized(GREP_PATTERNS)
+    scanner_source = SCANNER.read_text(encoding="utf-8")
+
+    for surface, text, name in (
+        ("skill", skill, "e2e-reviewer/SKILL.md #4i row"),
+        ("grep", grep_patterns, "grep-patterns.md #4i row"),
+    ):
+        assert "acted on earlier in the test" not in text, (
+            f"{name} still restricts #4i proof to *earlier* in the test"
+        )
+        require_normalized_contract(
+            text,
+            "anywhere in that test's execution path",
+            name,
+        )
+
+    assert "asserted present or acted on earlier in the test" not in (
+        pattern_reference
+    ), (
+        "pattern-reference.md #2 accept-criteria still restricts #4i proof "
+        "to *earlier* in the test"
+    )
+
+    scanner_comment = " ".join(scanner_source.split())
+    assert "that locator earlier in the test" not in scanner_comment, (
+        "scan.sh #4i triage comment still restricts proof to *earlier* in "
+        "the test"
+    )
+
+    fixture_source = ABSENCE_FIXTURE.read_text(encoding="utf-8")
+    require_normalized_contract(
+        " ".join(fixture_source.split()),
+        "proven able to match later in the same test",
+        "absence-assertion.spec.ts later-proof fixture case",
+    )
+    later_proof_line = source_line_number(
+        fixture_source, "expect(jobRows).toHaveCount(0)"
+    )
+    unproven_line = source_line_number(
+        fixture_source, "page.locator('.job-controls .spinner')"
+    )
+
+    evals = json.loads(EVALS.read_text(encoding="utf-8"))["evals"]
+    eval_22 = next(case for case in evals if case["id"] == 22)
+    eval_22_text = " ".join(
+        [eval_22["expected_output"], *eval_22["assertions"]]
+    )
+
+    assert f"line {later_proof_line}" in eval_22_text, (
+        "eval 22 must guard the later-proof false positive at fixture line "
+        f"{later_proof_line}"
+    )
+    require_normalized_contract(
+        eval_22_text,
+        "proven able to match later in the same test",
+        "evals.json eval 22 later-proof guard",
+    )
+
+    # The true positive must survive: a genuinely standalone locator, consumed
+    # by nothing anywhere in the test, is still flagged.
+    assert f"line {unproven_line}" in eval_22_text, (
+        f"eval 22 lost its #4i true positive at fixture line {unproven_line}"
+    )
+
+
+def verify_pattern_3_swallow_scope() -> None:
+    """#3's exemption must be stated by consequence, not by code role.
+
+    Evidence: in the v4 ablation two error-swallow positives scored 0/6 in
+    BOTH arms, so the miss is independent of output discipline:
+
+    - a `try/catch` around a readiness `waitFor` inside an imported helper
+      module, where the spec then asserts on a field the client echoes
+      optimistically;
+    - a `try/catch` around a synchronous assertion inside a Cypress
+      `cy.wait().then()` callback.
+
+    Both read as exempt under a rule that excuses "setup, teardown, optional
+    cleanup", because both *look* ancillary. What matters is whether swallowing
+    the failure changes what the test can prove, and both change it. The
+    contract must also name the locations a swallow can hide in: the spec's own
+    body and a POM class are not the only ones.
+    """
+    pattern_reference = normalized(PATTERN_REFERENCE)
+    skill = normalized(SKILL)
+    grep_patterns = normalized(GREP_PATTERNS)
+
+    consequence_rule = (
+        "exempt only when the swallowed failure cannot change what the test "
+        "proves"
+    )
+    require_normalized_contract(
+        pattern_reference, consequence_rule, "pattern-reference.md #3 exemption"
+    )
+    require_normalized_contract(
+        pattern_reference,
+        "a swallowed wait, gate, or status check that a later assertion "
+        "depends on is in scope",
+        "pattern-reference.md #3 dependent-gate rule",
+    )
+    require_normalized_contract(
+        pattern_reference,
+        "any file the spec reaches — an imported helper or support module, a "
+        "custom command, or a callback body such as `.then(...)`",
+        "pattern-reference.md #3 location coverage",
+    )
+
+    # The bare role-based exemption must no longer stand on its own.
+    assert (
+        "`try/catch` in non-assertion code (setup, teardown, optional cleanup) "
+        "is fine — LLM must read context before flagging." not in pattern_reference
+    ), (
+        "pattern-reference.md #3 still exempts non-assertion code by role "
+        "alone, which excuses a swallowed dependent gate"
+    )
+
+    for surface, name in (
+        (skill, "e2e-reviewer/SKILL.md #3 row"),
+        (grep_patterns, "grep-patterns.md #3 row"),
+    ):
+        require_normalized_contract(
+            surface, "imported helper", f"{name} location coverage"
+        )
+
+    spec_source = SWALLOW_FIXTURE.read_text(encoding="utf-8")
+    helper_source = SWALLOW_HELPER.read_text(encoding="utf-8")
+    then_line = source_line_number(spec_source, "expect(response.status()).toBe(201)")
+    helper_line = source_line_number(helper_source, "draft-saved-badge")
+
+    evals = json.loads(EVALS.read_text(encoding="utf-8"))["evals"]
+    case = next(item for item in evals if item["id"] == 39)
+    text = " ".join([case["expected_output"], *case["assertions"]])
+    for line, label in ((helper_line, "helper-module"), (then_line, "then-callback")):
+        assert f"line {line}" in text, (
+            f"eval 39 must claim the {label} swallow at fixture line {line}"
+        )
+    # The helper swallow only counts if the eval names the helper file, since
+    # the whole point is that reviewing the spec alone misses it.
+    assert "draft-helper.ts" in text, (
+        "eval 39 must name the imported helper file for the cross-module swallow"
+    )
+    # False-positive guards must survive: the fix must not become "flag every catch".
+    assert "Does NOT flag" in text, "eval 39 lost its false-positive guards"
+
+
 def main() -> None:
+    verify_ai_reviewer_100_aggregates()
+    verify_pattern_4i_direction_neutral()
+    verify_pattern_3_swallow_scope()
+
     security = normalized(SECURITY)
     skill = normalized(SKILL)
     pattern_reference = normalized(PATTERN_REFERENCE)
@@ -85,6 +371,21 @@ def main() -> None:
     scanner = " ".join(scanner_source.split())
     verification_rules = normalized(VERIFICATION_RULES)
     readme = README.read_text(encoding="utf-8")
+    benchmark_status = BENCHMARK_STATUS.read_text(encoding="utf-8")
+    benchmark_status_normalized = " ".join(benchmark_status.split())
+    reviewer_holdout_v6_readme = REVIEWER_HOLDOUT_V6_README.read_text(
+        encoding="utf-8"
+    )
+    reviewer_holdout_v6_normalized = " ".join(
+        reviewer_holdout_v6_readme.split()
+    )
+    ai_review_doc = AI_REVIEW_DOC.read_text(encoding="utf-8")
+    ai_review_benchmark = AI_REVIEW_BENCHMARK.read_text(encoding="utf-8")
+    case_studies = CASE_STUDIES.read_text(encoding="utf-8")
+    roadmap = ROADMAP.read_text(encoding="utf-8")
+    ai_review_100_results = json.loads(
+        AI_REVIEW_100_RESULTS.read_text(encoding="utf-8")
+    )
     evals = json.loads(EVALS.read_text(encoding="utf-8"))["evals"]
     eval_28 = next(case for case in evals if case["id"] == 28)
     eval_29 = next(case for case in evals if case["id"] == 29)
@@ -567,6 +868,99 @@ def main() -> None:
         )
         for prerequisite in ("PCRE2", "Python 3", "NUL-safe", "Tier 2 AST"):
             assert prerequisite in translated
+
+    for surface, name in (
+        (readme, "README.md"),
+        (benchmark_status, "benchmarks/STATUS.md"),
+        (ai_review_doc, "docs/review-ai-generated-e2e-tests.md"),
+    ):
+        require_contract(
+            surface,
+            "36/36 cells (12 fault operators x 3 expected outcomes)",
+            name,
+        )
+
+    for contract in (
+        "Reviewer holdout v5",
+        "Reviewer holdout v6",
+        "Independent product-review v6",
+        "Independent product-review v9",
+        "Independent product-review v10",
+        "Archived v1-v10 independent product-review rounds are retained as "
+        "legacy robustness evidence, not current release gates.",
+        "legacy design evidence rather than an active pending release gate",
+    ):
+        require_contract(benchmark_status, contract, "benchmarks/STATUS.md")
+
+    for contract in (
+        "Reviewer holdout v6 did execute its nine preregistered cells once.",
+        "The incomplete archive is caused by post-run report loss: four reports "
+        "were lost before they were copied out of temporary directories.",
+        "CLI rotation is the rerun obstacle, not the reason those first-run "
+        "reports are missing.",
+    ):
+        require_normalized_contract(
+            reviewer_holdout_v6_readme,
+            contract,
+            "benchmarks/reviewer-holdout-v6/README.md",
+        )
+        require_normalized_contract(
+            benchmark_status,
+            contract,
+            "benchmarks/STATUS.md",
+        )
+    assert (
+        "v6 stalled the same way" not in benchmark_status_normalized
+    ), "benchmarks/STATUS.md must separate report loss from rerun blockage"
+    assert (
+        "why the run stalled" not in reviewer_holdout_v6_normalized
+    ), "reviewer-holdout-v6 README must not make CLI rotation the first-run cause"
+
+    contradictory_ai_pilot_rows = [
+        row["pr"]
+        for row in ai_review_100_results["per_case"]
+        if row.get("real_issues", 0) > 0
+        and row.get("winner") == "none_material"
+        and all(value == 0 for value in row.get("caught", {}).values())
+        and "no" in row.get("judge_rationale", "").lower()
+    ]
+    assert contradictory_ai_pilot_rows == []
+    for contract in (
+        "Historical AI reviewer pilot -- corrected archive, not a performance claim",
+        "Do not cite the table below as current performance, reviewer accuracy, "
+        "or a product-quality score.",
+        "six rows had recorded `real_issues: 1`, `winner: \"none_material\"`, "
+        "and zero catches by every tool",
+        "Those rows now count as zero-issue rows, reducing the archived "
+        "denominator from 110 to 104.",
+        "78 / 104 (75%)",
+        "45 / 104 (43%)",
+        "10 / 104 (10%)",
+        "no longer has the downloaded specs or raw model transcripts needed "
+        "for full re-adjudication",
+        "its aggregate score is not reliable enough for a user to treat as "
+        "evidence that `e2e-reviewer` outperforms lint or AI PR reviewers",
+    ):
+        require_normalized_contract(
+            ai_review_benchmark,
+            contract,
+            "docs/ai-reviewer-benchmark.md",
+        )
+    assert "The headline holds directionally" not in ai_review_benchmark
+
+    for contract in (
+        "# E2E Test-Trust Case Studies",
+        "the missing-`await` cases instead repaired P1 sequencing and "
+        "failure-attribution defects",
+        "Do not treat every merged case as proof of a silent pass.",
+    ):
+        require_normalized_contract(case_studies, contract, "docs/case-studies.md")
+    require_normalized_contract(
+        roadmap,
+        "P1 sequencing or diagnostics fixes must be labeled as such rather "
+        "than counted as silent-pass evidence.",
+        "docs/roadmap.md",
+    )
 
     print("reviewer documentation contracts: pass")
 

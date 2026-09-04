@@ -2,14 +2,14 @@
 
 This page tracks self-selected upstream contributions and future candidates. Merged PRs are adoption and case evidence: they show that maintainers accepted specific fixes, but they are not a representative validation set or a product-accuracy estimate. Open false-green fixes show the next contribution queue; reviewer-informed maintenance that does not repair a false-green test is tracked separately.
 
-**Goal:** at least 25 merged upstream PRs. Each merge should be a small, reviewable fix for a Playwright/Cypress test that previously passed while proving too little.
+**Goal:** at least 25 merged upstream PRs. Each merge should be a small, reviewable Playwright/Cypress test-trust fix. Most should target demonstrated false-green behavior; P1 sequencing or diagnostics fixes must be labeled as such rather than counted as silent-pass evidence.
 
 ## Cadence and status
 
 - **Merged:** 14 upstream PRs accepted in real projects.
 - **In review:** 6 active/open upstream PRs.
 - **Upstream tooling:** the always-passing-Locator-assertion smell (`#4f`) was contributed to the official [`eslint-plugin-playwright`](https://github.com/mskelton/eslint-plugin-playwright) as the `no-unnecessary-assertions` rule ([#470](https://github.com/mskelton/eslint-plugin-playwright/pull/470), merged) — tracked separately from the test-fix count below.
-- **Queue policy:** prefer high-signal P0 silent-pass fixes; avoid padding with subjective P1/P2 style findings.
+- **Queue policy:** prefer high-signal P0 silent-pass fixes; accept concrete P1 sequencing or diagnostics fixes without relabeling them as P0 evidence, and avoid padding with subjective P1/P2 style findings.
 - **Submission policy:** one narrow anti-pattern per PR where possible, local verification first, and an `e2e-reviewer` footer only when it is useful context.
 
 ## Merged

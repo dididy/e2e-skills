@@ -79,7 +79,7 @@
     {
       "id": "case-013",
       "framework": "playwright",
-      "artifact": {"source": "files/debugger-holdout-v1/case-013/report.json", "sha256": "09f4c47ae59e80eb79251bf74d389f3b08bad20fe386a65519e659b82e714cb3"},
+      "artifact": {"source": "files/debugger-holdout-v1/case-013/report.json", "sha256": "bc11e481d8ea431e4432d9066ac55f818c81043e107ebe68eb1e2d7cc142bf66"},
       "expected": {"f_code": "F13", "confidence": "high", "diagnosis": "test_defect", "product_impact": "none", "test_reliability_urgency": "critical", "test_quality_severity": "P0"}
     },
     {
@@ -169,7 +169,7 @@
     {
       "id": "case-028",
       "framework": "cypress",
-      "artifact": {"source": "files/debugger-holdout-v1/case-028/report.json", "sha256": "b977a4c483ea990045ade17fd0462ece8266fa6a0328af2f48620b2aeff4dbdd"},
+      "artifact": {"source": "files/debugger-holdout-v1/case-028/report.json", "sha256": "bc70426e625c02b5b4bc5dc651804921f78361aeeadc8a582af49e7f7b55cf06"},
       "expected": {"f_code": "F13", "confidence": "high", "diagnosis": "test_defect", "product_impact": "none", "test_reliability_urgency": "critical", "test_quality_severity": "P0"}
     },
     {

@@ -370,16 +370,30 @@ assert "You have no shell, filesystem, network, app, image, or subagent tools" i
 assert "BEGIN_TRUSTED_SKILL_SNAPSHOT" not in without_skill_prompt
 assert "BEGIN_UNTRUSTED_TASK_ARTIFACT" in without_skill_prompt
 
-with patch.dict(module.os.environ, {"PATH": "/attacker/bin"}, clear=False), patch.object(
-    module.shutil, "which", return_value=None
-) as which:
-    try:
-        module.resolve_runner_executable("claude")
-    except ValueError as exc:
-        assert "explicit --runner-path" in str(exc)
-    else:
-        raise AssertionError("ambient PATH unexpectedly bound credentialed runner")
-    assert "/attacker/bin" not in which.call_args.kwargs["path"]
+# resolve_runner_executable delegates bare runner names to the shared,
+# version-aware resolver, so the trusted search path is the patch point that
+# actually governs lookup (it no longer calls shutil.which). Point the trusted
+# roots at an empty directory while the ambient PATH holds an attacker root:
+# resolution must fail closed rather than bind anything from the ambient PATH.
+with tempfile.TemporaryDirectory() as empty_trusted_root:
+    with patch.dict(
+        module.os.environ, {"PATH": "/attacker/bin"}, clear=False
+    ), patch.object(
+        module.SHARED_RUNNER,
+        "trusted_runner_search_path",
+        return_value=empty_trusted_root,
+    ):
+        try:
+            module.resolve_runner_executable("claude")
+        except ValueError as exc:
+            assert "explicit --runner-path" in str(exc)
+        else:
+            raise AssertionError("ambient PATH unexpectedly bound credentialed runner")
+    # The trusted roots are a fixed allowlist of install directories and never
+    # inherit the ambient PATH, so an attacker-controlled entry cannot enter
+    # resolution even when it is exported.
+    with patch.dict(module.os.environ, {"PATH": "/attacker/bin"}, clear=False):
+        assert "/attacker/bin" not in module.trusted_runner_search_path()
 PY
 
 python3 "$ROOT/scripts/evals/run-behavioral-evals.py" \

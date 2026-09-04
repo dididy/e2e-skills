@@ -97,7 +97,7 @@
     {
       "id": 4,
       "prompt": "Review the Playwright E2E tests in evals/files/checkout.spec.ts and its POM file pages/checkout-page.ts. Find any anti-patterns or quality issues.",
-      "expected_output": "Clean, well-written tests. Minimal or no P0/P1 findings. Should recognize good practices: beforeEach, getByTestId/getByRole, storageState auth, env vars for credentials, test.skip with reason. Should NOT flag: test.skip with reason comment, JUSTIFIED nth() usage in POM. May suggest minor improvements but should not produce false positives.",
+      "expected_output": "Clean, well-written tests. Minimal or no P0/P1 findings. Should recognize good practices: beforeEach, getByTestId/getByRole, storageState auth, env vars for credentials, test.skip with reason. Should NOT flag: test.skip with reason comment, JUSTIFIED nth() usage in POM. Should not produce false positives. If no catalog finding is confirmed, the report states that and carries the evidence header's scope/limitation fields — it must not volunteer selector, payload, coverage, style, or general-improvement advice outside the 24-pattern catalog, and must not emit a Coverage Gaps list with no confirmed finding to cite.",
       "files": [
         "evals/files/checkout.spec.ts",
         "evals/files/pages/checkout-page.ts"
@@ -109,8 +109,9 @@
         "Does NOT produce false positives on getByTestId/getByRole/getByLabel assertions",
         "Reports zero or near-zero P0 issues",
         "Recognizes good practices: getByTestId, getByRole, getByLabel, env vars, beforeEach, storageState auth",
-        "Summary table included",
-        "Coverage gap suggestions present"
+        "Does NOT volunteer selector, coverage, style, or general-improvement advice when no catalog finding is confirmed — a clean result reports the clean verdict plus scope/limitations only",
+        "Does NOT emit a Coverage Gaps list on a clean result — Phase 3 gaps must cite a confirmed Phase 1/2 finding",
+        "Summary table included"
       ]
     },
     {
@@ -410,7 +411,7 @@
     {
       "id": 22,
       "prompt": "Review the Playwright E2E tests in evals/files/absence-assertion.spec.ts. Find any anti-patterns, weak assertions, or quality issues.",
-      "expected_output": "Should detect exactly one #4i absence assertion never proven able to match (P1): line 9, where '.job-controls .spinner' appears nowhere else in the test and no positive state is asserted alongside, so a rotted selector keeps the test green. The scanner tags all four absence assertions [LLM-TRIAGE]; Phase 2 must skip the other three — the proven-present locator (line 18), the empty-state case with a positive counterpart (line 25), and the locator used as an action target (line 34). Reporting any of those three is a false positive.",
+      "expected_output": "Should detect exactly one #4i absence assertion never proven able to match (P1): line 9, where '.job-controls .spinner' appears nowhere else in the test and no positive state is asserted alongside, so a rotted selector keeps the test green. The scanner tags all five absence assertions [LLM-TRIAGE]; Phase 2 must skip the other four — the proven-present locator (line 18), the empty-state case with a positive counterpart (line 25), the locator used as an action target (line 34), and the empty-state precondition whose locator is proven able to match later in the same test (line 41). Reporting any of those four is a false positive. Proof direction does not matter: a locator consumed by a real assertion or action anywhere in the test's execution path cannot rot silently.",
       "files": [
         "evals/files/absence-assertion.spec.ts"
       ],
@@ -419,6 +420,7 @@
         "Does NOT flag line 18 toBeHidden() — the same 'spinner' locator is asserted visible on line 16 before absence is asserted",
         "Does NOT flag line 25 toHaveCount(0) — empty-state case that asserts a positive counterpart ('No jobs match your search') on line 24",
         "Does NOT flag line 34 toHaveCount(0) — the 'row' locator is the target of a click on line 31, proving it can match",
+        "Does NOT flag line 41 toHaveCount(0) — the 'jobRows' locator is proven able to match later in the same test (toHaveCount(1) on line 43 and a Run-button action on line 44), so a rotted selector cannot keep it green",
         "Reports #4i outside the P0 exit gate (P1, LLM-TRIAGE) rather than as a must-fix silent pass"
       ]
     },
@@ -675,6 +677,22 @@
         "Does NOT flag line 14: the conditional form gates the skip on browserName and passes 'clipboard API unsupported' as its reason. Reporting it is a false positive.",
         "Does not recommend removing reasoned skips — this skill recommends test.skip() with a reason as the fix for other patterns, and #11c targets only skips that explain nothing.",
         "Reports it as P2 maintenance, not P0: a skip is counted in every run report, so it is visible coverage loss rather than a silent always-pass bug."
+      ]
+    },
+    {
+      "id": 39,
+      "prompt": "Review the Playwright E2E tests in evals/files/swallowed-dependent-gate.spec.ts and the helper it imports, evals/files/support/draft-helper.ts. Find any anti-patterns, weak assertions, or quality issues.",
+      "expected_output": "Should detect exactly two #3 error-swallow findings (P0). First: evals/files/support/draft-helper.ts line 15, where the save-confirmation waitFor is wrapped in try/catch, so saveDraft() resolves as if the draft persisted and the spec's draft-total assertion passes against an optimistically rendered value. Reviewing the spec alone misses this, so the imported helper must be read. Second: swallowed-dependent-gate.spec.ts line 22, where the response-status gate is swallowed inside a .then() callback body, so a failed send still reaches the receipt assertion. Neither swallow is exempt: the exemption covers only failures that cannot change what the test proves, and a later assertion depends on both of these gates. Should NOT flag the best-effort teardown or the optional-survey dismissal whose absence is a supported state.",
+      "files": [
+        "evals/files/swallowed-dependent-gate.spec.ts",
+        "evals/files/support/draft-helper.ts"
+      ],
+      "assertions": [
+        "Detects the swallowed save-confirmation gate at draft-helper.ts line 15 as #3 (P0) — the swallow lives in an imported helper, one module away from the spec whose assertions look adequate",
+        "Detects the swallowed response-status assertion at swallowed-dependent-gate.spec.ts line 22 as #3 (P0) — a .then() callback body is still inside the test's execution path",
+        "Does NOT flag the sessionStorage teardown try/catch — best-effort cleanup no assertion depends on, so swallowing it cannot change what the test proves",
+        "Does NOT flag the try/catch around the optional survey dismissal — the prompt renders only for sampled sessions, nothing below depends on it, and both promised outcomes are hard-asserted afterwards",
+        "Does NOT report the swallows as P1 or lower — #3 is P0 because the test passes while the behaviour it promises went unverified"
       ]
     }
   ]

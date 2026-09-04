@@ -41,6 +41,11 @@ across the six evaluator fields. Root-cause prose is excluded from the
 stability signature. A case without that strict majority is unstable and is a
 miss in unique-case accuracy.
 
+That six-axis tuple is deliberately conservative: a model can repeatedly choose
+the right F-code and still count as unstable if diagnosis, impact, urgency,
+quality severity, or confidence rotates. Treat exact-axis metrics as a triage
+consistency check, not as six independent product-value measurements.
+
 Wilson 95% intervals use only the 30 unique cases. The report also records the
 lowest unique-case accuracy slice by framework and by F-code category.
 
@@ -91,6 +96,8 @@ Anthropic models therefore do not outvote the single OpenAI model.
 - The corpus is public, so contamination cannot be ruled out.
 - Three repetitions characterize limited within-prompt stability; they do not
   estimate deployment-time variance.
+- The strict-majority six-axis tuple can undercount F-code-only stability when
+  the auxiliary triage fields rotate.
 - Category slices contain only two unique cases each, so slice estimates are
   coarse.
 - Classification accuracy does not establish that a suggested fix repairs the

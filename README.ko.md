@@ -20,7 +20,7 @@
 <a href="README.md">🇺🇸 English</a> | <strong>🇰🇷 한국어</strong> | <a href="README.ja.md">🇯🇵 日本語</a> | <a href="README.zh-cn.md">🇨🇳 简体中文</a>
 </p>
 
-<!-- README-CANONICAL-REVISION: sha256=cc753242cd6de7e74646d533e267dafebcbc0081ea27d501a33f50c5fa05d8ee; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
+<!-- README-CANONICAL-REVISION: sha256=00280715ddce428f3996aa92b20b5be672f7709b8e9757f1b2231df4e90f5c2e; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
 
 `e2e-skills`는 AI 코딩 에이전트가 Playwright와 Cypress E2E 테스트를 생성·검토하고 실패 원인을 분석할 때 쓰는 네 가지 Agent Skills 모음입니다. 새 테스트 생성은 Playwright를 지원하고, 기존 테스트나 PR/diff 범위의 변경 검토와 실패 분석은 Playwright와 Cypress를 지원합니다. 검토 목록 가운데 규칙만으로 판별할 수 있는 항목을 찾는 `deterministic scanner`도 포함합니다.
 
@@ -221,6 +221,10 @@ Debug the failed Cypress report in cypress/reports/.
 
 새로 만든 테스트가 통과하는 것만으로는 충분하지 않습니다. `Locator`나 `Promise` 자체를 검증하거나, 테스트 이름에 적힌 동작과 무관한 상태를 확인하거나, 핵심 검증문이 테스트 결과에 영향을 주지 않을 수도 있습니다. 그래서 생성기는 적용 가능한 [V1–V6 검증](skills/playwright-test-generator/verification-rules.md)을 모두 통과하기 전까지 새 테스트를 후보로 취급합니다.
 
+전체 테스트를 생성하기 전에 각 시나리오가 기존 테스트와 다른 사용자 위험을 다루는지, E2E가 적절한 테스트 계층인지, 실패 원인을 확인할 근거가 있는지 검토합니다. 첫 도입이나 위험도가 높은 작업에서는 대표 시나리오 하나를 `e2e-reviewer`와 V1–V6로 검증한 뒤 나머지 테스트를 생성합니다.
+
+테스트는 CLI로 먼저 탐색하고, 검증을 거쳐 확정합니다. 실제 화면을 탐색할 때는 프로젝트에 호환되는 Playwright CLI(`playwright cli`), 별도로 설치된 `@playwright/cli` 패키지의 명령(`playwright-cli`), `agent-browser`, 실행 환경에 이미 연결된 Playwright MCP, 제한된 ARIA 대체 경로 순으로 사용합니다. 스코프 없이 배포된 기존 `playwright-cli` 패키지는 더 이상 권장되지 않으므로 사용하지 않습니다. 이 도구들은 탐색에만 쓰며 테스트 실행기를 대신하지 않습니다. 생성한 후보는 반드시 저장소에서 사용하는 Playwright Test 명령으로 실행해야 합니다. 프로젝트가 Playwright Test Agents를 지원하고 해당 에이전트가 이미 설정돼 있다면, 도입 조건에 따라 근거를 명시한 계획 제안을 보탤 수 있습니다. 다만 최종 구현은 이 생성기가 맡고, V1–V6 검증을 통과해야만 결과를 받아들입니다.
+
 ## 검토 방식
 
 실행 가능한 테스트 코드를 만드는 것과 제품에 문제가 생겼을 때 제대로 실패하는 테스트를 만드는 것은 별개의 일입니다. 이 절차는 규칙으로 찾을 수 있는 문제와 문맥을 읽어 판단해야 하는 문제를 구분합니다.
@@ -236,9 +240,9 @@ Debug the failed Cypress report in cypress/reports/.
 
 현재 근거로 뒷받침할 수 있는 주장은 제한적입니다. 이 프로젝트에는 동작으로 확인한 개발 근거와 업스트림에 병합된 수정 14건이 있지만, 이를 바탕으로 일반적인 검토 정확도를 주장하지는 않습니다.
 
-- 브라우저 결함 주입은 **Playwright/Cypress 셀 36개 중 36개**에서 완료했습니다.
+- 브라우저 결함 주입은 **12개 결함 연산자와 3개 예상 결과를 조합한 Playwright/Cypress 셀 36개 중 36개**에서 완료했습니다.
 - 정밀 리뷰어 벤치마크는 **입증된 허위 통과 사례 12개와 정상 코드 보호 사례 12개**를 다룹니다. 결함 사례 중 10개에는 바이트 단위로 동일한 연산자 변경을 적용했습니다.
-- 독립 견고성 게이트 v4, v5, v7, v8은 사전 등록 기준에 실패했습니다. V6와 v9은 실행하지 않았고, v10은 실행 조건을 확정해 두었지만 아직 실행하지 않았습니다.
+- 독립 제품 검토 견고성 게이트 v4, v5, v7, v8은 사전 등록 기준에 실패했습니다. v6와 v9은 실행하지 않았고, v10은 실행 조건을 확정해 두었지만 아직 실행하지 않았습니다. v1부터 v10까지는 현재 릴리스 게이트가 아니라 이전 견고성 근거로 보존합니다.
 - `debugger` 프로토콜은 다시 실행할 수 있는 합성 사례 30개를 제공하지만, 독립적으로 확립된 `debugger` 정확도를 주장하지는 않습니다.
 
 점수, 실패한 게이트, 대체된 실행, 주장 범위는 [벤치마크 현황](benchmarks/STATUS.md)을 참고하세요. [연구 근거 원장](docs/llm-generated-e2e-test-evidence.md)은 인접 분야의 단위 테스트나 맞춤형 에이전트 연구를 이 프로젝트가 직접 측정한 결과처럼 취급하지 않고, 외부 출처 59개를 구분해 검토합니다.

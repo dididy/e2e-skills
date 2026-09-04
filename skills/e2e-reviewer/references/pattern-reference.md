@@ -93,7 +93,7 @@ obligation.
 - **Cleanup / teardown:** the delete sits in `afterEach`/`afterAll`/`after()` or a test titled `Cleanup:`/`teardown` — its job is teardown, not user-facing verification (the create test owns that assertion).
 - **Success-confirmation:** a post-delete success toast/snackbar matching `/deleted|removed/i`, or a redirect (`toHaveURL` back to the list/index) — both count as verifying the delete happened.
 - **Helper-embedded assertion:** the delete runs through a shared helper (e.g. `deleteElement(name)`, `deleteRancherResource(...)`) that asserts removal internally — read the helper before flagging.
-- **Non-standard negative assertion:** `toHaveCount(0)`, `toBeEmpty()`, `toBeNull()`, or `isVisible()` captured into a variable then `toBe(false)` are all valid absence checks — **provided the locator was proven able to match** (it was asserted present or acted on earlier in the test). An absence assertion on a locator that never matched anything satisfies #2 while proving nothing; that is #4i, not an accept-criterion.
+- **Non-standard negative assertion:** `toHaveCount(0)`, `toBeEmpty()`, `toBeNull()`, or `isVisible()` captured into a variable then `toBe(false)` are all valid absence checks — **provided the locator was proven able to match** (it was asserted present or acted on somewhere in that test's execution path, before or after the absence check). An absence assertion on a locator that never matched anything satisfies #2 while proving nothing; that is #4i, not an accept-criterion.
 - **Non-entity "remove":** editor text/image, a CSS class/style, diacritics, or whitespace being "removed" is not entity deletion — judge by the noun in the title, not the verb.
 - **Different promised outcome:** a helper closes, toggles, or navigates while
   the title promises another final state that is asserted. Do not invent a
@@ -128,7 +128,24 @@ catch { console.log('skipped'); }
 
 **Rule (POM):** Remove `.catch(() => {})` / `.catch(() => false)` from wait/assertion methods. If the operation can legitimately fail, the caller should decide how to handle it. Only keep catch for UI stabilization like `input.click({ force: true }).catch(() => textarea.focus())`.
 
-**Rule (spec):** Never wrap assertions in `try/catch`. Use `test.skip()` in `beforeEach` if the test can't run. `try/catch` in non-assertion code (setup, teardown, optional cleanup) is fine — LLM must read context before flagging.
+**Rule (spec):** Never wrap assertions in `try/catch`. Use `test.skip()` in `beforeEach` if the test can't run. Judge the exemption by consequence, not by where the code sits: `try/catch` is **exempt only when the swallowed failure cannot change what the test proves** — best-effort teardown, cache cleanup, an optional element nothing asserts on. By the same measure **a swallowed wait, gate, or status check that a later assertion depends on is in scope**, even though it is not itself an assertion, because suppressing it lets the test reach that assertion in a state it never verified.
+
+**Where to look:** a swallow counts wherever it executes, so check **any file the spec reaches — an imported helper or support module, a custom command, or a callback body such as `.then(...)`** — not only the spec body and POM classes. A swallow one import away is the same defect and is easier to miss; when a spec's assertions look adequate, follow the helpers it calls before concluding the file is clean.
+
+```typescript
+// BAD helper — the readiness gate is swallowed, so the spec's assertion runs
+// against whatever the client optimistically rendered
+try { await page.getByTestId('saved-badge').waitFor({ state: 'visible' }); }
+catch (error) { console.warn('save not confirmed', error); }
+```
+
+```javascript
+// BAD Cypress — the status assertion is swallowed inside the .then() callback
+cy.wait('@ship').then((interception) => {
+  try { expect(interception.response.statusCode).to.eq(201); }
+  catch (error) { Cypress.log({ name: 'ship', message: 'skipped' }); }
+});
+```
 
 #### 3b. Cypress `uncaught:exception` Suppression `[grep-detectable, Cypress only]`
 
@@ -291,7 +308,7 @@ await expect(spinner).toBeHidden();
 
 **Detection (grep + LLM):** the scanner flags every `.not.toBeVisible()` / `.not.toBeAttached()` / `.toBeHidden()` / `.toHaveCount(0)` / `.should('not.exist'|'not.be.visible')` as `[P1?][LLM-TRIAGE]` — outside the exit gate, because grep cannot see the rest of the test. Phase 2 resolves each hit:
 
-- **SKIP** — the same locator (or an alias of it) is asserted present, or is clicked/filled/hovered, earlier in the test or its `beforeEach`.
+- **SKIP** — the same locator (or an alias of it) is asserted present, or is clicked/filled/hovered, anywhere in that test's execution path — before or after the absence assertion, or in its `beforeEach`. Direction does not matter: a later assertion or action on the same locator fails when the selector stops matching, so the absence assertion cannot pass on a rotted selector either. What matters is that the locator is consumed by a real assertion or action somewhere, not where that use sits relative to the absence check.
 - **SKIP** — the test is an empty-state / no-results case that also asserts a positive counterpart (empty-state message visible, "0 results" text). This is the dominant legitimate shape; expect it to account for most raw hits. It does not cover the `#23` case: when a render guard suppresses seeded items, the empty-state message renders for the wrong reason and the positive counterpart proves nothing. Check that the fixture can actually satisfy the component's guards before skipping on this ground.
 - **SKIP** — `// JUSTIFIED:` on the preceding line.
 - **FLAG P1** — the locator appears nowhere else and nothing positive is asserted alongside. Report it as an assertion that can pass without proving the locator ever matched, and propose either proving the locator first or deleting the assertion.

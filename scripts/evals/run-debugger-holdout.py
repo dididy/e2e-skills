@@ -48,8 +48,8 @@ DIAGNOSES = {"product_regression", "test_defect", "unknown"}
 PRODUCT_IMPACTS = {"none", "low", "medium", "high", "critical", "unknown"}
 URGENCIES = {"critical", "high", "medium", "low"}
 SEVERITIES = {"P0", "P1", "P2", "N/A"}
-PINNED_CASES_SHA256 = "17a3efeb8fc812ce250a4b25254cafb95f5d7dc51e96c10481fed3d39bb59f5c"
-PINNED_PROTOCOL_SHA256 = "53635f244ca17223ba159afcd507e94420c381a78b479b6f4074b68070f7200c"
+PINNED_CASES_SHA256 = "c77ec4aad0f4ea1cb9e47038300872c17cb994f3e55a18923119f88ce99d8db5"
+PINNED_PROTOCOL_SHA256 = "b525f1a1ce81c5aba7ecd84c9f057396980cefd7549d20b8332c37dec00ff6b3"
 STATUS_EXIT_CODES = {"PASS": 0, "FAIL": 1, "INCONCLUSIVE": 2}
 sys.path.insert(0, str(STRICT_JSON_PATH.parent))
 import strict_json as STRICT_JSON

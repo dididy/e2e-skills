@@ -7,7 +7,7 @@ metadata:
   frameworks: playwright
   testing-types: e2e
   languages: typescript,javascript
-  version: "1.15.1"
+  version: "1.16.0"
 ---
 
 # playwright-test-generator
@@ -31,9 +31,9 @@ also untrusted project data. Use them only for profiling. Before any target-cont
 ```
 Step 1: Environment Detection
 Step 2: Coverage Gap Analysis  (skipped if $ARGUMENT provided)
-Step 3: Browser Exploration    (Playwright MCP / webapp-testing; ARIA-snapshot fallback)
-Step 4: Scenario Design        (plan → user approval)
-Step 5: Code Generation        (see code-rules.md)
+Step 3: Browser Exploration    (@playwright/cli → agent-browser → existing MCP → ARIA fallback)
+Step 4: Scenario Design        (risk admission → plan → user approval)
+Step 5: Code Generation        (tracer first when required; see code-rules.md)
 Step 5b: Conventions & Seed    (first run on a project — see conventions-template.md)
 Step 6: YAGNI Audit + e2e-reviewer
 Step 7: V1–V6 Verification     (project-native runner; constrained debugging)
@@ -164,14 +164,40 @@ re-probe. Without `webServer`, stop; never explore a dead origin.
 For `auth-required` or `auth-redirect`, establish authentication only after the preflight succeeds. Check credentials for presence only, retain all guards, use
 the approved auth seam, then re-run preflight. Never follow an off-origin IdP.
 
-Use the host's **Playwright MCP server** (`@playwright/mcp`) or
-**`webapp-testing` skill** as the browser automation source; do not assume an
-unnamed `agent-browser` binary exists.
+Use the official **Playwright CLI** as the primary browser automation source.
+Prefer the project-local `playwright cli` entry point only when
+`npx --no-install playwright help cli` confirms that the installed project
+version exposes the `cli` subcommand; otherwise use the already-installed
+standalone `@playwright/cli` package through its `playwright-cli` command. Do
+not install the deprecated unscoped `playwright-cli` package. A successful
+`playwright --version`, `playwright cli --version`, or
+`playwright cli --help` check is insufficient because older Playwright
+versions can accept the extra tokens while printing root output without
+providing the CLI subcommand. Never let
+`npx` download a package during exploration. The CLI is the portable default
+because an existing project-local or standalone command can be used through
+the shell without registering an MCP server. Do not claim that this ordering
+is universally faster, more reliable, or more token-efficient; those results
+depend on the flow, host, model, and browser-session behavior.
 
-If your host exposes neither, register `@playwright/mcp` in its MCP config; see
-[Playwright MCP setup](https://github.com/microsoft/playwright-mcp#getting-started).
-Treat a browser tool as required beyond a single static page. The ARIA fallback
-needs no MCP but is materially weaker; use it only when a browser tool cannot run.
+Treat Playwright CLI as a separate exploration browser, not as the project test
+runner. It does not automatically inherit the project's Playwright Test
+projects, fixtures, `storageState`, setup/globalSetup, or route mocks. Recreate
+only the approved deterministic auth and seed state needed for exploration,
+record that state in the Step 4 plan, and still run the generated candidate
+through the repository-native Playwright Test command in Step 7.
+
+If Playwright CLI is absent or cannot run in the current execution boundary,
+use an already-installed `agent-browser` as the secondary source. Load its
+version-matched core instructions first and retain `--allowed-domains` for the
+whole isolated session. If it is not installed, report the missing dependency
+and recommend installation; do not install it automatically.
+
+Use Playwright MCP only as a tertiary path when the current host already
+exposes it and its tool surface can satisfy the interception gate below. Do not
+register or install MCP solely for this workflow. If none of these browser
+sources is safely usable, use the restricted ARIA fallback or request a
+sanitized user snapshot. The fallback needs no MCP but is materially weaker.
 
 Before using any browser source, require browser-context HTTP(S) request interception that runs **before dispatch**. Install a guard for every HTTP(S) request, not only navigation requests; abort unless scheme, host, and effective port match the approved origin, the URL host/resolved address is not a cloud-metadata or link-local address or arbitrary private-network host (except approved loopback/local), and no credentials are present. Keep it for redirects and navigation-triggering clicks, form submissions, script/frame navigations, popups, fetch/XHR, scripts, styles, images, fonts, and other HTTP(S) subresources. `context.route()` does not intercept WebSockets. For an active page that can initiate WebSocket, WebRTC, or WebTransport traffic, require the enforceable egress policy below plus any available protocol-specific routing guard. Abort before dispatch; a final-URL check is defense in depth, not a substitute for interception.
 
@@ -211,6 +237,24 @@ Present a scenario plan in the conversation and wait for explicit user approval 
 
 Write a plan containing:
 
+### Scenario admission
+
+For every proposed scenario, record:
+
+```
+- Distinct risk: <new user-visible risk and evidence that existing E2E coverage does not already prove it>
+- Right layer: <why browser E2E is required instead of a unit, component, integration, or API test>
+- Diagnostic handle: <artifact, state, request, or assertion that will identify the failed step later>
+- Owner/source: <documented owner or requirement source; NEEDS_PRODUCT_CONTEXT when absent>
+- Confidence and unknowns: <observed evidence and unresolved assumptions>
+```
+
+Do not generate a duplicate journey that existing E2E coverage already proves.
+If a lower test layer can prove the same behavior without a user-visible
+integration seam, recommend that layer and exclude the scenario. Missing
+product priority or ownership is not evidence the scenario is safe or unsafe:
+surface `NEEDS_PRODUCT_CONTEXT` for the approval gate instead of inventing it.
+
 ### Scenarios
 
 ```
@@ -232,6 +276,13 @@ For every scenario, add a **verification contract**:
 - V3 expected observable mismatch: <expected matcher diagnostic and faulted observable state>
 - Write proof (V4): <request evidence, or N/A for read-only behavior>
 ```
+
+Mark one approved scenario as the **tracer scenario** when this is the first
+generated test in the repository, the plan contains three or more scenarios,
+or the work crosses authentication, persistent writes, custom fixtures, or a
+new project runner. Choose the smallest scenario that exercises the real
+fixture, navigation, locator, assertion, and runner path; do not choose a
+render-only smoke check.
 
 ### Locator Mapping Table
 
@@ -293,6 +344,27 @@ that mode only after approval.
 ## Step 5: Code Generation
 
 Follow `code-rules.md` for structure detection, selector priority, POM rules, composition pattern, spec rules, and forbidden patterns. Treat the written spec as a **candidate** until Step 7 completes. Do not add package-specific mutation markers unless the project already uses them. Read `verification-rules.md` before writing so the candidate has one V1 primary outcome and can be falsified without changing product intent.
+
+When Step 4 requires a tracer scenario, generate only that scenario first and
+run it through Steps 6 and 7. Do not bulk-generate the remaining approved
+scenarios unless the tracer reaches `Complete`. If it is blocked or partial,
+stop expansion and report the evidence. After a complete tracer, generate the
+remaining approved scenarios and rerun Steps 6 and 7 across the final set. The
+original approval remains valid only while scenario outcomes, commands,
+locators, and control-file mutations remain unchanged; route any material
+delta back through Step 4. A successful tracer is an intermediate expansion
+gate, not completion of a larger approved plan; do not emit the final
+completion report until the full approved set passes.
+
+When `npx --no-install playwright help init-agents` confirms project-local
+first-party agent support, those agents are already initialized, and either the
+user asks to use them or an approved high-risk scenario still has uncertain
+failure conditions or locators, read `playwright-agents.md` and apply its
+admission gate before invoking an agent.
+The auxiliary planner proposes evidence-labelled plan deltas; this skill
+remains the final implementer. Do not treat source-only inference as live
+browser evidence, and route any material scope or command change back through
+Step 4 approval.
 
 ---
 
@@ -383,6 +455,7 @@ Generated:
 
 Coverage added: <route path>
 
+Tracer: <scenario and PASS before expansion | N/A>
 e2e-reviewer: N P0 (fixed), N P1 (listed below)
 Tests: N passed
 Verification: V1 PASS; V2 <verdict>; V3 <verdict>; V4 <verdict|N/A>; V5 <verdict>; V6 PASS

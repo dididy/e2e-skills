@@ -25,9 +25,9 @@ RUNNER_PATH = ROOT / "scripts/evals/run-debugger-holdout.py"
 COMPARATOR_PATH = ROOT / "scripts/evals/compare-debugger-holdouts.py"
 BENCHMARK_DOC_PATH = ROOT / "docs/debugger-benchmark/README.md"
 
-EXPECTED_CORPUS_SHA256 = "17a3efeb8fc812ce250a4b25254cafb95f5d7dc51e96c10481fed3d39bb59f5c"
-EXPECTED_PROTOCOL_SHA256 = "53635f244ca17223ba159afcd507e94420c381a78b479b6f4074b68070f7200c"
-EXPECTED_SOURCE_TREE_SHA256 = "381042c2a4d8d30bd3f57dbe9d87fadacc05111ba0d425ef1cdde59666f0dc41"
+EXPECTED_CORPUS_SHA256 = "c77ec4aad0f4ea1cb9e47038300872c17cb994f3e55a18923119f88ce99d8db5"
+EXPECTED_PROTOCOL_SHA256 = "b525f1a1ce81c5aba7ecd84c9f057396980cefd7549d20b8332c37dec00ff6b3"
+EXPECTED_SOURCE_TREE_SHA256 = "30743527304f47164f84154703950f66f253277e881d4b8271d57785982cc28e"
 EXPECTED_CODES = {f"F{number}" for number in range(1, 16)}
 SOURCE_LEAKAGE = re.compile(
     r"\b(?:F(?:[1-9]|1[0-5])|product_regression|test_defect|"
@@ -61,6 +61,18 @@ def load_module(name: str, path: Path):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def artifact_has_observed_failure(payload: dict) -> bool:
+    attempts = payload.get("attempts", [])
+    for attempt in attempts:
+        if attempt.get("status") == "failed" or attempt.get("state") == "failed":
+            return True
+    runs = payload.get("runs", [])
+    for run in runs:
+        if run.get("status") == "failed" or run.get("state") == "failed":
+            return True
+    return False
 
 
 class DebuggerHoldoutV1Test(unittest.TestCase):
@@ -137,6 +149,15 @@ class DebuggerHoldoutV1Test(unittest.TestCase):
             self.assertNotIn("expected", payload)
             self.assertNotIn("classification", payload)
 
+    def test_prompt_artifacts_match_failed_debugger_trigger(self) -> None:
+        for case in self.corpus["cases"]:
+            path = ROOT / "scripts/evals" / case["artifact"]["source"]
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            self.assertTrue(
+                artifact_has_observed_failure(payload),
+                f"{case['id']} lacks an observed failure",
+            )
+
     def test_corpus_protocol_and_source_tree_are_frozen(self) -> None:
         self.assertEqual(EXPECTED_CORPUS_SHA256, sha256(CASES_PATH))
         self.assertEqual(EXPECTED_PROTOCOL_SHA256, sha256(PROTOCOL_PATH))
@@ -193,6 +214,7 @@ class DebuggerHoldoutV1Test(unittest.TestCase):
         self.assertTrue(any("not full browser reports" in item for item in self.protocol["limitations"]))
         self.assertTrue(any("author-created synthetic" in item for item in self.protocol["limitations"]))
         self.assertTrue(any("independent oracle audit" in item for item in self.protocol["limitations"]))
+        self.assertTrue(any("six-axis classification tuple" in item for item in self.protocol["limitations"]))
         self.assertIn("not independently adjudicated", self.corpus["description"])
 
     def test_benchmark_documentation_preserves_development_limitations(self) -> None:
@@ -201,6 +223,7 @@ class DebuggerHoldoutV1Test(unittest.TestCase):
         self.assertIn("author-created synthetic", text)
         self.assertIn("not full Playwright or Cypress reports", text)
         self.assertIn("Wilson 95% intervals use only the 30 unique cases", text)
+        self.assertIn("six-axis tuple is deliberately conservative", text)
         self.assertIn("--runner-path", text)
         self.assertIn("no symlink or traversal components", text)
 

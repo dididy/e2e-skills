@@ -135,7 +135,7 @@ Scanner matches are candidates, not final findings. Context-dependent problems s
 
 This project has behavior-backed development evidence and [14 merged upstream fixes](case-studies.md), but it does not claim generalized reviewer accuracy.
 
-- The archived browser fault matrix completed 36/36 Playwright/Cypress cells.
+- The archived browser fault matrix completed 36/36 cells (12 fault operators x 3 expected outcomes) across Playwright/Cypress fixtures.
 - The exact reviewer benchmark covers 12 proven false-green cases and 12 clean guards.
 - The paired Playwright generation example is a development observation, not a framework-wide accuracy estimate.
 - Current failed, incomplete, and superseded benchmark rounds remain visible in [Benchmarks and Evidence Status](../benchmarks/STATUS.md).

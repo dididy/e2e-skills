@@ -186,6 +186,23 @@ def enumerate_files(root: Path, test_git: Path | None = None) -> list[Path]:
     return sorted(set(files))
 
 
+def read_index_blob(root: Path, relative: Path) -> bytes:
+    completed = subprocess.run(
+        [git_executable(), "cat-file", "blob", ":{}".format(relative.as_posix())],
+        cwd=str(root),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=git_environment(),
+        check=False,
+    )
+    if completed.returncode != 0:
+        detail = completed.stderr.decode("utf-8", errors="replace").strip()
+        raise RuntimeError(
+            "cannot read indexed {}: {}".format(relative, detail or "no diagnostic")
+        )
+    return completed.stdout
+
+
 def scan(root: Path, test_git: Path | None = None) -> list[str]:
     findings = []
     for relative in enumerate_files(root, test_git):
@@ -193,15 +210,18 @@ def scan(root: Path, test_git: Path | None = None) -> list[str]:
         if path.is_symlink():
             raise RuntimeError("selected path is a symlink: {}".format(relative))
         try:
-            if path.stat().st_size > MAX_TEXT_BYTES:
-                raise RuntimeError(
-                    "selected text file exceeds the {}-byte limit: {}".format(
-                        MAX_TEXT_BYTES,
-                        relative,
+            if not os.path.lexists(path) and test_git is None:
+                data = read_index_blob(root, relative)
+            else:
+                if path.stat().st_size > MAX_TEXT_BYTES:
+                    raise RuntimeError(
+                        "selected text file exceeds the {}-byte limit: {}".format(
+                            MAX_TEXT_BYTES,
+                            relative,
+                        )
                     )
-                )
-            with path.open("rb") as handle:
-                data = handle.read(MAX_TEXT_BYTES + 1)
+                with path.open("rb") as handle:
+                    data = handle.read(MAX_TEXT_BYTES + 1)
             if len(data) > MAX_TEXT_BYTES:
                 raise RuntimeError(
                     "selected text file exceeds the {}-byte limit: {}".format(

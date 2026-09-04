@@ -17,19 +17,18 @@ The latest completed Codex `gpt-5.6-sol` run completed all 24 scheduled calls
 with zero infrastructure errors. Its exact preregistered verdict for that
 pre-hardening snapshot is **FAIL**:
 
-- stable unique TP / FP / FN: 23 / 1 / 1
-- stable precision / recall / F1: 0.9583 / 0.9583 / 0.9583
+- stable unique TP / FP / FN: 21 / 1 / 3
+- stable precision / recall / F1: 0.9545 / 0.8750 / 0.9130
 - stable false-positive-guard hits: 0 / 24
-- repeated TP / FP / FN: 67 / 7 / 5
-- repeated precision / recall / F1: 0.9054 / 0.9306 / 0.9178
-- P0 stable-label recall: 0.8571 (required at least 0.90)
+- repeated TP / FP / FN: 57 / 15 / 15
+- repeated precision / recall / F1: 0.7917 / 0.7917 / 0.7917
+- P0 stable-label recall: 1.0000 (required at least 0.90)
+- stable pattern macro recall: 0.8750
 
-The only stable miss is the #2 archive-undo case. All three repetitions report
-the same underlying missing restoration proof as #1 at the test declaration
-instead of #2 at the undo action. The exact taxonomy/anchor scorer therefore
-counts one FP and one FN. Two source-only auditors had independently preferred
-#2, so the preregistered score is preserved rather than retroactively accepting
-the model's alternative classification.
+The three stable misses are #15, #16, and #21. The one stable false positive is
+on the same historical #1-versus-#2 taxonomy/anchor disagreement described in
+`anchor-convention-audit.md`. The preregistered exact scorer is preserved rather
+than retroactively accepting alternative classifications.
 
 The complete historical report is `reports/full-codex.json`. Its evaluated
 skill digest is

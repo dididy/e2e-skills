@@ -184,13 +184,20 @@ def resolve_runner_executable(
     if explicit_path is not None:
         candidate = explicit_path.expanduser().resolve()
     elif runner in {"codex", "claude"}:
-        resolved = shutil.which(runner, path=trusted_runner_search_path())
-        if resolved is None:
+        # Delegate to the shared, version-aware resolver. Directory order in
+        # the trusted roots is not a freshness signal: a Homebrew formula and
+        # a standalone installer drift independently, so the first hit can be
+        # an older build than one listed later. The shared helper enumerates
+        # every trusted install and selects by actual `--version` output.
+        try:
+            candidate = Path(
+                SHARED_RUNNER.resolve_runner_executable(runner)
+            ).resolve()
+        except ValueError as error:
             raise ValueError(
                 f"{runner} not found in trusted install roots; pass an explicit "
                 "--runner-path"
-            )
-        candidate = Path(resolved).resolve()
+            ) from error
     else:
         candidate = Path(runner).expanduser()
         if not candidate.is_absolute():

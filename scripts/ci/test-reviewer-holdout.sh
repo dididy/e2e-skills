@@ -1016,27 +1016,48 @@ with tempfile.TemporaryDirectory() as workspace_dir:
     assert ambient["AMBIENT_HOLDOUT_SECRET"] not in prompt
     assert ambient["AMBIENT_HOLDOUT_SECRET"] not in output
 
-with patch.dict(module.os.environ, ambient, clear=False), patch.object(
-    module.shutil, "which", return_value="/usr/local/bin/codex"
-) as which:
-    with patch.object(pathlib.Path, "is_file", return_value=True), patch.object(
-        module.os, "access", return_value=True
+# resolve_runner_executable enumerates every trusted install and selects by
+# actual --version output, so the trusted search path -- not shutil.which -- is
+# the lookup mechanism. Drive it with a controlled fake install so the check is
+# deterministic instead of depending on which real builds this machine has.
+with tempfile.TemporaryDirectory() as trusted_root:
+    trusted_codex = pathlib.Path(trusted_root) / "codex"
+    trusted_codex.write_text(
+        "#!/bin/sh\n"
+        'if [ "$1" = "--version" ]; then echo "codex-cli 0.152.1"; exit 0; fi\n'
+        "exit 1\n",
+        encoding="utf-8",
+    )
+    trusted_codex.chmod(0o755)
+    with patch.dict(module.os.environ, ambient, clear=False), patch.object(
+        module, "trusted_runner_search_path", return_value=str(trusted_root)
     ):
-        assert module.resolve_runner_executable("codex") == "/usr/local/bin/codex"
-    search_path = which.call_args.kwargs["path"]
+        assert module.resolve_runner_executable("codex") == str(
+            trusted_codex.resolve()
+        )
+
+# The trusted roots are a fixed allowlist and never inherit the ambient PATH.
+with patch.dict(module.os.environ, ambient, clear=False):
+    search_path = module.trusted_runner_search_path()
     assert "/trusted/bin" not in search_path
     assert "/usr/local/bin" in search_path
 
-with patch.dict(module.os.environ, {"PATH": "/attacker/bin"}, clear=False), patch.object(
-    module.shutil, "which", return_value=None
-) as which:
-    try:
-        module.resolve_runner_executable("codex")
-    except ValueError as exc:
-        assert "explicit --runner-path" in str(exc)
-    else:
-        raise AssertionError("ambient absolute PATH unexpectedly bound credentialed runner")
-    assert "/attacker/bin" not in which.call_args.kwargs["path"]
+with tempfile.TemporaryDirectory() as empty_trusted_root:
+    with patch.dict(
+        module.os.environ, {"PATH": "/attacker/bin"}, clear=False
+    ), patch.object(
+        module, "trusted_runner_search_path", return_value=empty_trusted_root
+    ):
+        try:
+            module.resolve_runner_executable("codex")
+        except ValueError as exc:
+            assert "explicit --runner-path" in str(exc)
+        else:
+            raise AssertionError(
+                "ambient absolute PATH unexpectedly bound credentialed runner"
+            )
+    with patch.dict(module.os.environ, {"PATH": "/attacker/bin"}, clear=False):
+        assert "/attacker/bin" not in module.trusted_runner_search_path()
 
 with tempfile.TemporaryDirectory() as runner_dir:
     explicit = pathlib.Path(runner_dir) / "codex"

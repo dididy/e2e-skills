@@ -33,4 +33,14 @@ test.describe('job runner', () => {
     // GOOD — the locator was the target of an action earlier in this test
     await expect(row).toHaveCount(0);
   });
+
+  test('adding a job fills the empty list', async ({ page }) => {
+    await page.goto('/jobs?q=nonexistent');
+    const jobRows = page.getByTestId('job-row');
+    // GOOD — empty-state precondition; this locator is proven able to match later in the same test
+    await expect(jobRows).toHaveCount(0);
+    await page.getByRole('button', { name: 'New job', exact: true }).click();
+    await expect(jobRows).toHaveCount(1);
+    await jobRows.getByRole('button', { name: 'Run', exact: true }).click();
+  });
 });

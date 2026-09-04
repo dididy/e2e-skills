@@ -1,29 +1,46 @@
-# Compare e2e-reviewer with lint and AI PR reviewers
+# Historical AI reviewer pilot -- corrected archive, not a performance claim
 
-This page compares `e2e-reviewer`, standard ESLint plugins, and eight AI pull request reviewers on 100 open-source pull requests. It measures one target: which tool identifies end-to-end (E2E) tests that can stay green while the feature is broken, with minimal off-target findings.
+This page preserves an early 100-PR pilot that compared `e2e-reviewer`,
+standard ESLint plugins, and eight AI pull request reviewers. It is retained as
+historical methodology and exploratory case evidence only.
 
-The comparison includes losses and three material limitations. The committed result file supports aggregate re-derivation, but it excludes the downloaded specs and raw model transcripts required for a full replay.
+**Do not cite the table below as current performance, reviewer accuracy, or a
+product-quality score.** A 2026-09-02 audit fixed internal annotation
+contradictions in the committed per-case summaries: six rows had recorded
+`real_issues: 1`, `winner: "none_material"`, and zero catches by every tool
+while their truncated judge rationales say the specs had no material issue.
+Those rows now count as zero-issue rows, reducing the archived denominator from
+110 to 104. The repository no longer has the downloaded specs or raw model
+transcripts needed for full re-adjudication, so the aggregate remains historical
+pilot evidence rather than a current product benchmark.
 
-> **Status:** A separate LLM judge labeled this pilot; no human panel adjudicated it.
-> Treat the exact numbers as sample-specific and indicative, not neutral ground truth.
+The pilot also has the earlier known limitations: a separate LLM judge labeled
+the reference set, no human panel adjudicated it, the reviewer and judge shared
+a model family, and AI PR reviewers were measured only through capped inline
+spec-file comments rather than their whole-review behavior.
 
-## Results at a glance
+## Archived aggregate, not a claim
 
 - Corpus: **100 PRs across 77 distinct repositories**, each one already reviewed by one of
   8 AI PR reviewers, each modifying Playwright or Cypress spec files.
-- A separate LLM judge read every spec file, defined a 110-issue reference set for
-  E2E test trust, then scored each tool against that model-labeled set.
+- The archived file says a separate LLM judge read every spec file, defined a
+  corrected 104-issue reference set for E2E test trust, then scored each tool against that
+  model-labeled set.
 
 | Tool | Judge-labeled issues matched | Judge-labeled false positives / off-target noise | Caught what the other two missed |
 |------|------------------------------|--------------------------|----------------------------------|
-| **e2e-reviewer (LLM Phase 2)** | **78 / 110 (71%)** | **0** | **47** |
-| lint (eslint-plugin-playwright / -cypress) | 45 / 110 (41%) | 0 | — |
-| AI PR reviewer (inline spec comments) | 10 / 110 (9%) | 72 | 4 |
+| **e2e-reviewer (LLM Phase 2)** | **78 / 104 (75%)** | **0** | **47** |
+| lint (eslint-plugin-playwright / -cypress) | 45 / 104 (43%) | 0 | -- |
+| AI PR reviewer (inline spec comments) | 10 / 104 (10%) | 72 | 4 |
 
 Per-case winner, on the 33 PRs that contained a real issue (67 PRs had none):
 **e2e-reviewer 19, lint-sufficient 11, AI reviewer 2, tie 1.**
 
-On this model-labeled sample, the verification layer had the highest recall for E2E test trust and no judged false positives. It uniquely matched 47 issues that lint and the AI reviewer missed. This does not establish that general AI reviewers are weak. A specialized checker can focus on one concern while a general reviewer covers the entire pull request.
+These are corrected archived aggregate figures, not validated benchmark results.
+The only current conclusion is narrower: this pilot produced useful candidate
+cases and rule feedback, but its aggregate score is not reliable enough for a
+user to treat as evidence that `e2e-reviewer` outperforms lint or AI PR
+reviewers.
 
 ## What the mechanical layer alone shows
 
@@ -72,16 +89,14 @@ scoreboard above measures.
    DRY/typo/correctness feedback that is simply off-target for *this* reference set.
 2. **Judge/reviewer model affinity.** Our Phase-2 reviewer and the separate judge are the
    same model family, which can inflate our recall and deflate our false-positive count.
-   A human-judged or cross-model-judged run would be stronger evidence. *Update:* the
-   contestable unique catches (the 15 cases where ours beat both lint and the AI reviewer;
-   the original judge labeled no e2e-reviewer outputs as false positives, so this check
-   focused on unique catches) were re-judged by an independent cross-model judge, OpenAI
-   gpt-5.5 via Codex. It agreed on 13/15 (87%); the two disagreements were reasoned
-   definitional edges, not overturned defects. The headline holds directionally under a
-   different model family rather than collapsing.
-3. **LLM-labeled reference set, single sample.** The 110 "real issues" were labeled by an
-   LLM judge reading each file, not by a human panel, over one 100-PR snapshot. Treat the
-   exact numbers as indicative, not definitive.
+   A human-judged or cross-model-judged run would be stronger evidence. A later
+   cross-model spot-check of 15 contestable unique catches agreed on 13/15, but that
+   check did not revisit the six internally contradictory denominator rows and cannot
+   restore the archived aggregate as a performance result.
+3. **LLM-labeled reference set, single sample.** The corrected 104 "real issues"
+   were labeled by an LLM judge reading each file, not by a human panel, over
+   one 100-PR snapshot. Treat the corrected aggregate as archived pilot data,
+   not as a current performance claim.
 
 ## What we changed as a result
 
