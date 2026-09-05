@@ -20,7 +20,7 @@
 <a href="README.md">🇺🇸 English</a> | <strong>🇰🇷 한국어</strong> | <a href="README.ja.md">🇯🇵 日本語</a> | <a href="README.zh-cn.md">🇨🇳 简体中文</a>
 </p>
 
-<!-- README-CANONICAL-REVISION: sha256=00280715ddce428f3996aa92b20b5be672f7709b8e9757f1b2231df4e90f5c2e; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
+<!-- README-CANONICAL-REVISION: sha256=57941e60a4c7366653ce7cda3bf09a13043e5e74c9e2824b42eaf462a82f8aa4; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
 
 `e2e-skills`는 AI 코딩 에이전트가 Playwright와 Cypress E2E 테스트를 생성·검토하고 실패 원인을 분석할 때 쓰는 네 가지 Agent Skills 모음입니다. 새 테스트 생성은 Playwright를 지원하고, 기존 테스트나 PR/diff 범위의 변경 검토와 실패 분석은 Playwright와 Cypress를 지원합니다. 검토 목록 가운데 규칙만으로 판별할 수 있는 항목을 찾는 `deterministic scanner`도 포함합니다.
 
@@ -240,7 +240,11 @@ Debug the failed Cypress report in cypress/reports/.
 
 현재 근거로 뒷받침할 수 있는 주장은 제한적입니다. 이 프로젝트에는 동작으로 확인한 개발 근거와 업스트림에 병합된 수정 14건이 있지만, 이를 바탕으로 일반적인 검토 정확도를 주장하지는 않습니다.
 
-- 브라우저 결함 주입은 **12개 결함 연산자와 3개 예상 결과를 조합한 Playwright/Cypress 셀 36개 중 36개**에서 완료했습니다.
+병합 건수는 분모 없이 보고합니다. 총 몇 건의 풀 리퀘스트를 열었고 그중 몇 건이 잘못됐다는 이유로 닫혔는지가 함께 있지 않으므로, 이 수치를 정밀도로 읽어서는 안 됩니다. 관리자가 지적을 틀렸다고 판단해 닫은 사례야말로 독립적인 정답이며, 그 결과가 병합 건수와 함께 공개되기 전까지 14는 받아들여진 수정의 개수일 뿐입니다.
+
+- 가장 강한 독립적 신호는 점수가 아닙니다. 항상 통과하는 Locator 단언 패턴(`#4f`)이 공식 `eslint-plugin-playwright`의 `no-unnecessary-assertions` 규칙으로 채택됐습니다(병합된 풀 리퀘스트는 [로드맵](docs/roadmap.md) 참고). 이 프로젝트와 이해관계가 없는 외부 관리자가 규칙 정의를 받아들인 것입니다. 동시에 이제는 린트가 그 형태를 잡는다는 뜻이므로, 이 프로젝트는 더 이상 그 사례를 자기 성과로 주장하지 않습니다.
+- `docs/rule-self-audit.md`는 두 모델 계열의 적대적 감사로 이 프로젝트 **자신의** P0 규칙에서 발견한 결함을 기록합니다. 단일 검토자라면 통과시켰을 규칙들이 포함돼 있습니다.
+- 브라우저 결함 주입은 **12개 결함 연산자와 3개 예상 결과를 조합한 Playwright/Cypress 셀 36개 중 36개**에서 완료했습니다. 이는 하네스 자체 검사입니다. 애플리케이션, 견고한 테스트, 주입한 결함, 취약한 테스트를 모두 이 저장소에서 작성했으므로, 탐지기가 설계대로 동작한다는 것을 보여줄 뿐 일반화를 뜻하지 않습니다.
 - 정밀 리뷰어 벤치마크는 **입증된 허위 통과 사례 12개와 정상 코드 보호 사례 12개**를 다룹니다. 결함 사례 중 10개에는 바이트 단위로 동일한 연산자 변경을 적용했습니다.
 - 독립 제품 검토 견고성 게이트 v4, v5, v7, v8은 사전 등록 기준에 실패했습니다. v6와 v9은 실행하지 않았고, v10은 실행 조건을 확정해 두었지만 아직 실행하지 않았습니다. v1부터 v10까지는 현재 릴리스 게이트가 아니라 이전 견고성 근거로 보존합니다.
 - `debugger` 프로토콜은 다시 실행할 수 있는 합성 사례 30개를 제공하지만, 독립적으로 확립된 `debugger` 정확도를 주장하지는 않습니다.

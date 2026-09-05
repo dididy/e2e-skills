@@ -19,7 +19,7 @@
 <p align="center">
 <a href="README.md">🇺🇸 English</a> | <a href="README.ko.md">🇰🇷 한국어</a> | <a href="README.ja.md">🇯🇵 日本語</a> | <strong>🇨🇳 简体中文</strong>
 </p>
-<!-- README-CANONICAL-REVISION: sha256=00280715ddce428f3996aa92b20b5be672f7709b8e9757f1b2231df4e90f5c2e; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
+<!-- README-CANONICAL-REVISION: sha256=57941e60a4c7366653ce7cda3bf09a13043e5e74c9e2824b42eaf462a82f8aa4; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
 
 `e2e-skills` 为 AI 编程代理提供四个面向 E2E 测试工作的聚焦工作流：生成 Playwright 覆盖、审查现有 spec 或 PR/diff 范围内的测试变更、调试失败的 Playwright 报告，以及调试失败的 Cypress 报告。它还包含一个确定性扫描器，用于发现审查目录中可机械判定的子集。
 
@@ -230,7 +230,11 @@ Debug the failed Cypress report in cypress/reports/.
 
 当前证据只支持一个窄口径声明：项目拥有行为支持的开发证据和 14 个已合入上游的修复，但不声称具备可泛化的审查准确率。
 
-- 浏览器故障注入已完成 **12 个故障算子与 3 种预期结果组合形成的全部 36 个 Playwright/Cypress 单元**。
+合并数量是在没有分母的情况下报告的：既没有说明总共提交了多少个 pull request，也没有说明其中多少个因为判断有误而被关闭，因此这个数字不能当作精确率来读。维护者认定指摘有误而关闭的案例才是独立的标准答案；在这些结果与合并数量一并公开之前，14 只是被接受的修复数量。
+
+- 最强的独立信号不是分数：始终通过的 Locator 断言模式（`#4f`）已被官方 `eslint-plugin-playwright` 采纳为 `no-unnecessary-assertions` 规则（已合并的 pull request 见[路线图](docs/roadmap.md)）。这是一位与本项目没有利害关系的外部维护者接受了该规则定义。同时这也意味着当前的 lint 已能检出这种形状，因此本项目不再将其作为自己的成果来声称。
+- `docs/rule-self-audit.md` 记录了由两个模型系列进行的对抗性审计在本项目**自身** P0 规则中发现的缺陷，其中包括单一审查者会放行的规则。
+- 浏览器故障注入已完成 **12 个故障算子与 3 种预期结果组合形成的全部 36 个 Playwright/Cypress 单元**。这是对测试台自身的检验：应用、健壮的测试、注入的故障和脆弱的测试都由本仓库编写，因此它只能说明检测器按设计触发，并不代表可以泛化。
 - Exact reviewer benchmark 覆盖 **12 个已证实的 false-green cases 和 12 个 clean guards**；其中 10 个 fault cases 是 byte-identical operator mutants。
 - Independent product-review robustness gates v4、v5、v7 和 v8 未达到其预注册标准。v6 和 v9 未运行，v10 已冻结但未运行；v1 至 v10 仅作为既有的 robustness evidence 保留，不是当前的 release gates。
 - Debugger protocol 提供可重放的 30-case synthetic corpus，但不声称已独立建立调试器准确率。

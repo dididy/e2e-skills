@@ -20,7 +20,7 @@
 <a href="README.md">🇺🇸 English</a> | <a href="README.ko.md">🇰🇷 한국어</a> | <strong>🇯🇵 日本語</strong> | <a href="README.zh-cn.md">🇨🇳 简体中文</a>
 </p>
 
-<!-- README-CANONICAL-REVISION: sha256=00280715ddce428f3996aa92b20b5be672f7709b8e9757f1b2231df4e90f5c2e; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
+<!-- README-CANONICAL-REVISION: sha256=57941e60a4c7366653ce7cda3bf09a13043e5e74c9e2824b42eaf462a82f8aa4; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
 
 `e2e-skills` は、AI コーディングエージェントが Playwright/Cypress の E2E テスト作業に使える 4 つのワークフローを提供します。Playwright カバレッジの生成、既存のテスト仕様または PR/diff 範囲の変更レビュー、失敗した Playwright レポートのデバッグ、失敗した Cypress レポートのデバッグを扱います。レビューカタログのうち、機械的に判定できる部分集合を検出する決定論的スキャナーも含まれます。
 
@@ -231,7 +231,11 @@ Debug the failed Cypress report in cypress/reports/.
 
 現在の根拠で支えられる主張は限定的です。このプロジェクトには動作で裏付けた開発根拠とアップストリームにマージされた 14 件の修正がありますが、一般化されたレビュー精度は主張しません。
 
-- ブラウザー障害注入は、**12 個の障害演算子と 3 種類の期待結果を組み合わせた Playwright/Cypress セル 36 件すべて**で完了しています。
+マージ件数は分母なしで報告しています。プルリクエストを合計何件出し、そのうち何件が誤りとして閉じられたかが併記されていないため、この数値を精度として読むことはできません。メンテナーが指摘を誤りと判断して閉じた事例こそが独立した正解であり、その結果がマージ件数と併せて公開されるまで、14 は受け入れられた修正の件数にすぎません。
+
+- 最も強い独立した signal はスコアではありません。常に通過する Locator アサーションのパターン (`#4f`) が公式の `eslint-plugin-playwright` に `no-unnecessary-assertions` ルールとして採用されました (マージ済みのプルリクエストは [ロードマップ](docs/roadmap.md) を参照)。このプロジェクトと利害関係のない外部メンテナーがルール定義を受け入れたということです。同時に、現在の lint がその形状を検出するようになったため、このプロジェクトはもうその事例を自分の成果として主張しません。
+- `docs/rule-self-audit.md` は、2 つのモデル系統による敵対的監査で、このプロジェクト**自身**の P0 ルールに見つかった欠陥を記録しています。単一のレビューアーであれば通過させていたルールが含まれます。
+- ブラウザー障害注入は、**12 個の障害演算子と 3 種類の期待結果を組み合わせた Playwright/Cypress セル 36 件すべて**で完了しています。これはハーネスの自己テストです。アプリケーション、堅牢なテスト、注入した障害、脆弱なテストのすべてをこのリポジトリで書いているため、検出器が設計どおりに動作することを示すだけであり、一般化を意味しません。
 - exact レビューベンチマークは **証明済みの false-green 事例 12 件と正常コードの保護事例 12 件**を対象にしています。10 件の障害事例は byte-identical operator mutants です。
 - Independent product-review robustness gates v4、v5、v7、v8 は事前登録した基準を満たしませんでした。v6 と v9 は未実行で、v10 は凍結済みですが未実行です。v1 から v10 は、現在のリリースゲートではなく、過去の robustness evidence として保持しています。
 - デバッガー protocol は再実行可能な 30-case synthetic corpus を提供しますが、独立に確立されたデバッガー精度は主張しません。

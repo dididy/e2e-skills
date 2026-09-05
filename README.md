@@ -27,7 +27,7 @@ Use `e2e-reviewer` as an independent quality gate for human-written or AI-genera
 | Need | Skill | Result |
 | --- | --- | --- |
 | Generate new Playwright coverage | `playwright-test-generator` | Explored, approved, reviewed Playwright specs |
-| Review Playwright/Cypress tests or PR/diff changes | `e2e-reviewer` | Verified P0/P1/P2 findings with concrete fixes and introduced/worsened/pre-existing attribution |
+| Review Playwright/Cypress tests or PR/diff changes | `e2e-reviewer` | P0/P1/P2 findings with concrete fixes and introduced/worsened/pre-existing attribution, each carrying the evidence it was decided on |
 | Debug a failed Playwright run | `playwright-debugger` | F1–F15 root cause, evidence, and fix |
 | Debug a failed Cypress run | `cypress-debugger` | F1–F15 root cause, evidence, and fix |
 | Run a deterministic local scan | `skills/e2e-reviewer/scripts/scan.sh` | Mechanical candidates without target-project packages |
@@ -229,7 +229,11 @@ A scanner match is a candidate, not a verdict. Cross-file findings such as missi
 
 The current evidence supports a narrow claim: the project has behavior-backed development evidence and 14 merged upstream fixes, but it does not claim generalized reviewer accuracy.
 
-- Browser fault injection completed **36/36 cells (12 fault operators x 3 expected outcomes)** across Playwright/Cypress fixtures.
+The merge count is reported without its denominator — how many pull requests were opened in total, and how many were closed as incorrect — so it cannot be read as a precision figure. A maintainer rejecting a finding as wrong would be independent ground truth; until those outcomes are published alongside the merges, 14 is a count of accepted fixes and nothing more.
+
+- The strongest independent signal is not a score: the always-passing-Locator-assertion pattern (`#4f`) was accepted into the official `eslint-plugin-playwright` as its `no-unnecessary-assertions` rule (see [roadmap](docs/roadmap.md) for the merged pull request). An external maintainer with no stake in this project adopted the rule definition. It also means current lint now catches that shape, so this project no longer claims it.
+- `docs/rule-self-audit.md` documents defects found in this project's *own* P0 rules by an adversarial two-model audit, including rules that a single reviewer had passed.
+- Browser fault injection completed **36/36 cells (12 fault operators x 3 expected outcomes)** across Playwright/Cypress fixtures. This is a harness self-test: the app, the strong test, the injected fault, and the weak test were all written here, so it shows the detector fires as designed, not that it generalizes.
 - The exact reviewer benchmark covers **12 proven false-green cases and 12 clean guards**; ten fault cases are byte-identical operator mutants.
 - Independent product-review robustness gates v4, v5, v7, and v8 failed their preregistered criteria. Independent product-review v6 and v9 were not run, and independent product-review v10 is frozen but not run; v1-v10 are retained as legacy robustness evidence, not current release gates.
 - The debugger protocol provides a replayable 30-case synthetic corpus, but no independently established debugger accuracy is claimed.

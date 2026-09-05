@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "protocol_id": "reviewer-release-v1",
+  "status": "NOT_RUN",
+  "result": "INCONCLUSIVE",
+  "decision_state": "PROCEED_WITH_INFRASTRUCTURE_ONLY",
+  "claim_scope": {
+    "measures": [
+      "finding_accuracy",
+      "same_host_skill_lift",
+      "user_helpfulness"
+    ],
+    "excludes": [
+      "defect_prevalence",
+      "developer_time_saved",
+      "production_incident_reduction",
+      "generator_quality",
+      "frameworks_other_than_playwright_and_cypress"
+    ]
+  },
+  "corpus": {
+    "custody": "external_sealed",
+    "unique_cases": 120,
+    "frameworks": {
+      "playwright": {
+        "positive": 30,
+        "clean": 30
+      },
+      "cypress": {
+        "positive": 30,
+        "clean": 30
+      }
+    },
+    "label_totals": {
+      "positive": 60,
+      "clean": 60
+    },
+    "primary_findings_per_positive_case": 1,
+    "coverage": {
+      "stable_pattern_count": 24,
+      "positive_opportunities_per_pattern_min": 2,
+      "distinct_clean_or_near_miss_guard_opportunities_per_pattern_min": 2,
+      "positive_cases_per_severity_stratum_min": 10,
+      "severity_strata": [
+        "P0",
+        "P1",
+        "P2"
+      ],
+      "cases_per_source_repository_max": 2,
+      "coverage_opportunities_are_additional_scoring_labels": false
+    },
+    "deduplication_unit": "shared_source_or_defect_lineage_cluster",
+    "blinding": [
+      "repository_identity",
+      "author_identity",
+      "project_identity"
+    ],
+    "reuse_forbidden": [
+      "public_reviewer_holdouts",
+      "independent_product_review_v1_through_v10",
+      "training_or_development_cases"
+    ]
+  },
+  "arms": [
+    {
+      "id": "full",
+      "input": "frozen_complete_e2e_reviewer_skill"
+    },
+    {
+      "id": "catalog-only",
+      "input": "frozen_24_pattern_catalog_and_severity_definitions_only"
+    },
+    {
+      "id": "no-skill",
+      "input": "task_prompt_without_skill_or_catalog"
+    }
+  ],
+  "pairing": {
+    "unit": "unique_case",
+    "primary_comparison": [
+      "full",
+      "no-skill"
+    ],
+    "requires_same": [
+      "runner_family",
+      "model",
+      "decoding_settings",
+      "case_bytes",
+      "task_prompt"
+    ],
+    "arm_order": "sha256_seeded_per_case_randomization"
+  },
+  "execution_identity": {
+    "version_policy": "minimum",
+    "result_claim_scope": "runner_and_model_specific",
+    "runtime_overrides_forbidden": [
+      "host_id",
+      "runner_family",
+      "model",
+      "minimum_version"
+    ],
+    "primary": {
+      "host_id": "codex-gpt-5.6-sol",
+      "runner_family": "codex",
+      "model": "gpt-5.6-sol",
+      "minimum_version": "0.152.0"
+    },
+    "primary_cell_requirement": "all_arms_complete_and_all_gates_pass",
+    "optional_replications": {
+      "permitted_runner_families": [
+        "claude"
+      ],
+      "permitted_models": [
+        "claude-opus-5",
+        "claude-fable-5"
+      ],
+      "contributes_to_primary_gate": false,
+      "may_replace_or_rescue_primary_gate": false,
+      "requires_separate_preregistration": true
+    }
+  },
+  "schedule": {
+    "unique_cases": 120,
+    "arm_count": 3,
+    "repetitions_per_case_arm": 3,
+    "scheduled_model_calls": 1080,
+    "fresh_workspace_per_repetition": true,
+    "repetitions_are_independent_samples": false,
+    "repetition_purpose": "stability_only",
+    "stable_prediction_rule": "at_least_2_of_3_identical_normalized_predictions",
+    "invalid_or_unstable_handling": "fail_affected_arm"
+  },
+  "adjudication": {
+    "initial_adjudicators": 2,
+    "tie_breaker_adjudicators": 1,
+    "independent": true,
+    "phases": {
+      "reference_oracle": {
+        "timing": "before_model_run",
+        "model_outputs_visible": false,
+        "authored_candidate_label_visible": false
+      },
+      "response_utility": {
+        "timing": "after_model_run",
+        "final_oracle_visible": true,
+        "arm_and_model_identity_visible": false
+      }
+    },
+    "blinded_to": [
+      "arm",
+      "model_identity",
+      "other_adjudicator_decision"
+    ],
+    "response_order_randomized": true,
+    "conflict_exclusions": [
+      "case_author",
+      "skill_change_author",
+      "evaluated_response_author"
+    ],
+    "published_after_run": [
+      "final_oracle",
+      "adjudication_ledger",
+      "exclusions",
+      "tie_break_decisions",
+      "inter_rater_agreement"
+    ]
+  },
+  "user_helpfulness": {
+    "unit": "unique_case_majority_stable_response",
+    "helpful_requires_all": [
+      "correct_finding_or_correct_clean_decision",
+      "correct_location_and_causal_explanation",
+      "safe_actionable_repair_when_applicable",
+      "validation_distinguishes_repair_from_original_failure_mode"
+    ],
+    "harmful_includes": [
+      "fabricated_destructive_action",
+      "fabricated_security_sensitive_action",
+      "repair_that_preserves_or_creates_false_green_behavior"
+    ]
+  },
+  "statistics": {
+    "independent_unit": "unique_case",
+    "repeated_runs_count_as_additional_cases": false,
+    "confidence_interval": {
+      "method": "case_stratified_bootstrap",
+      "confidence": 0.95,
+      "iterations": 10000,
+      "seed": 20260902,
+      "strata": [
+        "framework",
+        "label"
+      ]
+    },
+    "paired_significance_test": {
+      "method": "exact_mcnemar_two_sided",
+      "alpha": 0.05,
+      "direction_required": "full_better_than_no-skill"
+    }
+  },
+  "decision": {
+    "requires_every_gate": true,
+    "full_arm_absolute_thresholds": {
+      "precision_min": 0.95,
+      "recall_min": 0.9,
+      "f1_min": 0.925,
+      "clean_false_positive_rate_max": 0.05,
+      "per_framework_recall_min": 0.85,
+      "pattern_macro_recall_min": 0.85,
+      "per_pattern_recall_min": 0.5,
+      "per_severity_stratum_recall_min": 0.9,
+      "unstable_case_rate_max": 0.1,
+      "helpful_response_rate_min": 0.85,
+      "per_framework_and_label_helpful_response_rate_min": 0.8,
+      "harmful_response_rate_max": 0.02,
+      "fabricated_destructive_or_security_sensitive_actions_max": 0
+    },
+    "primary_paired_lift_thresholds": {
+      "case_correctness_lift_min": 0.1,
+      "case_correctness_lift_min_cases": 12,
+      "exact_mcnemar_p_value_max_exclusive": 0.05,
+      "correctness_lift_ci_lower_bound_min_exclusive": 0,
+      "helpful_response_rate_lift_min": 0.1,
+      "helpfulness_lift_ci_lower_bound_min_exclusive": 0,
+      "per_framework_or_label_noninferiority_margin": 0.02
+    },
+    "catalog_only_role": "diagnostic_secondary_arm_no_gate_substitution",
+    "rounding_policy": "evaluate_exact_counts_before_display_rounding"
+  },
+  "release_evidence": {
+    "development_only_unless_all_requirements_pass": true,
+    "required_custody": {
+      "external": true,
+      "sealed": true,
+      "custodian_independent_of_skill_authors": true,
+      "operator_independent_of_skill_authors": true,
+      "signed_corpus_commitment_before_execution": true,
+      "corpus_revealed_only_inside_isolated_runner": true
+    },
+    "required_attestation": {
+      "machine_verifiable": true,
+      "signature_algorithm": "Ed25519",
+      "digest_algorithm": "SHA-256",
+      "public_key_preregistered": true,
+      "preregistered_public_key_ed25519_base64": null,
+      "trusted_verifier_sha256": null,
+      "binds": [
+        "protocol",
+        "evaluated_skill",
+        "corpus_commitment",
+        "runner_image",
+        "model_identity",
+        "all_inputs",
+        "raw_outputs",
+        "adjudication_ledger",
+        "scorer_output"
+      ]
+    },
+    "failure_status": "INCONCLUSIVE",
+    "freeze_requires_clean_committed_tree": true,
+    "unsigned_provenance_is_attestation": false,
+    "wrapper_name_or_local_path_is_isolation_proof": false
+  },
+  "current_evidence": {
+    "sealed_corpus": false,
+    "signed_custody_commitment": false,
+    "model_reports": 0,
+    "adjudication_ledger": false,
+    "signed_isolation_attestation": false,
+    "permitted_work": "infrastructure_only"
+  }
+}

@@ -119,6 +119,13 @@ done <<< "$SHELL_FILES"
 [ "$SHELL_FILE_COUNT" -gt 0 ] || fail "shell enumeration returned zero files"
 [ "$QUIET" = "1" ] || echo "  all $SHELL_FILE_COUNT shell scripts parse"
 
+step "Evidence freshness preflight"
+# A stale evaluated-skill digest is a release blocker and takes well under a
+# second to detect. Keep it immediately after the shell trust-boundary check
+# and ahead of the multi-minute review stages.
+run_python scripts/ci/test-reviewer-evidence-v3.py ||
+  fail "test-reviewer-evidence-v3.py"
+
 step "Source and security contracts"
 run_python scripts/ci/test-shell-enumeration.py ||
   fail "test-shell-enumeration.py"
@@ -131,12 +138,27 @@ run_python scripts/ci/test-eval-schema.py ||
 run_python scripts/ci/test-evidence-ledger.py ||
   fail "test-evidence-ledger.py"
 
+step "Release contract preflight"
+# Keep cheap, high-signal release blockers ahead of the multi-minute review
+# checks. These checks are independent and still run exactly once; this changes
+# red-path latency without weakening the green path.
+run_python scripts/ci/test-reviewer-release-v1.py ||
+  fail "test-reviewer-release-v1.py"
+run_python scripts/ci/test-reviewer-release-runner-v1.py ||
+  fail "test-reviewer-release-runner-v1.py"
+run_python scripts/ci/test-runner-version-resolution-v1.py ||
+  fail "test-runner-version-resolution-v1.py"
+
 step "Review checks"
 if [ "$QUIET" = "1" ]; then
   /bin/bash -p scripts/ci/review.sh --quiet >/dev/null 2>&1 || fail "review.sh"
 else
   /bin/bash -p scripts/ci/review.sh || fail "review.sh"
 fi
+
+step "Generator contracts"
+run_python scripts/ci/test-generator-contracts.py ||
+  fail "test-generator-contracts.py"
 
 step "Verification-rule parity"
 /bin/bash -p scripts/ci/check-verification-parity.sh || fail "check-verification-parity.sh"
@@ -166,7 +188,6 @@ run_python scripts/ci/test-playwright-debugger-artifact-download.py ||
   fail "test-playwright-debugger-artifact-download.py"
 run_python scripts/ci/test-playwright-debugger-report-publish.py ||
   fail "test-playwright-debugger-report-publish.py"
-run_python scripts/ci/test-generator-contracts.py || fail "test-generator-contracts.py"
 
 step "B-lite evidence contract"
 # Node comes from an absolute, non-writable path outside the repository. The
@@ -277,8 +298,6 @@ step "Reference tokenizer contracts"
 # adding coverage. The wrappers remain standalone reproduction commands.
 
 step "Reviewer evidence contracts"
-run_python scripts/ci/test-reviewer-evidence-v3.py ||
-  fail "test-reviewer-evidence-v3.py"
 run_python scripts/ci/test-reviewer-evidence.py ||
   fail "test-reviewer-evidence.py"
 
@@ -306,6 +325,8 @@ run_python scripts/ci/test-reviewer-trust-contract.py ||
   fail "test-reviewer-trust-contract.py"
 run_python scripts/ci/test-reviewer-doc-contracts.py ||
   fail "test-reviewer-doc-contracts.py"
+run_python scripts/ci/test-reviewer-output-discipline-v2.py ||
+  fail "test-reviewer-output-discipline-v2.py"
 
 step "PR preflight contracts"
 run_python scripts/ci/test-pr-preflight.py || fail "test-pr-preflight.py"

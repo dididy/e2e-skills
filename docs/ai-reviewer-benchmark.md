@@ -29,12 +29,19 @@ spec-file comments rather than their whole-review behavior.
 
 | Tool | Judge-labeled issues matched | Judge-labeled false positives / off-target noise | Caught what the other two missed |
 |------|------------------------------|--------------------------|----------------------------------|
-| **e2e-reviewer (LLM Phase 2)** | **78 / 104 (75%)** | **0** | **47** |
+| e2e-reviewer (LLM Phase 2) | 78 / 104 (75%) | 0 | 47 |
 | lint (eslint-plugin-playwright / -cypress) | 45 / 104 (43%) | 0 | -- |
 | AI PR reviewer (inline spec comments) | 10 / 104 (10%) | 72 | 4 |
 
 Per-case winner, on the 33 PRs that contained a real issue (67 PRs had none):
-**e2e-reviewer 19, lint-sufficient 11, AI reviewer 2, tie 1.**
+e2e-reviewer 19, lint-sufficient 11, AI reviewer 2, tie 1.
+
+The emphasis was removed from these figures deliberately. Bolded, they read as
+a headline result to anyone skimming, and the paragraphs that qualify them do
+not survive skimming. The `0` in particular invites the most obvious objection
+available to a skeptical reader: the false-positive count was assigned by an
+LLM judge from the same model family as the tool it was scoring, on a reference
+set that same judge defined.
 
 These are corrected archived aggregate figures, not validated benchmark results.
 The only current conclusion is narrower: this pilot produced useful candidate
@@ -60,10 +67,20 @@ a candidate generator, not the product; on its own it is largely subsumed by lin
 differentiation is entirely in the LLM Phase-2 verification layer, which is what the
 scoreboard above measures.
 
-## Examples of what only e2e-reviewer caught
+## Examples of what the other two tools missed at the time
+
+This heading used to read "what only e2e-reviewer caught". That is no longer
+true, and the reason is worth stating: the first item below was upstreamed into
+`eslint-plugin-playwright` as `no-unnecessary-assertions`
+([#470](https://github.com/playwright-community/eslint-plugin-playwright/pull/470),
+merged), so current lint catches it. The pattern definition being accepted into
+the official plugin is better evidence than the exclusivity claim it replaced —
+but it does mean this list describes tooling as it stood during the pilot, not
+as it stands now.
 
 - A wall of `expect(locator).toBeTruthy()` / `.not.toBeNull()` on Playwright Locators
   (always truthy, never null) as the sole assertion of 17 tests in one suite.
+  **Now caught by lint** via the upstreamed rule above.
 - `expect(await locator).toBeVisible()` repeated 9 times — awaiting a Locator returns the
   Locator, so the construct never asserts.
 - Tautological assertions: `toBeGreaterThanOrEqual(0)` on a count, `toHaveTitle(/.*/)`,

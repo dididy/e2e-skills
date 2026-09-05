@@ -86,7 +86,16 @@
   where a swallow can hide: any file the spec reaches, including an imported
   helper or support module, a custom command, and callback bodies. Reviewing
   the spec alone missed one of these entirely, so eval 39 requires the helper
-  file to be named.
+  file to be named. **A controlled ablation on a fresh corpus found no
+  measurable detection improvement from this wording** — 0.19 with the new text
+  against 0.17 with the old, one detection out of thirty-six, and no difference
+  at all for one of the two providers. Five of six fresh error-swallow
+  positives went undetected in both arms. The wording is more accurate than
+  what it replaced and is kept on that basis, but it is not a detection
+  improvement: a reviewer told to read imported helpers still does not read
+  them. The pilot harness that produced this measurement was removed in the
+  same release, so the number is a recorded observation rather than something
+  a reader can currently reproduce from this tree.
 - **The isolated eval runner no longer pins a stale CLI build.**
   `trusted_runner_search_path()` lists `/opt/homebrew/bin` before
   `~/.local/bin`, and resolution took the first `shutil.which()` match, so a
