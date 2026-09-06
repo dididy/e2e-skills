@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import atexit
 import hashlib
 import importlib.util
 import json
 import os
 from pathlib import Path
+import shutil
 import signal
 import subprocess
 import sys
@@ -884,12 +886,99 @@ def canonical_archive_fingerprint(path: Path) -> object:
     return ("tree", entries)
 
 
+_ARCHIVED_SOURCE_ROOT: Path | None = None
+_SHADOW_REPO_ROOT: Path | None = None
+
+
+def frozen_source_entries() -> list:
+    """The seven surfaces this phase froze, as bytes, from its own archive."""
+    archive = ROOT / "benchmarks/independent-product-review-v10-remediation"
+    freeze = json.loads((archive / "run/freeze.json").read_text(encoding="utf-8"))
+    digest = freeze["source_snapshot_sha256"]
+    snapshot_path = archive / f"source-snapshots/{digest}.json"
+    payload = snapshot_path.read_bytes()
+    if sha256(payload) != digest:
+        raise AssertionError("v10 source snapshot does not match its recorded digest")
+    return json.loads(payload.decode("utf-8"))["source_files"]
+
+
+def archived_source_root() -> Path:
+    """The frozen surfaces on disk, for in-process packet construction."""
+    global _ARCHIVED_SOURCE_ROOT
+    if _ARCHIVED_SOURCE_ROOT is not None:
+        return _ARCHIVED_SOURCE_ROOT
+    root = Path(tempfile.mkdtemp(prefix="independent-review-v10-source-"))
+    for entry in frozen_source_entries():
+        destination = root / entry["path"]
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(entry["content"].encode("utf-8"))
+    atexit.register(shutil.rmtree, root, True)
+    _ARCHIVED_SOURCE_ROOT = root
+    return root
+
+
+def shadow_repo_root() -> Path:
+    # The CLI resolves its own repository root from __file__, so an in-process
+    # redirect cannot reach it. Product surfaces are the frozen bytes; everything
+    # else is hardlinked so each pinned tool stays byte-identical to the real one.
+    global _SHADOW_REPO_ROOT
+    if _SHADOW_REPO_ROOT is not None:
+        return _SHADOW_REPO_ROOT
+    root = Path(tempfile.mkdtemp(prefix="independent-review-v10-shadow-"))
+    for entry in frozen_source_entries():
+        destination = root / entry["path"]
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(entry["content"].encode("utf-8"))
+
+    def link_if_absent(source: str, destination: str) -> None:
+        # Never overwrite: frozen bytes are already placed and the rest are
+        # hardlinks into the real repository, so writing here would corrupt the
+        # working tree through the shared inode.
+        if not os.path.exists(destination):
+            os.link(source, destination)
+
+    for directory in ("scripts", "benchmarks"):
+        shutil.copytree(
+            ROOT / directory,
+            root / directory,
+            copy_function=link_if_absent,
+            dirs_exist_ok=True,
+        )
+    atexit.register(shutil.rmtree, root, True)
+    _SHADOW_REPO_ROOT = root
+    return root
+
+
+def shadow_path(path: Path) -> Path:
+    return shadow_repo_root() / path.relative_to(ROOT)
+
+
+_LIVE_TREE_BUILD_PACKET = RUNNER.build_packet
+
+
+def _frozen_build_packet(root, protocol):
+    # Redirect only the live-tree root; callers passing their own directory keep
+    # building from exactly what they were given.
+    return _LIVE_TREE_BUILD_PACKET(
+        archived_source_root() if Path(root) == ROOT else root, protocol
+    )
+
+
+RUNNER.build_packet = _frozen_build_packet
+
+# The evidence validator builds its source snapshot from this root, and every
+# packet it validates is reproduced from that snapshot. It is used for nothing
+# else, so redirecting it once covers each path that freezes a packet.
+EVIDENCE.ROOT = archived_source_root()
+
+
 def assert_public_prepare_freeze_integration() -> None:
     require_reference_tokenizer()
     with tempfile.TemporaryDirectory(prefix="v10-public-prepare-") as raw:
         root = Path(raw); token = root / "token.json"; output = root / "output"
-        counted = subprocess.run([sys.executable, str(MEASURER_PATH), "--output", str(token)],
-                                 cwd=ROOT, text=True, capture_output=True, check=False)
+        counted = subprocess.run(
+            [sys.executable, str(shadow_path(MEASURER_PATH)), "--output", str(token)],
+            cwd=shadow_repo_root(), text=True, capture_output=True, check=False)
         assert counted.returncode == 0, counted.stderr
         canonical = ROOT / "benchmarks/independent-product-review-v10-remediation"
         before = canonical_archive_fingerprint(canonical)
@@ -906,9 +995,9 @@ def assert_public_prepare_freeze_integration() -> None:
                                   cwd=ROOT, text=True, capture_output=True, check=False)
         assert rejected.returncode != 0 and "must not overlap" in rejected.stderr
         assert canonical_archive_fingerprint(canonical) == before, "rejected canonical alias mutated the canonical archive"
-        prepared = subprocess.run([sys.executable, str(RUNNER_PATH), "--output-dir", str(output),
+        prepared = subprocess.run([sys.executable, str(shadow_path(RUNNER_PATH)), "--output-dir", str(output),
                                    "--prompt-size-attestation", str(token), "--prepare-only"],
-                                  cwd=ROOT, text=True, capture_output=True, check=False)
+                                  cwd=shadow_repo_root(), text=True, capture_output=True, check=False)
         assert prepared.returncode == 0 and '"status": "PREPARED"' in prepared.stdout, prepared.stderr
         assert canonical_archive_fingerprint(canonical) == before, "public --prepare-only mutated the canonical archive"
         archive = root / "archive"; previous = EVIDENCE.ARCHIVE; old_argv = sys.argv[:]
@@ -1197,9 +1286,9 @@ def assert_counter_contract() -> None:
         assert first.read_bytes() == b"abcdef" and second.read_bytes() == b"other"
         assert not list(staging.glob("prompt-size-attestation.*.staging"))
         result = subprocess.run([
-            sys.executable, str(MEASURER_PATH),
+            sys.executable, str(shadow_path(MEASURER_PATH)),
             "--output", str(root / "attestation.json"),
-        ], cwd=ROOT, text=True, capture_output=True, check=False)
+        ], cwd=shadow_repo_root(), text=True, capture_output=True, check=False)
         require_reference_tokenizer()
         assert result.returncode == 0, result.stderr
         exact_attestation = json.loads((root / "attestation.json").read_text())

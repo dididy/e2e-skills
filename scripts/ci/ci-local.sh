@@ -286,6 +286,12 @@ run_python scripts/ci/test-independent-review-v6-evidence.py ||
 # reference tokenizer. run_python's interpreter has never had it, so those checks
 # used to skip themselves silently; the suites now fail closed and run inside
 # one hash-locked replay venv instead.
+#
+# v10 was briefly dropped from this list because its freeze integration rebuilt
+# the packet from the working tree and then enforced the caps recorded when the
+# phase froze, which left 61 tokens of headroom and failed unrelated product
+# edits. It now reproduces its packet from the frozen source snapshot, the way
+# v5 and v6 already did, so the archived round no longer budgets live work.
 step "Reference tokenizer contracts"
 /bin/bash -p scripts/ci/run-reference-tokenizer-suites.sh \
   scripts/ci/test-independent-review-v7.py \
