@@ -9,7 +9,7 @@
   <a href="https://claude.com/product/claude-code"><img alt="Claude Code" src="https://img.shields.io/badge/Claude_Code-compatible-D97757?style=flat-square&labelColor=black&logo=anthropic&logoColor=white"></a>
   <a href="https://github.com/openai/codex"><img alt="Codex" src="https://img.shields.io/badge/Codex-compatible-412991?style=flat-square&labelColor=black&logo=openai&logoColor=white"></a>
   <a href="https://playwright.dev"><img alt="Playwright | Cypress" src="https://img.shields.io/badge/Playwright_%7C_Cypress-supported-2EAD33?style=flat-square&labelColor=black&logo=playwright&logoColor=white"></a>
-  <a href="#merged-upstream-fixes"><img alt="Merged PRs" src="https://img.shields.io/badge/merged_PRs-14-1FC07C?style=flat-square&labelColor=black&logo=github"></a>
+  <a href="#merged-upstream-fixes"><img alt="Merged PRs" src="https://img.shields.io/badge/merged_PRs-15-1FC07C?style=flat-square&labelColor=black&logo=github"></a>
   <a href="https://github.com/vercel-labs/skills#supported-agents"><img alt="Runs in 55+ agents" src="https://img.shields.io/badge/runs_in-55%2B_agents-37B0E6?style=flat-square&labelColor=black"></a>
   <a href="https://www.skills.sh/voidmatcha/e2e-skills"><img alt="Installs on skills.sh" src="https://img.shields.io/badge/skills.sh_installs-500%2B-1FC07C?style=flat-square&labelColor=black"></a>
   <a href="https://www.kimi.ai/resources/software-testing-skills"><img alt="Listed in Kimi testing skills" src="https://img.shields.io/badge/%F0%9F%8E%89_listed_in-Kimi_testing_skills-8B5CF6?style=flat-square&labelColor=black"></a>
@@ -19,7 +19,7 @@
 <p align="center">
 <a href="README.md">🇺🇸 English</a> | <a href="README.ko.md">🇰🇷 한국어</a> | <a href="README.ja.md">🇯🇵 日本語</a> | <strong>🇨🇳 简体中文</strong>
 </p>
-<!-- README-CANONICAL-REVISION: sha256=57941e60a4c7366653ce7cda3bf09a13043e5e74c9e2824b42eaf462a82f8aa4; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
+<!-- README-CANONICAL-REVISION: sha256=eb8ea45cdf8648d847486360f0eadb0ee69a16fca22750ff6c5c9d51af8d4a20; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
 
 `e2e-skills` 为 AI 编程代理提供四个面向 E2E 测试工作的聚焦工作流：生成 Playwright 覆盖、审查现有 spec 或 PR/diff 范围内的测试变更、调试失败的 Playwright 报告，以及调试失败的 Cypress 报告。它还包含一个确定性扫描器，用于发现审查目录中可机械判定的子集。
 
@@ -35,7 +35,7 @@
 
 生成器先分析覆盖缺口并通过真实浏览器探索，再在场景获批后生成测试并验证每个候选。两个调试器从失败运行的 artifact 入手，返回已分类的根本原因、支持证据和具体修复。
 
-false-green 检测是审查工作流的重要组成部分，但不是整个 bundle 的唯一用途。基于 `e2e-reviewer` 发现的修复已通过 [14 个合入上游的 PR](#merged-upstream-fixes) 合入，其中包括 Storybook、SvelteKit、code-server、Strapi、Carbon Design System、Ghost 和 MUI X。
+false-green 检测是审查工作流的重要组成部分，但不是整个 bundle 的唯一用途。基于 `e2e-reviewer` 发现的修复已通过 [15 个合入上游的 PR](#merged-upstream-fixes) 合入，其中包括 Storybook、SvelteKit、code-server、Strapi、Carbon Design System、Ghost 和 MUI X。
 
 > 在 code-server 中，一个提交进仓库的 `it.only` 曾默默禁用 8 个测试长达 7 个月。其中一个被跳过的测试早已损坏，而 CI 仍然保持绿色。
 
@@ -65,10 +65,11 @@ false-green 检测是审查工作流的重要组成部分，但不是整个 bund
 
 ## 已合入上游的修复
 
-`e2e-reviewer` 的发现已促成 **14 个合入上游的 PR**。这些自选案例展示了实际使用，也让读者可以检查修复；它们不是代表性验证样本，也不是准确率估计。
+`e2e-reviewer` 的发现已促成 **15 个合入上游的 PR**。这些自选案例展示了实际使用，也让读者可以检查修复；它们不是代表性验证样本，也不是准确率估计。
 
 | 仓库 | PR | 已修复模式 |
 | --- | --- | --- |
+| Apache Zeppelin | [apache/zeppelin#5180](https://github.com/apache/zeppelin/pull/5180) | 恒为真的断言与静默跳过的守卫检查 |
 | Storybook | [storybookjs/storybook#34141](https://github.com/storybookjs/storybook/pull/34141) | Playwright 断言缺失 `await` |
 | code-server | [coder/code-server#7845](https://github.com/coder/code-server/pull/7845) | Focused test 泄漏、没有 matcher 的 `expect`、被丢弃的可见性读取 |
 | Strapi | [strapi/strapi#26630](https://github.com/strapi/strapi/pull/26630) | 被丢弃的导航/状态检查 |
@@ -228,9 +229,13 @@ Debug the failed Cypress report in cypress/reports/.
 
 ## 证据与限制
 
-当前证据只支持一个窄口径声明：项目拥有行为支持的开发证据和 14 个已合入上游的修复，但不声称具备可泛化的审查准确率。
+当前证据只支持一个窄口径声明：项目拥有行为支持的开发证据和 15 个已合入上游的修复，但不声称具备可泛化的审查准确率。
 
-合并数量是在没有分母的情况下报告的：既没有说明总共提交了多少个 pull request，也没有说明其中多少个因为判断有误而被关闭，因此这个数字不能当作精确率来读。维护者认定指摘有误而关闭的案例才是独立的标准答案；在这些结果与合并数量一并公开之前，14 只是被接受的修复数量。
+合并数量现在有了分母。[Field review v1](benchmarks/field-review-v1/README.md) 会扫描该账号提交的、正文中提到本技能的全部 pull request，并按 GitHub 的报告如实记录：在 26 个仓库提交 29 个，合并 16 个，未合并关闭 6 个，仍开启 7 个。改为从 GitHub 生成而非手工维护列表后，发现路线图遗漏了 7 个，其中 2 个是合并，3 个是被拒。
+
+这仍然不是精确率。合并意味着维护者接受了补丁，并不证明该指摘的严重级别分类正确；提交署名是可选的，因此未署名的拒绝会把比率往上偏。它真正提供的，是本项目无法控制的裁决。
+
+确定性扫描器另行测量，结果是 null。[Field scan v1](benchmarks/field-scan-v1/README.md) 在扫描前冻结规则并据此固定公开仓库，在完成的 10 个仓库中报告 **0 个 P0**。结果原样公开：被接受的上游修复来自有模型参与的审查，而不是单靠 grep 层。
 
 - 最强的独立信号不是分数：始终通过的 Locator 断言模式（`#4f`）已被官方 `eslint-plugin-playwright` 采纳为 `no-unnecessary-assertions` 规则（已合并的 pull request 见[路线图](docs/roadmap.md)）。这是一位与本项目没有利害关系的外部维护者接受了该规则定义。同时这也意味着当前的 lint 已能检出这种形状，因此本项目不再将其作为自己的成果来声称。
 - `docs/rule-self-audit.md` 记录了由两个模型系列进行的对抗性审计在本项目**自身** P0 规则中发现的缺陷，其中包括单一审查者会放行的规则。

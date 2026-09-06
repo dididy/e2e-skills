@@ -531,6 +531,7 @@ roadmap_counts = {}
 for title, summary_pattern in (
     ('Merged', r'^- \*\*Merged:\*\* (\d+) upstream PRs'),
     ('In review', r'^- \*\*In review:\*\* (\d+) active/open upstream PRs'),
+    ('Closed without merge', r'^- \*\*Closed without merge:\*\* (\d+)\b'),
 ):
     summaries = re.findall(summary_pattern, roadmap_text, re.M)
     rows = roadmap_section_rows(title)
@@ -563,10 +564,31 @@ merged_urls = pull_request_urls(merged_section)
 in_review_urls = pull_request_urls(in_review_section)
 maintenance_urls = pull_request_urls(maintenance_section)
 
+# A closed row may cite a second PR as the reason it closed (superseded by, or
+# duplicated in, another change), so this section is keyed on the first URL in
+# each row rather than on every URL it mentions.
+closed_section = roadmap_section('Closed without merge')
+closed_rows = roadmap_section_rows('Closed without merge')
+closed_urls = []
+if closed_rows is not None:
+    for row in closed_rows:
+        row_urls = pull_request_urls(row)
+        if not row_urls:
+            errors.append(
+                "docs/roadmap.md: Closed without merge row cites no PR URL"
+            )
+            continue
+        closed_urls.append(row_urls[0])
+    if len(closed_urls) != len(set(closed_urls)):
+        errors.append(
+            "docs/roadmap.md: Closed without merge table repeats a PR URL"
+        )
+
 for title, urls in (
     ('Merged', merged_urls),
     ('In review', in_review_urls),
     ('Reviewer-informed maintenance', maintenance_urls),
+    ('Closed without merge', closed_urls),
 ):
     rows = roadmap_section_rows(title)
     if rows is not None and (
@@ -580,6 +602,10 @@ for left_title, left_urls, right_title, right_urls in (
     ('Merged', merged_urls, 'In review', in_review_urls),
     ('Merged', merged_urls, 'Reviewer-informed maintenance', maintenance_urls),
     ('In review', in_review_urls, 'Reviewer-informed maintenance', maintenance_urls),
+    ('Merged', merged_urls, 'Closed without merge', closed_urls),
+    ('In review', in_review_urls, 'Closed without merge', closed_urls),
+    ('Reviewer-informed maintenance', maintenance_urls,
+     'Closed without merge', closed_urls),
 ):
     overlap = sorted(set(left_urls) & set(right_urls))
     if overlap:

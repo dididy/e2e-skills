@@ -9,7 +9,7 @@
   <a href="https://claude.com/product/claude-code"><img alt="Claude Code" src="https://img.shields.io/badge/Claude_Code-compatible-D97757?style=flat-square&labelColor=black&logo=anthropic&logoColor=white"></a>
   <a href="https://github.com/openai/codex"><img alt="Codex" src="https://img.shields.io/badge/Codex-compatible-412991?style=flat-square&labelColor=black&logo=openai&logoColor=white"></a>
   <a href="https://playwright.dev"><img alt="Playwright | Cypress" src="https://img.shields.io/badge/Playwright_%7C_Cypress-supported-2EAD33?style=flat-square&labelColor=black&logo=playwright&logoColor=white"></a>
-  <a href="#merged-upstream-fixes"><img alt="Merged PRs" src="https://img.shields.io/badge/merged_PRs-14-1FC07C?style=flat-square&labelColor=black&logo=github"></a>
+  <a href="#merged-upstream-fixes"><img alt="Merged PRs" src="https://img.shields.io/badge/merged_PRs-15-1FC07C?style=flat-square&labelColor=black&logo=github"></a>
   <a href="https://github.com/vercel-labs/skills#supported-agents"><img alt="Runs in 55+ agents" src="https://img.shields.io/badge/runs_in-55%2B_agents-37B0E6?style=flat-square&labelColor=black"></a>
   <a href="https://www.skills.sh/voidmatcha/e2e-skills"><img alt="Installs on skills.sh" src="https://img.shields.io/badge/skills.sh_installs-500%2B-1FC07C?style=flat-square&labelColor=black"></a>
   <a href="https://www.kimi.ai/resources/software-testing-skills"><img alt="Listed in Kimi testing skills" src="https://img.shields.io/badge/%F0%9F%8E%89_listed_in-Kimi_testing_skills-8B5CF6?style=flat-square&labelColor=black"></a>
@@ -34,7 +34,7 @@ Use `e2e-reviewer` as an independent quality gate for human-written or AI-genera
 
 The generator starts with coverage-gap analysis and live-browser exploration, then generates after scenario approval and verifies each candidate. The debuggers start from failed-run artifacts and return a classified root cause, supporting evidence, and a concrete fix.
 
-False-green detection is one important part of the review workflow, not the bundle's entire purpose. Fixes based on `e2e-reviewer` findings have been merged through [14 merged upstream PRs](#merged-upstream-fixes), including Storybook, SvelteKit, code-server, Strapi, Carbon Design System, Ghost, and MUI X.
+False-green detection is one important part of the review workflow, not the bundle's entire purpose. Fixes based on `e2e-reviewer` findings have been merged through [15 merged upstream PRs](#merged-upstream-fixes), including Storybook, SvelteKit, code-server, Strapi, Carbon Design System, Ghost, and MUI X.
 
 > In code-server, a committed `it.only` silently disabled eight tests for seven months. One skipped test was already broken while CI remained green.
 
@@ -64,10 +64,11 @@ If you're comparing framework-specific assistants, the split is simple:
 
 ## Merged upstream fixes
 
-`e2e-reviewer` findings have contributed to **14 merged upstream PRs**. These self-selected cases show practical use and let readers inspect the fixes; they are not a representative validation sample or an accuracy estimate.
+`e2e-reviewer` findings have contributed to **15 merged upstream PRs**. These self-selected cases show practical use and let readers inspect the fixes; they are not a representative validation sample or an accuracy estimate. The rejections are published beside them: [Field review v1](benchmarks/field-review-v1/README.md) generates the full record from GitHub — **29 submitted, 16 merged, 6 closed without merging, 7 open** — because a merge count without its rejections is not a rate.
 
 | Repository | PR | Pattern fixed |
 | --- | --- | --- |
+| Apache Zeppelin | [apache/zeppelin#5180](https://github.com/apache/zeppelin/pull/5180) | Always-true assertions and guarded checks that silently skipped |
 | Storybook | [storybookjs/storybook#34141](https://github.com/storybookjs/storybook/pull/34141) | Missing `await` on Playwright assertions |
 | code-server | [coder/code-server#7845](https://github.com/coder/code-server/pull/7845) | Focused test leak, matcher-less `expect`, discarded visibility read |
 | Strapi | [strapi/strapi#26630](https://github.com/strapi/strapi/pull/26630) | Discarded navigation/state checks |
@@ -227,9 +228,13 @@ A scanner match is a candidate, not a verdict. Cross-file findings such as missi
 
 ## Evidence and limits
 
-The current evidence supports a narrow claim: the project has behavior-backed development evidence and 14 merged upstream fixes, but it does not claim generalized reviewer accuracy.
+The current evidence supports a narrow claim: the project has behavior-backed development evidence and 15 merged upstream fixes, but it does not claim generalized reviewer accuracy.
 
-The merge count is reported without its denominator — how many pull requests were opened in total, and how many were closed as incorrect — so it cannot be read as a precision figure. A maintainer rejecting a finding as wrong would be independent ground truth; until those outcomes are published alongside the merges, 14 is a count of accepted fixes and nothing more.
+The merge count now has its denominator. [Field review v1](benchmarks/field-review-v1/README.md) sweeps every pull request this account opened that names the skill and reports whatever GitHub says: 29 submitted across 26 repositories, 16 merged, 6 closed without merging, 7 open. Generating it from GitHub rather than from a hand-kept list found seven the roadmap had omitted — two merges and three rejections among them.
+
+That is still not a precision figure. A merge means a maintainer accepted a patch, not that a finding's severity was classified correctly, and the submission footer is optional, so an unmarked rejection would bias the rate upward. What it does give is adjudication this project does not control.
+
+The deterministic scanner is measured separately and the result is a null one. [Field scan v1](benchmarks/field-scan-v1/README.md) runs it over public repositories pinned under a rule frozen before the scan, and reports **zero P0 hits** across the ten that completed. That is published as it came out: the accepted upstream fixes came from review with a model in the loop, not from the grep tier alone.
 
 - The strongest independent signal is not a score: the always-passing-Locator-assertion pattern (`#4f`) was accepted into the official `eslint-plugin-playwright` as its `no-unnecessary-assertions` rule (see [roadmap](docs/roadmap.md) for the merged pull request). An external maintainer with no stake in this project adopted the rule definition. It also means current lint now catches that shape, so this project no longer claims it.
 - `docs/rule-self-audit.md` documents defects found in this project's *own* P0 rules by an adversarial two-model audit, including rules that a single reviewer had passed.

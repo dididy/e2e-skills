@@ -9,7 +9,7 @@
   <a href="https://claude.com/product/claude-code"><img alt="Claude Code" src="https://img.shields.io/badge/Claude_Code-compatible-D97757?style=flat-square&labelColor=black&logo=anthropic&logoColor=white"></a>
   <a href="https://github.com/openai/codex"><img alt="Codex" src="https://img.shields.io/badge/Codex-compatible-412991?style=flat-square&labelColor=black&logo=openai&logoColor=white"></a>
   <a href="https://playwright.dev"><img alt="Playwright | Cypress" src="https://img.shields.io/badge/Playwright_%7C_Cypress-supported-2EAD33?style=flat-square&labelColor=black&logo=playwright&logoColor=white"></a>
-  <a href="#merged-upstream-fixes"><img alt="Merged PRs" src="https://img.shields.io/badge/merged_PRs-14-1FC07C?style=flat-square&labelColor=black&logo=github"></a>
+  <a href="#merged-upstream-fixes"><img alt="Merged PRs" src="https://img.shields.io/badge/merged_PRs-15-1FC07C?style=flat-square&labelColor=black&logo=github"></a>
   <a href="https://github.com/vercel-labs/skills#supported-agents"><img alt="Runs in 55+ agents" src="https://img.shields.io/badge/runs_in-55%2B_agents-37B0E6?style=flat-square&labelColor=black"></a>
   <a href="https://www.skills.sh/voidmatcha/e2e-skills"><img alt="Installs on skills.sh" src="https://img.shields.io/badge/skills.sh_installs-500%2B-1FC07C?style=flat-square&labelColor=black"></a>
   <a href="https://www.kimi.ai/resources/software-testing-skills"><img alt="Listed in Kimi testing skills" src="https://img.shields.io/badge/%F0%9F%8E%89_listed_in-Kimi_testing_skills-8B5CF6?style=flat-square&labelColor=black"></a>
@@ -20,7 +20,7 @@
 <a href="README.md">🇺🇸 English</a> | <strong>🇰🇷 한국어</strong> | <a href="README.ja.md">🇯🇵 日本語</a> | <a href="README.zh-cn.md">🇨🇳 简体中文</a>
 </p>
 
-<!-- README-CANONICAL-REVISION: sha256=57941e60a4c7366653ce7cda3bf09a13043e5e74c9e2824b42eaf462a82f8aa4; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
+<!-- README-CANONICAL-REVISION: sha256=eb8ea45cdf8648d847486360f0eadb0ee69a16fca22750ff6c5c9d51af8d4a20; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
 
 `e2e-skills`는 AI 코딩 에이전트가 Playwright와 Cypress E2E 테스트를 생성·검토하고 실패 원인을 분석할 때 쓰는 네 가지 Agent Skills 모음입니다. 새 테스트 생성은 Playwright를 지원하고, 기존 테스트나 PR/diff 범위의 변경 검토와 실패 분석은 Playwright와 Cypress를 지원합니다. 검토 목록 가운데 규칙만으로 판별할 수 있는 항목을 찾는 `deterministic scanner`도 포함합니다.
 
@@ -36,7 +36,7 @@
 
 생성기는 테스트가 부족한 영역을 분석하고 실제 브라우저에서 대상 흐름을 탐색합니다. 시나리오가 승인되면 테스트를 생성하고 각 후보를 검증합니다. `playwright-debugger`와 `cypress-debugger`는 실패한 실행 산출물을 바탕으로 근본 원인을 분류하고, 판단 근거와 구체적인 수정안을 제시합니다.
 
-false-green 탐지는 테스트 검토 기능의 중요한 부분이지만, 이 프로젝트의 전부는 아닙니다. `e2e-reviewer`가 찾은 문제를 고친 PR 14건이 Storybook, SvelteKit, code-server, Strapi, Carbon Design System, Ghost, MUI X를 비롯한 [업스트림 프로젝트에 병합되었습니다](#merged-upstream-fixes).
+false-green 탐지는 테스트 검토 기능의 중요한 부분이지만, 이 프로젝트의 전부는 아닙니다. `e2e-reviewer`가 찾은 문제를 고친 PR 15건이 Storybook, SvelteKit, code-server, Strapi, Carbon Design System, Ghost, MUI X를 비롯한 [업스트림 프로젝트에 병합되었습니다](#merged-upstream-fixes).
 
 > code-server에서는 저장소에 들어간 `it.only` 하나 때문에 CI가 7개월 동안 테스트 8개를 조용히 건너뛰었습니다. 건너뛴 테스트 중 하나는 실행하면 실패하는 상태였지만 CI는 계속 통과했습니다.
 
@@ -66,10 +66,11 @@ false-green 탐지는 테스트 검토 기능의 중요한 부분이지만, 이 
 
 ## 업스트림에 병합된 수정 사례
 
-`e2e-reviewer`가 찾아낸 문제를 고친 PR **14건이 업스트림에 병합되었습니다**. 직접 선별한 이 사례들은 실제 활용 사례와 수정 내용을 보여주지만, 전체를 대표하는 검증 표본이나 정확도 추정치는 아닙니다.
+`e2e-reviewer`가 찾아낸 문제를 고친 PR **15건이 업스트림에 병합되었습니다**. 직접 선별한 이 사례들은 실제 활용 사례와 수정 내용을 보여주지만, 전체를 대표하는 검증 표본이나 정확도 추정치는 아닙니다.
 
 | 저장소 | PR | 수정한 패턴 |
 | --- | --- | --- |
+| Apache Zeppelin | [apache/zeppelin#5180](https://github.com/apache/zeppelin/pull/5180) | 항상 참인 검증문과 조용히 건너뛰던 가드 검사 |
 | Storybook | [storybookjs/storybook#34141](https://github.com/storybookjs/storybook/pull/34141) | Playwright 검증문의 `await` 누락 |
 | code-server | [coder/code-server#7845](https://github.com/coder/code-server/pull/7845) | focused test 유출, matcher 없는 `expect`, 사용하지 않는 가시성 확인 |
 | Strapi | [strapi/strapi#26630](https://github.com/strapi/strapi/pull/26630) | 사용하지 않는 탐색 및 상태 확인 |
@@ -238,9 +239,13 @@ Debug the failed Cypress report in cypress/reports/.
 
 ## 근거와 한계
 
-현재 근거로 뒷받침할 수 있는 주장은 제한적입니다. 이 프로젝트에는 동작으로 확인한 개발 근거와 업스트림에 병합된 수정 14건이 있지만, 이를 바탕으로 일반적인 검토 정확도를 주장하지는 않습니다.
+현재 근거로 뒷받침할 수 있는 주장은 제한적입니다. 이 프로젝트에는 동작으로 확인한 개발 근거와 업스트림에 병합된 수정 15건이 있지만, 이를 바탕으로 일반적인 검토 정확도를 주장하지는 않습니다.
 
-병합 건수는 분모 없이 보고합니다. 총 몇 건의 풀 리퀘스트를 열었고 그중 몇 건이 잘못됐다는 이유로 닫혔는지가 함께 있지 않으므로, 이 수치를 정밀도로 읽어서는 안 됩니다. 관리자가 지적을 틀렸다고 판단해 닫은 사례야말로 독립적인 정답이며, 그 결과가 병합 건수와 함께 공개되기 전까지 14는 받아들여진 수정의 개수일 뿐입니다.
+이제 병합 건수에 분모가 있습니다. [Field review v1](benchmarks/field-review-v1/README.md)은 이 계정이 연 풀 리퀘스트 중 스킬 이름이 본문에 들어간 것을 모두 훑어 GitHub이 보고하는 결과를 그대로 적습니다. 26개 저장소에 29건 제출, 병합 16건, 병합 없이 닫힘 6건, 진행 중 7건입니다. 손으로 관리하던 목록 대신 GitHub에서 생성하자 로드맵에 없던 7건이 드러났고, 그중 병합이 2건, 거절이 3건이었습니다.
+
+이것도 정밀도 수치는 아닙니다. 병합은 관리자가 패치를 받아들였다는 뜻이지 지적의 심각도 분류가 옳았다는 보증이 아니며, 제출 서명이 선택 사항이라 서명 없는 거절은 비율을 위로 왜곡합니다. 다만 이 판정만은 프로젝트가 통제하지 않습니다.
+
+결정론적 스캐너는 따로 측정했고 결과는 null입니다. [Field scan v1](benchmarks/field-scan-v1/README.md)은 스캔 전에 얼린 규칙으로 고정한 공개 저장소에 스캐너를 돌렸고, 완주한 10곳에서 **P0 0건**을 보고했습니다. 나온 그대로 공개합니다. 받아들여진 업스트림 수정은 grep 계층 단독이 아니라 모델이 개입한 검토에서 나왔습니다.
 
 - 가장 강한 독립적 신호는 점수가 아닙니다. 항상 통과하는 Locator 단언 패턴(`#4f`)이 공식 `eslint-plugin-playwright`의 `no-unnecessary-assertions` 규칙으로 채택됐습니다(병합된 풀 리퀘스트는 [로드맵](docs/roadmap.md) 참고). 이 프로젝트와 이해관계가 없는 외부 관리자가 규칙 정의를 받아들인 것입니다. 동시에 이제는 린트가 그 형태를 잡는다는 뜻이므로, 이 프로젝트는 더 이상 그 사례를 자기 성과로 주장하지 않습니다.
 - `docs/rule-self-audit.md`는 두 모델 계열의 적대적 감사로 이 프로젝트 **자신의** P0 규칙에서 발견한 결함을 기록합니다. 단일 검토자라면 통과시켰을 규칙들이 포함돼 있습니다.

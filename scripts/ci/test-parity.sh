@@ -305,10 +305,10 @@ restore "$file"
 # table. Reviewer-informed maintenance is deliberately tracked separately.
 file="docs/roadmap.md"
 backup "$file"
-mutate "$file" "**Merged:** 14 upstream PRs" "**Merged:** 15 upstream PRs"
+mutate "$file" "**Merged:** 15 upstream PRs" "**Merged:** 16 upstream PRs"
 assert_fails \
   "Check 1e — roadmap merged summary matches table rows" \
-  "Merged summary count 15 does not match 14 table rows"
+  "Merged summary count 16 does not match 15 table rows"
 restore "$file"
 
 # Case 2g: an open maintenance cleanup must not inflate the false-green
@@ -337,10 +337,10 @@ restore "$file"
 # Case 2i: the badge is a public count claim and must follow the roadmap table.
 file="README.md"
 backup "$file"
-mutate "$file" "merged_PRs-14-" "merged_PRs-15-"
+mutate "$file" "merged_PRs-15-" "merged_PRs-16-"
 assert_fails \
   "Check 1e — README merged badge matches roadmap" \
-  "README.md merged badge 15 does not match roadmap 14"
+  "README.md merged badge 16 does not match roadmap 15"
 restore "$file"
 
 # Case 2j: the benchmark status repeats the merged-fix count and must not drift.
@@ -348,11 +348,11 @@ file="benchmarks/STATUS.md"
 backup "$file"
 mutate \
   "$file" \
-  "Findings have contributed to **14 merged upstream PRs**" \
-  "Findings have contributed to **15 merged upstream PRs**"
+  "Findings have contributed to **15 merged upstream PRs**" \
+  "Findings have contributed to **16 merged upstream PRs**"
 assert_fails \
   "Check 1e — benchmark status merged count matches roadmap" \
-  "benchmarks/STATUS.md merged count 15 does not match roadmap 14"
+  "benchmarks/STATUS.md merged count 16 does not match roadmap 15"
 restore "$file"
 
 # Case 2k: even a coordinated 6 -> 7 count change cannot classify the ToolJet
@@ -367,8 +367,13 @@ path = pathlib.Path(sys.argv[1])
 lines = path.read_text(encoding="utf-8").splitlines()
 row = next(line for line in lines if "ToolJet/ToolJet#17492" in line)
 lines.remove(row)
-maintenance = lines.index("## Reviewer-informed maintenance")
-lines.insert(maintenance - 1, row)
+in_review = lines.index("## In review")
+end = next(
+    index
+    for index in range(in_review + 1, len(lines))
+    if lines[index].startswith("## ")
+)
+lines.insert(end - 1, row)
 text = "\n".join(lines) + "\n"
 text = text.replace(
     "**In review:** 6 active/open upstream PRs",
@@ -383,32 +388,61 @@ assert_fails \
 restore "$file"
 
 # Case 2l: the in-review summary counts distinct PRs, not merely table rows.
+# The two PRs this case originally used have since closed without merging and
+# moved out of the In review table, so it now uses two rows that are still open.
 file="docs/roadmap.md"
 backup "$file"
 mutate \
   "$file" \
-  "https://github.com/supabase/supabase/pull/47053" \
-  "https://github.com/expo/expo/pull/46699"
+  "https://github.com/hcengineering/platform/pull/10922" \
+  "https://github.com/TanStack/router/pull/7616"
 assert_fails \
   "Check 1e — in-review rows require distinct PR URLs" \
   "In review table must contain one distinct PR URL per row"
+restore "$file"
+
+# Case 2l-2: a PR that closed without merging must not also be claimed as
+# merged. Without this check the Closed section becomes a place to park a
+# contribution while still counting it in the headline merged number.
+file="docs/roadmap.md"
+backup "$file"
+mutate \
+  "$file" \
+  "| module-federation/core | ★2.6k |" \
+  "| Supabase | ★104.8k | [supabase/supabase#47053](https://github.com/supabase/supabase/pull/47053) | Double-counted | Double-counted. |
+| module-federation/core | ★2.6k |"
+assert_fails \
+  "Check 1e — a closed PR cannot also be counted as merged" \
+  "Merged and Closed without merge share PR URLs"
+restore "$file"
+
+# Case 2l-3: the closed summary is a public count and must follow its table.
+file="docs/roadmap.md"
+backup "$file"
+mutate \
+  "$file" \
+  "- **Closed without merge:** 5." \
+  "- **Closed without merge:** 6."
+assert_fails \
+  "Check 1e — closed summary count must match its table rows" \
+  "Closed without merge summary count 6 does not match 5 table rows"
 restore "$file"
 
 # Case 2m: translated badges repeat the public merged count and must remain
 # bound to the roadmap just like the canonical README badge.
 file="README.ko.md"
 backup "$file"
-mutate "$file" "merged_PRs-14-" "merged_PRs-15-"
+mutate "$file" "merged_PRs-15-" "merged_PRs-16-"
 assert_fails \
   "Check 1e — localized merged badge matches roadmap" \
-  "README.ko.md merged badge 15 does not match roadmap 14"
+  "README.ko.md merged badge 16 does not match roadmap 15"
 restore "$file"
 
 # Case 2n: translated visible prose must not drift while its badge stays
 # correct. Both localized merged-fix claims are part of the public count surface.
 file="README.ko.md"
 backup "$file"
-mutate "$file" "PR 14건이" "PR 15건이"
+mutate "$file" "PR 15건이" "PR 16건이"
 assert_fails \
   "Check 1e — localized merged prose matches roadmap" \
   "README.ko.md merged prose counts"
@@ -420,8 +454,8 @@ file="docs/roadmap.md"
 backup "$file"
 mutate \
   "$file" \
-  "- **Merged:** 14 upstream PRs accepted in real projects." \
-  $'- **Merged:** 14 upstream PRs accepted in real projects.\n- **Merged:** 15 upstream PRs accepted in real projects.'
+  "- **Merged:** 15 upstream PRs accepted in real projects." \
+  $'- **Merged:** 15 upstream PRs accepted in real projects.\n- **Merged:** 16 upstream PRs accepted in real projects.'
 assert_fails \
   "Check 1e — roadmap summary must be unique" \
   "expected exactly one Merged summary count, found 2"

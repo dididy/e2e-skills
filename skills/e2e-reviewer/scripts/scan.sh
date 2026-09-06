@@ -289,6 +289,9 @@ export E2E_SMELL_IGNORE_HOST_AST_GREP
 E2E_SMELL_ALLOW_PROJECT_ESLINT="${E2E_SMELL_ALLOW_PROJECT_ESLINT:-0}"
 E2E_SMELL_ESLINT_TIMEOUT_SECS="${E2E_SMELL_ESLINT_TIMEOUT_SECS:-300}"
 E2E_SMELL_MAX_RULE_HITS="${E2E_SMELL_MAX_RULE_HITS:-1000}"
+# Rules disqualified by a bounded limit. A suppressed rule makes the run
+# non-authoritative, so it is named in the Summary and forces a non-zero exit.
+SUPPRESSED_RULES=""
 E2E_SMELL_MAX_RULE_HITS_HARD=10000
 E2E_SMELL_MAX_RULE_BYTES="${E2E_SMELL_MAX_RULE_BYTES:-1048576}"
 E2E_SMELL_MAX_RULE_BYTES_HARD=16777216
@@ -672,8 +675,13 @@ source_executable_code() {
       if (index("ntrbfv", next_char) > 0) return "__E2E_UNREPRESENTABLE__"
       return next_char
     }
-    function executable_source(s,    out, i, c, nchar) {
+    function executable_source(s, want_output,    out, i, c, nchar) {
       out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
       for (i = 1; i <= length(s); i++) {
         c = substr(s, i, 1)
         nchar = substr(s, i + 1, 1)
@@ -718,7 +726,7 @@ source_executable_code() {
         }
         if (template_depth > 0 && c == "{") {
           template_depth++
-          out = out c
+          if (want_output) out = out c
           continue
         }
         if (template_depth > 0 && c == "}") {
@@ -727,7 +735,7 @@ source_executable_code() {
             lex_quote = "`"
             lex_value = ""
           } else {
-            out = out c
+            if (want_output) out = out c
           }
           continue
         }
@@ -747,12 +755,12 @@ source_executable_code() {
           regex_class = 0
           continue
         }
-        out = out c
+        if (want_output) out = out c
         if (c !~ /[[:space:]]/) prev_sig = c
       }
       return out
     }
-    { print executable_source($0) }
+    { print executable_source($0, 1) }
   ' "$f" 2>/dev/null
 }
 
@@ -914,8 +922,13 @@ source_has_cypress_runtime_reference() {
 # syntax. Quoted comments and standalone strings remain inert.
 source_relative_module_references() {
   awk '
-    function executable_source(s,    out, i, c, nchar) {
+    function executable_source(s, want_output,    out, i, c, nchar) {
       out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
       for (i = 1; i <= length(s); i++) {
         c = substr(s, i, 1)
         nchar = substr(s, i + 1, 1)
@@ -946,11 +959,11 @@ source_relative_module_references() {
         }
         if (c == "/" && nchar == "*") { lex_block = 1; i++; continue }
         if (c == "/" && nchar == "/") break
-        out = out c
+        if (want_output) out = out c
       }
       return out
     }
-    { print executable_source($0) }
+    { print executable_source($0, 1) }
   ' "$1" 2>/dev/null |
     tr '\n' ' ' |
     scanner_rg -o "(?:(?:import|export)[^;]*?from[[:space:]]*|require[[:space:]]*\\([[:space:]]*|import[[:space:]]*\\([[:space:]]*|import[[:space:]]+)__E2E_STR__\\.\\.?/.*?__E2E_END__" 2>/dev/null |
@@ -1012,8 +1025,13 @@ file_uses_playwright_fixture_module() {
 # focused-test call. Known unit-test frameworks remain out of scope.
 source_has_unresolved_test_import() {
   awk '
-    function executable_source(s,    out, i, c, nchar) {
+    function executable_source(s, want_output,    out, i, c, nchar) {
       out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
       for (i = 1; i <= length(s); i++) {
         c = substr(s, i, 1)
         nchar = substr(s, i + 1, 1)
@@ -1044,11 +1062,11 @@ source_has_unresolved_test_import() {
         }
         if (c == "/" && nchar == "*") { lex_block = 1; i++; continue }
         if (c == "/" && nchar == "/") break
-        out = out c
+        if (want_output) out = out c
       }
       return out
     }
-    { print executable_source($0) }
+    { print executable_source($0, 1) }
   ' "$1" 2>/dev/null |
     tr '\n' ' ' |
     scanner_rg -o "(?:(?:import|export)[^;]*\\btest\\b[^;]*from[[:space:]]*|import[[:space:]]+[A-Za-z_$][A-Za-z0-9_$]*[[:space:]]+from[[:space:]]*|(?:const|let|var)[[:space:]]*\\{[^}]*\\btest\\b[^}]*\\}[[:space:]]*=[[:space:]]*require[[:space:]]*\\([[:space:]]*)__E2E_STR__.*?__E2E_END__" 2>/dev/null |
@@ -1069,8 +1087,13 @@ source_imports_playwright_test_binding() {
     scanner_rg -qP "(?:(?:import|export)[[:space:]]*\\{[^}]*\\b$import_binding\\b[^}]*\\}[[:space:]]*from[[:space:]]*['\"\`]@playwright/test['\"\`]|(?:const|let|var)[[:space:]]*\\{[^}]*\\b$require_binding\\b[^}]*\\}[[:space:]]*=[[:space:]]*(?:require|(?:await[[:space:]]+)?import)[[:space:]]*\\([[:space:]]*['\"\`]@playwright/test['\"\`][[:space:]]*\\)|(?:const|let|var)[[:space:]]+$binding[[:space:]]*=[[:space:]]*(?:require|(?:await[[:space:]]+)?import)[[:space:]]*\\([[:space:]]*['\"\`]@playwright/test['\"\`][[:space:]]*\\)[[:space:]]*[.][[:space:]]*test\\b|(?:const|let|var)[[:space:]]+(?<pw_test_ns>[A-Za-z_$][A-Za-z0-9_$]*)[[:space:]]*=[[:space:]]*require[[:space:]]*\\([[:space:]]*['\"\`]@playwright/test['\"\`][[:space:]]*\\)[[:space:]]*;[[:space:]]*(?:const|let|var)[[:space:]]+$binding[[:space:]]*=[[:space:]]*\\k<pw_test_ns>[[:space:]]*[.][[:space:]]*test\\b)" &&
     return 0
   awk '
-    function executable_source(s,    out, i, c, nchar) {
+    function executable_source(s, want_output,    out, i, c, nchar) {
       out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
       for (i = 1; i <= length(s); i++) {
         c = substr(s, i, 1)
         nchar = substr(s, i + 1, 1)
@@ -1101,11 +1124,11 @@ source_imports_playwright_test_binding() {
         }
         if (c == "/" && nchar == "*") { lex_block = 1; i++; continue }
         if (c == "/" && nchar == "/") break
-        out = out c
+        if (want_output) out = out c
       }
       return out
     }
-    { print executable_source($0) }
+    { print executable_source($0, 1) }
   ' "$f" 2>/dev/null |
     tr '\n' ' ' |
     scanner_rg -qP "(?:import[[:space:]]*\\{[^}]*\\b$import_binding\\b[^}]*\\}[[:space:]]*from[[:space:]]*__E2E_STR__@playwright/test__E2E_END__|(?:const|let|var)[[:space:]]*\\{[^}]*\\b$require_binding\\b[^}]*\\}[[:space:]]*=[[:space:]]*(?:require|(?:await[[:space:]]+)?import)[[:space:]]*\\([[:space:]]*__E2E_STR__@playwright/test__E2E_END__)"
@@ -1121,8 +1144,13 @@ source_imports_playwright_namespace_binding() {
     scanner_rg -qP "(?:import[[:space:]]*\\*[[:space:]]+as[[:space:]]+$binding\\b[[:space:]]*from[[:space:]]*['\"\`]@playwright/test['\"\`]|import[[:space:]]+$binding\\b[[:space:]]*=[[:space:]]*require[[:space:]]*\\([[:space:]]*['\"\`]@playwright/test['\"\`][[:space:]]*\\)|(?:const|let|var)[[:space:]]+$binding\\b[[:space:]]*=[[:space:]]*require[[:space:]]*\\([[:space:]]*['\"\`]@playwright/test['\"\`][[:space:]]*\\))" &&
     return 0
   awk '
-    function executable_source(s,    out, i, c, nchar) {
+    function executable_source(s, want_output,    out, i, c, nchar) {
       out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
       for (i = 1; i <= length(s); i++) {
         c = substr(s, i, 1)
         nchar = substr(s, i + 1, 1)
@@ -1153,11 +1181,11 @@ source_imports_playwright_namespace_binding() {
         }
         if (c == "/" && nchar == "*") { lex_block = 1; i++; continue }
         if (c == "/" && nchar == "/") break
-        out = out c
+        if (want_output) out = out c
       }
       return out
     }
-    { print executable_source($0) }
+    { print executable_source($0, 1) }
   ' "$f" 2>/dev/null |
     tr '\n' ' ' |
     scanner_rg -qP "(?:import[[:space:]]*\\*[[:space:]]+as[[:space:]]+$binding\\b[[:space:]]*from[[:space:]]*__E2E_STR__@playwright/test__E2E_END__|import[[:space:]]+$binding\\b[[:space:]]*=[[:space:]]*require[[:space:]]*\\([[:space:]]*__E2E_STR__@playwright/test__E2E_END__|(?:const|let|var)[[:space:]]+$binding\\b[[:space:]]*=[[:space:]]*require[[:space:]]*\\([[:space:]]*__E2E_STR__@playwright/test__E2E_END__)"
@@ -1183,8 +1211,13 @@ source_imports_playwright_expect_binding() {
     scanner_rg -qP "import[[:space:]]*\\*[[:space:]]+as[[:space:]]+(?<pw_expect_import_ns>[A-Za-z_$][A-Za-z0-9_$]*)[[:space:]]*from[[:space:]]*['\"\`]@playwright/test['\"\`][[:space:]]*;?[[:space:]]*(?:export[[:space:]]+)?(?:const|let|var)[[:space:]]*\\{[^}]*\\b$require_binding\\b[^}]*\\}[[:space:]]*=[[:space:]]*\\k<pw_expect_import_ns>\\b" &&
     return 0
   awk '
-    function executable_source(s,    out, i, c, nchar) {
+    function executable_source(s, want_output,    out, i, c, nchar) {
       out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
       for (i = 1; i <= length(s); i++) {
         c = substr(s, i, 1)
         nchar = substr(s, i + 1, 1)
@@ -1215,11 +1248,11 @@ source_imports_playwright_expect_binding() {
         }
         if (c == "/" && nchar == "*") { lex_block = 1; i++; continue }
         if (c == "/" && nchar == "/") break
-        out = out c
+        if (want_output) out = out c
       }
       return out
     }
-    { print executable_source($0) }
+    { print executable_source($0, 1) }
   ' "$f" 2>/dev/null |
     tr '\n' ' ' |
     scanner_rg -qP "(?:(?:import|export)[[:space:]]*\\{[^}]*\\b$import_binding\\b[^}]*\\}[[:space:]]*from[[:space:]]*__E2E_STR__@playwright/test__E2E_END__|(?:const|let|var)[[:space:]]*\\{[^}]*\\b$require_binding\\b[^}]*\\}[[:space:]]*=[[:space:]]*(?:require|(?:await[[:space:]]+)?import)[[:space:]]*\\([[:space:]]*__E2E_STR__@playwright/test__E2E_END__)"
@@ -1228,8 +1261,13 @@ source_imports_playwright_expect_binding() {
 source_imports_relative_binding() {
   local f="$1" binding="$2"
   awk '
-    function executable_source(s,    out, i, c, nchar) {
+    function executable_source(s, want_output,    out, i, c, nchar) {
       out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
       for (i = 1; i <= length(s); i++) {
         c = substr(s, i, 1)
         nchar = substr(s, i + 1, 1)
@@ -1260,11 +1298,11 @@ source_imports_relative_binding() {
         }
         if (c == "/" && nchar == "*") { lex_block = 1; i++; continue }
         if (c == "/" && nchar == "/") break
-        out = out c
+        if (want_output) out = out c
       }
       return out
     }
-    { print executable_source($0) }
+    { print executable_source($0, 1) }
   ' "$f" 2>/dev/null |
     tr '\n' ' ' |
     scanner_rg -qP "(?:(?:import[[:space:]]*\\{[^}]*\\b(?:[A-Za-z_$][A-Za-z0-9_$]*[[:space:]]+as[[:space:]]+)?$binding\\b[^}]*\\}|import[[:space:]]+$binding\\b)[[:space:]]*from[[:space:]]*__E2E_STR__\\.\\.?/|(?:const|let|var)[[:space:]]*\\{[^}]*\\b(?:[A-Za-z_$][A-Za-z0-9_$]*[[:space:]]*:[[:space:]]*)?$binding\\b[^}]*\\}[[:space:]]*=[[:space:]]*require[[:space:]]*\\([[:space:]]*__E2E_STR__\\.\\.?/)"
@@ -1273,8 +1311,13 @@ source_imports_relative_binding() {
 source_relative_module_references_for_binding() {
   local f="$1" binding="$2"
   awk '
-    function executable_source(s,    out, i, c, nchar) {
+    function executable_source(s, want_output,    out, i, c, nchar) {
       out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
       for (i = 1; i <= length(s); i++) {
         c = substr(s, i, 1)
         nchar = substr(s, i + 1, 1)
@@ -1305,11 +1348,11 @@ source_relative_module_references_for_binding() {
         }
         if (c == "/" && nchar == "*") { lex_block = 1; i++; continue }
         if (c == "/" && nchar == "/") break
-        out = out c
+        if (want_output) out = out c
       }
       return out
     }
-    { print executable_source($0) }
+    { print executable_source($0, 1) }
   ' "$f" 2>/dev/null |
     tr '\n' ' ' |
     scanner_rg -oP "(?:(?:import[[:space:]]*(?:\\{[^}]*\\b(?:[A-Za-z_$][A-Za-z0-9_$]*[[:space:]]+as[[:space:]]+)?$binding\\b[^}]*\\}|$binding\\b)[[:space:]]*from[[:space:]]*)|(?:(?:const|let|var)[[:space:]]*\\{[^}]*\\b(?:[A-Za-z_$][A-Za-z0-9_$]*[[:space:]]*:[[:space:]]*)?$binding\\b[^}]*\\}[[:space:]]*=[[:space:]]*require[[:space:]]*\\([[:space:]]*))__E2E_STR__\\K\\.\\.?/.*?(?=__E2E_END__)" 2>/dev/null
@@ -1325,8 +1368,13 @@ source_relative_module_references_for_named_binding() {
     require_member="$source_name[[:space:]]*:[[:space:]]*$binding"
   fi
   awk '
-    function executable_source(s,    out, i, c, nchar) {
+    function executable_source(s, want_output,    out, i, c, nchar) {
       out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
       for (i = 1; i <= length(s); i++) {
         c = substr(s, i, 1)
         nchar = substr(s, i + 1, 1)
@@ -1357,11 +1405,11 @@ source_relative_module_references_for_named_binding() {
         }
         if (c == "/" && nchar == "*") { lex_block = 1; i++; continue }
         if (c == "/" && nchar == "/") break
-        out = out c
+        if (want_output) out = out c
       }
       return out
     }
-    { print executable_source($0) }
+    { print executable_source($0, 1) }
   ' "$f" 2>/dev/null |
     tr '\n' ' ' |
     scanner_rg -oP "(?:(?:import[[:space:]]*\\{[^}]*\\b$import_member\\b[^}]*\\}[[:space:]]*from[[:space:]]*)|(?:(?:const|let|var)[[:space:]]*\\{[^}]*\\b$require_member\\b[^}]*\\}[[:space:]]*=[[:space:]]*require[[:space:]]*\\([[:space:]]*))__E2E_STR__\\K\\.\\.?/.*?(?=__E2E_END__)" 2>/dev/null
@@ -1373,8 +1421,13 @@ source_relative_binding_lineage_edges() {
     *[!A-Za-z0-9_$]*|'') return 1 ;;
   esac
   awk -v target="$binding" -v mode="$mode" '
-    function executable_source(s,    out, i, c, nchar) {
+    function executable_source(s, want_output,    out, i, c, nchar) {
       out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
       for (i = 1; i <= length(s); i++) {
         c = substr(s, i, 1)
         nchar = substr(s, i + 1, 1)
@@ -1405,7 +1458,7 @@ source_relative_binding_lineage_edges() {
         }
         if (c == "/" && nchar == "*") { lex_block = 1; i++; continue }
         if (c == "/" && nchar == "/") break
-        out = out c
+        if (want_output) out = out c
       }
       return out
     }
@@ -1485,7 +1538,7 @@ source_relative_binding_lineage_edges() {
       line_start = 0
     }
     {
-      source = executable_source($0)
+      source = executable_source($0, 1)
       fragment_count = split(source, fragments, ";")
       line_start = 1
       for (fragment_index = 1; fragment_index <= fragment_count; fragment_index++)
@@ -1631,8 +1684,13 @@ source_imports_unresolved_expect_binding() {
 awaited_locator_value_read_at() {
   local file="$1" line="$2"
   awk -v target="$line" '
-    function executable_source(s,    out, i, c, nchar) {
+    function executable_source(s, want_output,    out, i, c, nchar) {
       out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
       for (i = 1; i <= length(s); i++) {
         c = substr(s, i, 1)
         nchar = substr(s, i + 1, 1)
@@ -1643,20 +1701,20 @@ awaited_locator_value_read_at() {
         if (lex_quote != "") {
           if (lex_escape) lex_escape = 0
           else if (c == "\\") lex_escape = 1
-          else if (c == lex_quote) { out = out "__STR__"; lex_quote = "" }
+          else if (c == lex_quote) { if (want_output) out = out "__STR__"; lex_quote = "" }
           continue
         }
         if (c == "\"" || c == "\047" || c == "`") { lex_quote = c; continue }
         if (c == "/" && nchar == "*") { lex_block = 1; i++; continue }
         if (c == "/" && nchar == "/") break
-        out = out c
+        if (want_output) out = out c
       }
       return out
     }
-    NR < target { executable_source($0); next }
+    NR < target { executable_source($0, 0); next }
     NR > target + 12 { exit }
     {
-      code = code " " executable_source($0)
+      code = code " " executable_source($0, 1)
       if (code ~ /[.](toBeTruthy|toBeDefined|toBeNull|toBeUndefined)[[:space:]]*[(]/ ||
           code ~ /[.]not[.]to([.]be)?[.](equal|undefined|null)/ ||
           code ~ /;[[:space:]]*$/) {
@@ -2158,6 +2216,9 @@ discover_candidate_files() {
     --glob '!**/coverage/**' \
     --glob '!*.min.js' \
     --glob '!*.min.ts' \
+    --glob '!**/.yarn/**' \
+    --glob '!.pnp.cjs' \
+    --glob '!.pnp.loader.mjs' \
     ${EVAL_FIXTURE_EXCLUDES[@]+"${EVAL_FIXTURE_EXCLUDES[@]}"} \
     -- "$ROOT" > "$_destination" 2>/dev/null
   _filename_rg_rc=$?
@@ -3155,7 +3216,7 @@ if [[ "${#AST_GREP_CMD[@]}" -gt 0 && -d "$ASTGREP_RULES_DIR" &&
       break
     fi
     if [[ -n "$BOUNDED_LIMIT_KIND" ]]; then
-      printf 'INCOMPLETE: Tier 2 %s exceeded E2E_SMELL_MAX_RULE_%s=%s; this rule emitted no findings and no final Summary was emitted. Narrow the scan root or raise the bounded limit.\n' \
+      printf 'INCOMPLETE: Tier 2 %s exceeded E2E_SMELL_MAX_RULE_%s=%s; this rule is suppressed and reported no findings. Narrow the scan root or raise the bounded limit.\n' \
         "$rule_name" \
         "$([[ "$BOUNDED_LIMIT_KIND" == hits ]] && printf HITS || printf BYTES)" \
         "$([[ "$BOUNDED_LIMIT_KIND" == hits ]] && printf '%s' "$E2E_SMELL_MAX_RULE_HITS" || printf '%s' "$E2E_SMELL_MAX_RULE_BYTES")" >&2
@@ -3359,8 +3420,13 @@ missing_await_action_hit_matches() {
       sub(/[[:space:]]+$/, "", s)
       return s
     }
-    function executable_source(s,    out, i, c, nextc) {
+    function executable_source(s, want_output,    out, i, c, nextc) {
       out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
       for (i = 1; i <= length(s); i++) {
         c = substr(s, i, 1)
         nextc = substr(s, i + 1, 1)
@@ -3391,7 +3457,7 @@ missing_await_action_hit_matches() {
           continue
         }
         if (c == "/" && nextc == "/") break
-        out = out c
+        if (want_output) out = out c
       }
       return out
     }
@@ -3403,7 +3469,7 @@ missing_await_action_hit_matches() {
       # Scan from the start of the file so a block comment or quoted/template
       # string opened before the bounded receiver window still has correct
       # lexical state. Only the final 12-line receiver walk is retained.
-      source[NR] = executable_source($0)
+      source[NR] = executable_source($0, 1)
     }
     END {
       first = target - 12
@@ -3508,8 +3574,13 @@ lexical_target_line() {
       gsub(/[^A-Za-z0-9_$]+/, "_", token)
       return "__STR_" token "__"
     }
-    function executable_source(s,    out, value, i, c, nchar) {
+    function executable_source(s, want_output,    out, value, i, c, nchar) {
       out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
       value = ""
       for (i = 1; i <= length(s); i++) {
         c = substr(s, i, 1)
@@ -3559,7 +3630,7 @@ lexical_target_line() {
         }
         if (template_depth > 0 && c == "{") {
           template_depth++
-          out = out c
+          if (want_output) out = out c
           continue
         }
         if (template_depth > 0 && c == "}") {
@@ -3568,7 +3639,7 @@ lexical_target_line() {
             lex_quote = "`"
             value = ""
           } else {
-            out = out c
+            if (want_output) out = out c
           }
           continue
         }
@@ -3592,12 +3663,12 @@ lexical_target_line() {
           regex_class = 0
           continue
         }
-        out = out c
+        if (want_output) out = out c
         if (c !~ /[[:space:]]/) prev_sig = c
       }
       if (NR == target) print out
     }
-    NR <= target { executable_source($0) }
+    NR <= target { executable_source($0, 1) }
     NR >= target { exit }
   ' "$file" 2>/dev/null
 }
@@ -3632,8 +3703,13 @@ focused_test_hit_matches() {
       return 1
   fi
   code=$(awk -v first="$((line > 5 ? line - 5 : 1))" -v last="$line" '
-    function executable_source(s,    out, value, i, c, nchar) {
+    function executable_source(s, want_output,    out, value, i, c, nchar) {
       out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
       value = ""
       for (i = 1; i <= length(s); i++) {
         c = substr(s, i, 1)
@@ -3667,7 +3743,7 @@ focused_test_hit_matches() {
                 value == "on${\"ly\"}")
               out = out "__ONLY__"
             else
-              out = out "__STR__"
+              if (want_output) out = out "__STR__"
             lex_quote = ""
           } else value = value c
           continue
@@ -3679,12 +3755,12 @@ focused_test_hit_matches() {
         }
         if (c == "/" && nchar == "*") { lex_block = 1; i++; continue }
         if (c == "/" && nchar == "/") break
-        out = out c
+        if (want_output) out = out c
       }
       return out
     }
     NR <= last {
-      source = executable_source($0)
+      source = executable_source($0, 1)
       if (NR >= first) print source
     }
   ' "$file" 2>/dev/null | tr '\n' ' ')
@@ -3936,8 +4012,13 @@ source_binding_shadowed_at() {
 source_declares_shadowing_test_binding_before() {
   local file="$1" binding="$2" line="$3"
   awk -v last="$line" '
-    function executable_source(s,    out, i, c, nchar) {
+    function executable_source(s, want_output,    out, i, c, nchar) {
       out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
       for (i = 1; i <= length(s); i++) {
         c = substr(s, i, 1)
         nchar = substr(s, i + 1, 1)
@@ -3954,11 +4035,11 @@ source_declares_shadowing_test_binding_before() {
         if (c == "\"" || c == "\047" || c == "`") { lex_quote = c; continue }
         if (c == "/" && nchar == "*") { lex_block = 1; i++; continue }
         if (c == "/" && nchar == "/") break
-        out = out c
+        if (want_output) out = out c
       }
       return out
     }
-    NR <= last { print executable_source($0) }
+    NR <= last { print executable_source($0, 1) }
   ' "$file" 2>/dev/null |
     scanner_rg -qP "(^|[;{}[:space:]])(?:const|let|var|function|class)[[:space:]]+$binding\\b"
 }
@@ -4390,8 +4471,13 @@ cypress_action_chain_hit_matches() {
 locator_assertion_source() {
   local file="$1" line="$2"
   awk -v target="$line" '
-    function executable_source(s,    out, i, c, nchar) {
+    function executable_source(s, want_output,    out, i, c, nchar) {
       out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
       for (i = 1; i <= length(s); i++) {
         c = substr(s, i, 1)
         nchar = substr(s, i + 1, 1)
@@ -4424,7 +4510,7 @@ locator_assertion_source() {
           } else if (c == "\\") {
             lex_escape = 1
           } else if (c == lex_quote) {
-            out = out "__STR__"
+            if (want_output) out = out "__STR__"
             lex_quote = ""
           }
           continue
@@ -4448,15 +4534,15 @@ locator_assertion_source() {
           regex_class = 0
           continue
         }
-        out = out c
+        if (want_output) out = out c
         if (c !~ /[[:space:]]/) prev_sig = c
       }
       return out
     }
-    NR < target { executable_source($0); next }
+    NR < target { executable_source($0, 0); next }
     NR > target + 12 { exit }
     {
-      code = code " " executable_source($0)
+      code = code " " executable_source($0, 1)
       if (code ~ /[.](toBeTruthy|toBeDefined|toBeNull|toBeUndefined)[[:space:]]*[(]/ ||
           code ~ /[.]not[.]to([.]be)?[.](equal|undefined|null)/ ||
           code ~ /;[[:space:]]*$/) {
@@ -4508,8 +4594,13 @@ expect_in_observed_promise_aggregate_at() {
       sub(/[[:space:]]+$/, "", s)
       return s
     }
-    function executable_source(s,    out, i, c, nchar) {
+    function executable_source(s, want_output,    out, i, c, nchar) {
       out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
       for (i = 1; i <= length(s); i++) {
         c = substr(s, i, 1)
         nchar = substr(s, i + 1, 1)
@@ -4526,13 +4617,13 @@ expect_in_observed_promise_aggregate_at() {
         if (c == "\"" || c == "\047" || c == "`") { lex_quote = c; continue }
         if (c == "/" && nchar == "*") { lex_block = 1; i++; continue }
         if (c == "/" && nchar == "/") break
-        out = out c
+        if (want_output) out = out c
       }
       return out
     }
     NR > target { exit }
     {
-      source = executable_source($0)
+      source = executable_source($0, 1)
       if (!inside && match(source, /Promise[.](all|race|allSettled|any)[[:space:]]*[(][[:space:]]*\[/)) {
         prefix = trim(substr(source, 1, RSTART - 1))
         observed = (prefix == "await" || prefix == "return")
@@ -4598,8 +4689,13 @@ proven_locator_binding() {
     *[!A-Za-z0-9_$]*|'') return 1 ;;
   esac
   awk -v last="$line" '
-    function executable_source(s,    out, i, c, nchar) {
+    function executable_source(s, want_output,    out, i, c, nchar) {
       out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
       for (i = 1; i <= length(s); i++) {
         c = substr(s, i, 1)
         nchar = substr(s, i + 1, 1)
@@ -4610,17 +4706,17 @@ proven_locator_binding() {
         if (lex_quote != "") {
           if (lex_escape) lex_escape = 0
           else if (c == "\\") lex_escape = 1
-          else if (c == lex_quote) { out = out "__STR__"; lex_quote = "" }
+          else if (c == lex_quote) { if (want_output) out = out "__STR__"; lex_quote = "" }
           continue
         }
         if (c == "\"" || c == "\047" || c == "`") { lex_quote = c; continue }
         if (c == "/" && nchar == "*") { lex_block = 1; i++; continue }
         if (c == "/" && nchar == "/") break
-        out = out c
+        if (want_output) out = out c
       }
       return out
     }
-    NR <= last { print executable_source($0) }
+    NR <= last { print executable_source($0, 1) }
   ' "$file" 2>/dev/null |
     scanner_rg -qP "(?:\\b(?:const|let|var|readonly)[[:space:]]+$binding[[:space:]]*:[[:space:]]*(?:import[[:space:]]*\\([^)]*\\)[.]?)?Locator\\b|\\bconst[[:space:]]+$binding[[:space:]]*=[[:space:]]*page[.](?:locator|getBy[A-Z][A-Za-z]*)[[:space:]]*\\()"
 }
@@ -4717,8 +4813,13 @@ conditional_assertion_hit_matches() {
   rest=${hit#*:}
   line=${rest%%:*}
   code=$(awk -v target="$line" -v last="$((line + 40))" '
-    function executable_source(s,    out, i, c, nchar) {
+    function executable_source(s, want_output,    out, i, c, nchar) {
       out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
       for (i = 1; i <= length(s); i++) {
         c = substr(s, i, 1)
         nchar = substr(s, i + 1, 1)
@@ -4729,20 +4830,20 @@ conditional_assertion_hit_matches() {
         if (lex_quote != "") {
           if (lex_escape) lex_escape = 0
           else if (c == "\\") lex_escape = 1
-          else if (c == lex_quote) { out = out "__STR__"; lex_quote = "" }
+          else if (c == lex_quote) { if (want_output) out = out "__STR__"; lex_quote = "" }
           continue
         }
         if (c == "\"" || c == "\047" || c == "`") { lex_quote = c; continue }
         if (c == "/" && nchar == "*") { lex_block = 1; i++; continue }
         if (c == "/" && nchar == "/") break
-        out = out c
+        if (want_output) out = out c
       }
       return out
     }
-    NR < target { executable_source($0); next }
+    NR < target { executable_source($0, 0); next }
     NR > last { exit }
     {
-      line = executable_source($0)
+      line = executable_source($0, 1)
       code = code " " line
       if (!condition_done) {
         opens = gsub(/\(/, "(", line)
@@ -4962,8 +5063,13 @@ swallowed_assertion_hit_matches() {
       scanner_rg -q 'finally[[:space:]]*\{[^}]*\breturn\b' ||
       return 1
     code="$code $(awk -v first="$((line > 40 ? line - 40 : 1))" -v last="$((line - 1))" '
-      function executable_source(s,    out, i, c, nchar) {
+      function executable_source(s, want_output,    out, i, c, nchar) {
         out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
         for (i = 1; i <= length(s); i++) {
           c = substr(s, i, 1)
           nchar = substr(s, i + 1, 1)
@@ -4980,12 +5086,12 @@ swallowed_assertion_hit_matches() {
           if (c == "\"" || c == "\047" || c == "`") { lex_quote = c; continue }
           if (c == "/" && nchar == "*") { lex_block = 1; i++; continue }
           if (c == "/" && nchar == "/") break
-          out = out c
+          if (want_output) out = out c
         }
         return out
       }
       NR <= last {
-        source = executable_source($0)
+        source = executable_source($0, 1)
         if (NR >= first) print source
       }
       NR >= last { exit }
@@ -5044,6 +5150,9 @@ run_check() {
     --glob '!**/coverage/**' \
     --glob '!*.min.js' \
     --glob '!*.min.ts' \
+    --glob '!**/.yarn/**' \
+    --glob '!.pnp.cjs' \
+    --glob '!.pnp.loader.mjs' \
     ${EVAL_FIXTURE_EXCLUDES[@]+"${EVAL_FIXTURE_EXCLUDES[@]}"} \
     "$pattern" -- "$ROOT"
   local _rg_rc="$BOUNDED_COMMAND_RC"
@@ -5054,12 +5163,17 @@ run_check() {
     exit 2
   fi
   if [[ -n "$BOUNDED_LIMIT_KIND" ]]; then
-    printf 'INCOMPLETE: Tier 3 %s %s exceeded E2E_SMELL_MAX_RULE_%s=%s while streaming raw candidates; this rule emitted no findings and no final Summary was emitted. Narrow the scan root or raise the bounded limit.\n' \
+    # Disqualify this rule, not the scan. One high-volume check used to abort
+    # everything: on an ordinary public repository #15 crossed the limit and
+    # the user got no Summary at all. The bound still holds and the run still
+    # fails closed below; the completed checks' results survive.
+    printf 'INCOMPLETE: Tier 3 %s %s exceeded E2E_SMELL_MAX_RULE_%s=%s while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan root or raise the bounded limit.\n' \
       "$check_id" "$title" \
       "$([[ "$BOUNDED_LIMIT_KIND" == hits ]] && printf HITS || printf BYTES)" \
       "$([[ "$BOUNDED_LIMIT_KIND" == hits ]] && printf '%s' "$E2E_SMELL_MAX_RULE_HITS" || printf '%s' "$E2E_SMELL_MAX_RULE_BYTES")" >&2
+    SUPPRESSED_RULES="${SUPPRESSED_RULES}${SUPPRESSED_RULES:+ }${check_id}"
     rm -f "$_rg_capture" "$_rg_error" "$_rg_limit"
-    exit 2
+    return 0
   fi
   if [[ "$_rg_rc" -eq 141 || "$BOUNDED_HEAD_RC" -ne 0 || "$BOUNDED_FILTER_RC" -ne 0 ]]; then
     printf 'error: Tier 3 output limiter failed for %s %s (rg %s, head %s, filter %s)\n' \
@@ -5474,8 +5588,13 @@ run_check() {
           sub(/[[:space:]]+$/, "", s)
           return s
         }
-        function executable_source(s,    out, i, c, nchar) {
+        function executable_source(s, want_output,    out, i, c, nchar) {
           out = ""
+      # A line this long is generated or vendored, never test source. The
+      # embedded Python path already refuses it as an "oversized source line";
+      # holding the awk path to the same contract also stops the character loop
+      # below from going quadratic on a minified bundle.
+      if (length(s) > 65536) want_output = 0
           for (i = 1; i <= length(s); i++) {
             c = substr(s, i, 1)
             nchar = substr(s, i + 1, 1)
@@ -5507,13 +5626,13 @@ run_check() {
               continue
             }
             if (c == "/" && nchar == "/") break
-            out = out c
+            if (want_output) out = out c
           }
           return out
         }
         NR > target { exit }
         {
-          line = executable_source($0)
+          line = executable_source($0, 1)
           if (!inside && !pending) {
             if (!match(line, /Promise\.(all|race|allSettled|any)[[:space:]]*\(/)) next
             prefix = trim(substr(line, 1, RSTART - 1))
@@ -5860,15 +5979,24 @@ fi
 
 validate_candidate_manifest
 if [[ "$TIER2_INFRA_FAILURE" -eq 1 ]]; then
-  printf '\nINCOMPLETE: Tier 2 infrastructure failed (%s); Tier 3 completed, but no final Summary was emitted.\n' \
+  # Tier 3 completed, so report what it found. Withholding the Summary because
+  # another tier failed hides results that are sound. Still incomplete below,
+  # still non-zero.
+  printf '\nINCOMPLETE: Tier 2 infrastructure failed (%s); Tier 3 completed and its findings are reported below, but Tier 2 contributed nothing.\n' \
     "$TIER2_INFRA_DETAIL" >&2
-  exit 2
+  SUPPRESSED_RULES="${SUPPRESSED_RULES}${SUPPRESSED_RULES:+ }tier2"
 fi
 unique_mechanical_hits=$((total_hits + ${ast_total:-0}))
 unique_p0_hits=$((p0_hits + ast_p0_hits))
 unique_p1_hits=$((p1_hits + ast_p1_hits))
 confirmed_mechanical_hits=$((unique_mechanical_hits - llm_triage_hits))
-printf '\nSummary: %s total hit(s), %s P0, %s P1/P2 heuristic, %s LLM-triage, %s P0 candidate; %s AST-origin hit(s), exact cross-tier dedupe applied.\n' "$unique_mechanical_hits" "$unique_p0_hits" "$unique_p1_hits" "$llm_triage_hits" "$p0_candidate_hits" "${ast_total:-0}"
+# A bare `Summary:` means every rule ran, so a reader grepping for it cannot
+# mistake partial counts for whole ones. A suppressed rule moves the label.
+_summary_label="Summary:"
+if [[ -n "$SUPPRESSED_RULES" ]]; then
+  _summary_label="Summary [INCOMPLETE — $(printf '%s' $SUPPRESSED_RULES | wc -w | tr -d ' ') rule(s) suppressed]:"
+fi
+printf '\n%s %s total hit(s), %s P0, %s P1/P2 heuristic, %s LLM-triage, %s P0 candidate; %s AST-origin hit(s), exact cross-tier dedupe applied.\n' "$_summary_label" "$unique_mechanical_hits" "$unique_p0_hits" "$unique_p1_hits" "$llm_triage_hits" "$p0_candidate_hits" "${ast_total:-0}"
 
 # Separate what a lint rule could enforce from what only a review can catch. Roughly half of the
 # mechanical catalog IS already covered by eslint-plugin-playwright's recommended preset — saying
@@ -5907,6 +6035,15 @@ if [[ -n "$hit_pattern_ids" ]]; then
   if [[ -n "$_reviewonly" ]]; then
     printf '\nNo ESLint rule expresses these — they need this review (or a human) every time:\n %s\n' "$_reviewonly"
   fi
+fi
+
+if [[ -n "$SUPPRESSED_RULES" ]]; then
+  # Say it after the Summary too. A reader who sees only the Summary must not
+  # come away believing the listed counts are complete.
+  printf '\nINCOMPLETE: these rules hit a bounded limit and reported nothing:%s\n' \
+    "$(printf ' %s' $SUPPRESSED_RULES)"
+  printf 'The counts above exclude them, so this run is not authoritative. Scan a narrower root, or raise E2E_SMELL_MAX_RULE_HITS.\n'
+  exit 2
 fi
 
 case "$FAIL_ON" in

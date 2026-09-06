@@ -9,7 +9,7 @@
   <a href="https://claude.com/product/claude-code"><img alt="Claude Code" src="https://img.shields.io/badge/Claude_Code-compatible-D97757?style=flat-square&labelColor=black&logo=anthropic&logoColor=white"></a>
   <a href="https://github.com/openai/codex"><img alt="Codex" src="https://img.shields.io/badge/Codex-compatible-412991?style=flat-square&labelColor=black&logo=openai&logoColor=white"></a>
   <a href="https://playwright.dev"><img alt="Playwright | Cypress" src="https://img.shields.io/badge/Playwright_%7C_Cypress-supported-2EAD33?style=flat-square&labelColor=black&logo=playwright&logoColor=white"></a>
-  <a href="#merged-upstream-fixes"><img alt="Merged PRs" src="https://img.shields.io/badge/merged_PRs-14-1FC07C?style=flat-square&labelColor=black&logo=github"></a>
+  <a href="#merged-upstream-fixes"><img alt="Merged PRs" src="https://img.shields.io/badge/merged_PRs-15-1FC07C?style=flat-square&labelColor=black&logo=github"></a>
   <a href="https://github.com/vercel-labs/skills#supported-agents"><img alt="Runs in 55+ agents" src="https://img.shields.io/badge/runs_in-55%2B_agents-37B0E6?style=flat-square&labelColor=black"></a>
   <a href="https://www.skills.sh/voidmatcha/e2e-skills"><img alt="Installs on skills.sh" src="https://img.shields.io/badge/skills.sh_installs-500%2B-1FC07C?style=flat-square&labelColor=black"></a>
   <a href="https://www.kimi.ai/resources/software-testing-skills"><img alt="Listed in Kimi testing skills" src="https://img.shields.io/badge/%F0%9F%8E%89_listed_in-Kimi_testing_skills-8B5CF6?style=flat-square&labelColor=black"></a>
@@ -20,7 +20,7 @@
 <a href="README.md">🇺🇸 English</a> | <a href="README.ko.md">🇰🇷 한국어</a> | <strong>🇯🇵 日本語</strong> | <a href="README.zh-cn.md">🇨🇳 简体中文</a>
 </p>
 
-<!-- README-CANONICAL-REVISION: sha256=57941e60a4c7366653ce7cda3bf09a13043e5e74c9e2824b42eaf462a82f8aa4; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
+<!-- README-CANONICAL-REVISION: sha256=eb8ea45cdf8648d847486360f0eadb0ee69a16fca22750ff6c5c9d51af8d4a20; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
 
 `e2e-skills` は、AI コーディングエージェントが Playwright/Cypress の E2E テスト作業に使える 4 つのワークフローを提供します。Playwright カバレッジの生成、既存のテスト仕様または PR/diff 範囲の変更レビュー、失敗した Playwright レポートのデバッグ、失敗した Cypress レポートのデバッグを扱います。レビューカタログのうち、機械的に判定できる部分集合を検出する決定論的スキャナーも含まれます。
 
@@ -36,7 +36,7 @@
 
 生成器はカバレッジ不足を分析し、実ブラウザーで探索してから、シナリオ承認後にテストを生成し、各候補を検証します。2 つのデバッガーは失敗した実行の artifact から始め、分類した根本原因、根拠、具体的な修正を返します。
 
-false-green 検出はレビューワークフローの重要な一部ですが、このバンドル全体の目的ではありません。`e2e-reviewer` の指摘に基づく修正は、Storybook、SvelteKit、code-server、Strapi、Carbon Design System、Ghost、MUI X などの [14 件のマージ済み upstream PR](#merged-upstream-fixes) に取り込まれています。
+false-green 検出はレビューワークフローの重要な一部ですが、このバンドル全体の目的ではありません。`e2e-reviewer` の指摘に基づく修正は、Storybook、SvelteKit、code-server、Strapi、Carbon Design System、Ghost、MUI X などの [15 件のマージ済み upstream PR](#merged-upstream-fixes) に取り込まれています。
 
 > code-server では、コミット済みの `it.only` が 7 か月にわたって 8 件のテストを静かに無効化していました。そのうち 1 件の skip されたテストはすでに壊れていたにもかかわらず、CI は green のままでした。
 
@@ -66,10 +66,11 @@ false-green 検出はレビューワークフローの重要な一部ですが�
 
 ## アップストリームにマージされた修正
 
-`e2e-reviewer` の指摘は **14 件のマージ済み upstream PR** に取り込まれています。これらは実用例を示し、読者が修正内容を確認できるようにするために選んだ事例です。代表的な検証サンプルでも、正確度の推定値でもありません。
+`e2e-reviewer` の指摘は **15 件のマージ済み upstream PR** に取り込まれています。これらは実用例を示し、読者が修正内容を確認できるようにするために選んだ事例です。代表的な検証サンプルでも、正確度の推定値でもありません。
 
 | リポジトリ | PR | 修正したパターン |
 | --- | --- | --- |
+| Apache Zeppelin | [apache/zeppelin#5180](https://github.com/apache/zeppelin/pull/5180) | 常に真の assertion と、暗黙にスキップされるガード付きチェック |
 | Storybook | [storybookjs/storybook#34141](https://github.com/storybookjs/storybook/pull/34141) | Playwright assertions の missing `await` |
 | code-server | [coder/code-server#7845](https://github.com/coder/code-server/pull/7845) | Focused test leak、matcher-less `expect`、discarded visibility read |
 | Strapi | [strapi/strapi#26630](https://github.com/strapi/strapi/pull/26630) | Discarded navigation/state checks |
@@ -229,9 +230,13 @@ Debug the failed Cypress report in cypress/reports/.
 
 ## 根拠と限界
 
-現在の根拠で支えられる主張は限定的です。このプロジェクトには動作で裏付けた開発根拠とアップストリームにマージされた 14 件の修正がありますが、一般化されたレビュー精度は主張しません。
+現在の根拠で支えられる主張は限定的です。このプロジェクトには動作で裏付けた開発根拠とアップストリームにマージされた 15 件の修正がありますが、一般化されたレビュー精度は主張しません。
 
-マージ件数は分母なしで報告しています。プルリクエストを合計何件出し、そのうち何件が誤りとして閉じられたかが併記されていないため、この数値を精度として読むことはできません。メンテナーが指摘を誤りと判断して閉じた事例こそが独立した正解であり、その結果がマージ件数と併せて公開されるまで、14 は受け入れられた修正の件数にすぎません。
+マージ件数に分母がつきました。[Field review v1](benchmarks/field-review-v1/README.md) は、このアカウントが出したプルリクエストのうち本文にスキル名を含むものをすべて走査し、GitHub が報告する結果をそのまま記録します。26 リポジトリに 29 件提出、マージ 16 件、マージなしクローズ 6 件、オープン 7 件です。手作業の一覧ではなく GitHub から生成したことで、ロードマップに載っていなかった 7 件が見つかり、うち 2 件はマージ、3 件は却下でした。
+
+これも精度の数値ではありません。マージはメンテナーがパッチを受け入れたことを意味し、指摘の重大度分類が正しかったことを保証しません。提出署名は任意なので、署名のない却下は比率を上振れさせます。ただしこの判定だけは、このプロジェクトの管理下にありません。
+
+決定的スキャナーは別途測定し、結果は null でした。[Field scan v1](benchmarks/field-scan-v1/README.md) はスキャン前に凍結した規則で固定した公開リポジトリに対して実行し、完走した 10 件で **P0 0 件** を報告しています。出たままを公開します。受け入れられた upstream 修正は grep 層単独ではなく、モデルを介したレビューから生まれました。
 
 - 最も強い独立した signal はスコアではありません。常に通過する Locator アサーションのパターン (`#4f`) が公式の `eslint-plugin-playwright` に `no-unnecessary-assertions` ルールとして採用されました (マージ済みのプルリクエストは [ロードマップ](docs/roadmap.md) を参照)。このプロジェクトと利害関係のない外部メンテナーがルール定義を受け入れたということです。同時に、現在の lint がその形状を検出するようになったため、このプロジェクトはもうその事例を自分の成果として主張しません。
 - `docs/rule-self-audit.md` は、2 つのモデル系統による敵対的監査で、このプロジェクト**自身**の P0 ルールに見つかった欠陥を記録しています。単一のレビューアーであれば通過させていたルールが含まれます。

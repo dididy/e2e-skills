@@ -327,6 +327,10 @@ run_python scripts/ci/test-reviewer-doc-contracts.py ||
   fail "test-reviewer-doc-contracts.py"
 run_python scripts/ci/test-reviewer-output-discipline-v2.py ||
   fail "test-reviewer-output-discipline-v2.py"
+run_python scripts/ci/test-scanner-bounded-rule-v1.py ||
+  fail "test-scanner-bounded-rule-v1.py"
+run_python scripts/ci/test-scanner-vendored-bundle-v1.py ||
+  fail "test-scanner-vendored-bundle-v1.py"
 
 step "PR preflight contracts"
 run_python scripts/ci/test-pr-preflight.py || fail "test-pr-preflight.py"
