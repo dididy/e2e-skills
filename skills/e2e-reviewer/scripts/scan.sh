@@ -2202,7 +2202,7 @@ if ! printf 'pcre2\n' | "$RG_BIN" -P '^pcre2$' - >/dev/null 2>&1; then
 fi
 discover_candidate_files() {
   local _destination="$1" _filename_rg_rc
-  "$RG_BIN" --files -0 --hidden --no-ignore \
+  "$RG_BIN" --files -0 --hidden --no-ignore --sort path \
     --glob "$ALL_CODE_GLOB" \
     --glob '!**/node_modules/**' \
     --glob '!**/.git/**' \
@@ -2262,77 +2262,107 @@ validate_candidate_filenames "$_filename_list"
 # regular-file rewrites/replacements fail closed alongside type changes.
 allocate_temp CANDIDATE_IDENTITY_FILE
 
-candidate_identity() {
-  local _candidate="$1"
-  [[ -n "$PYTHON3_BIN" ]] || return 1
-  "$PYTHON3_BIN" -I -B -c '
+record_candidate_manifest() {
+  local _source="$1" _destination="$2"
+  local _candidate _invalid_kind _filtered _failed
+  : > "$_destination"
+
+  # Exclusion stays in bash: it is the shell's rule, and applying it here keeps
+  # the order the old per-file loop produced, so the first failing candidate is
+  # still the first one that would have failed.
+  allocate_temp _filtered
+  allocate_temp _failed
+  : > "$_filtered"
+  while IFS= read -r -d '' _candidate; do
+    file_is_scanner_excluded "$_candidate" && continue
+    printf '%s\0' "$_candidate" >> "$_filtered"
+  done < "$_source"
+
+  if [[ -n "$PYTHON3_BIN" ]] &&
+     "$PYTHON3_BIN" -I -B -c '
 import hashlib
 import os
 import stat
 import sys
 
-path = sys.argv[1]
-flags = os.O_RDONLY
-flags |= getattr(os, "O_CLOEXEC", 0)
-no_follow = getattr(os, "O_NOFOLLOW", None)
-if no_follow is None:
-    raise OSError("O_NOFOLLOW is unavailable")
-flags |= no_follow
-fd = os.open(path, flags)
-try:
-    before = os.fstat(fd)
-    if not stat.S_ISREG(before.st_mode):
-        raise OSError("candidate is not a regular file")
-    digest = hashlib.sha256()
-    while True:
-        chunk = os.read(fd, 1024 * 1024)
-        if not chunk:
-            break
-        digest.update(chunk)
-    after = os.fstat(fd)
-finally:
-    os.close(fd)
 
-fields = ("st_dev", "st_ino", "st_mode", "st_size", "st_mtime_ns", "st_ctime_ns")
-if any(getattr(before, field) != getattr(after, field) for field in fields):
-    raise OSError("candidate changed while fingerprinting")
-current = os.lstat(path)
-if any(getattr(after, field) != getattr(current, field) for field in fields):
-    raise OSError("candidate path changed while fingerprinting")
-print(
-    ":".join(str(getattr(after, field)) for field in fields)
-    + ":"
-    + digest.hexdigest()
-)
-' "$_candidate" 2>/dev/null
-}
+def identity(path):
+    flags = os.O_RDONLY
+    flags |= getattr(os, "O_CLOEXEC", 0)
+    no_follow = getattr(os, "O_NOFOLLOW", None)
+    if no_follow is None:
+        raise OSError("O_NOFOLLOW is unavailable")
+    flags |= no_follow
+    fd = os.open(path, flags)
+    try:
+        before = os.fstat(fd)
+        if not stat.S_ISREG(before.st_mode):
+            raise OSError("candidate is not a regular file")
+        digest = hashlib.sha256()
+        while True:
+            chunk = os.read(fd, 1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+        after = os.fstat(fd)
+    finally:
+        os.close(fd)
 
-record_candidate_manifest() {
-  local _source="$1" _destination="$2"
-  local _candidate _identity _invalid_kind
-  : > "$_destination"
-  while IFS= read -r -d '' _candidate; do
-    file_is_scanner_excluded "$_candidate" && continue
-    _identity=$(candidate_identity "$_candidate") || {
-      if [[ -L "$_candidate" ]]; then
-        _invalid_kind="symbolic link"
-      elif [[ -p "$_candidate" ]]; then
-        _invalid_kind="FIFO"
-      elif [[ -S "$_candidate" ]]; then
-        _invalid_kind="socket"
-      elif [[ -e "$_candidate" && ! -f "$_candidate" ]]; then
-        _invalid_kind="non-regular entry"
-      elif [[ ! -e "$_candidate" ]]; then
-        _invalid_kind="missing path"
-      else
-        _invalid_kind="identity unavailable"
-      fi
-      printf 'INCOMPLETE: scanner candidate changed after discovery: %q [%s]; no final Summary was emitted.\n' \
-        "$_candidate" "$_invalid_kind" >&2
-      exit 2
-    }
-    printf '%s\0%s\0' "$_candidate" "$_identity" >> "$_destination"
-  done < "$_source"
+    fields = ("st_dev", "st_ino", "st_mode", "st_size", "st_mtime_ns", "st_ctime_ns")
+    if any(getattr(before, field) != getattr(after, field) for field in fields):
+        raise OSError("candidate changed while fingerprinting")
+    current = os.lstat(path)
+    if any(getattr(after, field) != getattr(current, field) for field in fields):
+        raise OSError("candidate path changed while fingerprinting")
+    return (
+        ":".join(str(getattr(after, field)) for field in fields)
+        + ":"
+        + digest.hexdigest()
+    ).encode("ascii")
+
+
+names = open(sys.argv[1], "rb").read().split(b"\0")
+if names and names[-1] == b"":
+    names.pop()
+
+with open(sys.argv[2], "ab") as manifest:
+    for name in names:
+        try:
+            record = identity(os.fsdecode(name))
+        except Exception:
+            # Stop where the per-file loop stopped, and hand the raw bytes back
+            # so the message names the file exactly as discovery saw it.
+            open(sys.argv[3], "wb").write(name)
+            raise SystemExit(1)
+        manifest.write(name + b"\0" + record + b"\0")
+        manifest.flush()
+' "$_filtered" "$_destination" "$_failed" 2>/dev/null; then
+    return 0
+  fi
+
+  # Either no interpreter, or one candidate could not be fingerprinted. Report
+  # the same way the per-file loop did.
+  _candidate=""
+  IFS= read -r -d '' _candidate < "$_failed" 2>/dev/null || true
+  if [[ -z "$_candidate" ]]; then
+    IFS= read -r -d '' _candidate < "$_filtered" 2>/dev/null || true
+  fi
+  if [[ -L "$_candidate" ]]; then
+    _invalid_kind="symbolic link"
+  elif [[ -p "$_candidate" ]]; then
+    _invalid_kind="FIFO"
+  elif [[ -S "$_candidate" ]]; then
+    _invalid_kind="socket"
+  elif [[ -e "$_candidate" && ! -f "$_candidate" ]]; then
+    _invalid_kind="non-regular entry"
+  elif [[ ! -e "$_candidate" ]]; then
+    _invalid_kind="missing path"
+  else
+    _invalid_kind="identity unavailable"
+  fi
+  printf 'INCOMPLETE: scanner candidate changed after discovery: %q [%s]; no final Summary was emitted.\n' \
+    "$_candidate" "$_invalid_kind" >&2
+  exit 2
 }
 
 validate_candidate_manifest() {
@@ -3246,6 +3276,16 @@ if [[ "${#AST_GREP_CMD[@]}" -gt 0 && -d "$ASTGREP_RULES_DIR" &&
       record_tier2_infrastructure_failure \
         "invalid JSON stream for $rule_name"
       break
+    fi
+    # ast-grep emits records in worker-completion order, so the same tree can
+    # report the same hits in a different sequence on two runs. Order them by
+    # path, then line, then column -- bytewise, like Tier 3's --sort path, so
+    # both tiers agree across hosts.
+    if ! LC_ALL=C sort -t"$(printf '\t')" -k1,1 -k2,2n -k3,3n \
+      "$_ast_locations" > "$_ast_locations.sorted" 2>/dev/null; then
+      rm -f "$_ast_locations.sorted"
+    else
+      mv -f "$_ast_locations.sorted" "$_ast_locations"
     fi
     # Exit 0 with diagnostics still means reduced coverage (an unreadable file, a partially
     # ignored rule). Merged stderr used to collapse the tier loudly; now that it is separated,
@@ -5110,6 +5150,18 @@ swallowed_assertion_hit_matches() {
   return 1
 }
 
+filter_hits_by() {
+  # Keep the candidates a predicate accepts, in order. Every uniform filter in
+  # run_check funnels through here, so this is the one place that sees each
+  # candidate exactly once per check.
+  local predicate="$1"
+  shift
+  printf '%s\n' "$raw_output" | while IFS= read -r _hit; do
+    [[ -n "$_hit" ]] || continue
+    "$predicate" "$_hit" "$@" && printf '%s\n' "$_hit"
+  done
+}
+
 run_check() {
   local severity="$1"
   local check_id="$2"
@@ -5136,7 +5188,7 @@ run_check() {
   allocate_temp _rg_error
   allocate_temp _rg_limit
   capture_bounded_command "$_rg_capture" "$_rg_error" "$_rg_limit" "" \
-    "$RG_BIN" -nP -H --color never --hidden --no-ignore \
+    "$RG_BIN" -nP -H --color never --hidden --no-ignore --sort path \
     "${include_globs[@]}" \
     --glob '!**/node_modules/**' \
     --glob '!**/.git/**' \
@@ -5218,177 +5270,75 @@ run_check() {
       fi
     done)
   elif [[ "$flags" == *",action-deferred,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _action_hit; do
-      missing_await_action_hit_matches "$_action_hit" deferred &&
-        printf '%s\n' "$_action_hit"
-    done)
+    raw_output=$(filter_hits_by missing_await_action_hit_matches deferred)
   elif [[ "$flags" == *",focused-call,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _focused_hit; do
-      focused_test_hit_matches "$_focused_hit" &&
-        printf '%s\n' "$_focused_hit"
-    done)
+    raw_output=$(filter_hits_by focused_test_hit_matches)
   elif [[ "$flags" == *",focused-alias-call,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _focused_hit; do
-      focused_test_alias_hit_matches "$_focused_hit" &&
-        printf '%s\n' "$_focused_hit"
-    done)
+    raw_output=$(filter_hits_by focused_test_alias_hit_matches)
   elif [[ "$flags" == *",missing-expect,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _expect_hit; do
-      missing_await_expect_hit_matches "$_expect_hit" &&
-        printf '%s\n' "$_expect_hit"
-    done)
+    raw_output=$(filter_hits_by missing_await_expect_hit_matches)
   elif [[ "$flags" == *",retry-expect,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _expect_hit; do
-      retry_expect_hit_matches "$_expect_hit" &&
-        printf '%s\n' "$_expect_hit"
-    done)
+    raw_output=$(filter_hits_by retry_expect_hit_matches)
   elif [[ "$flags" == *",empty-catch,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _catch_hit; do
-      empty_catch_hit_matches "$_catch_hit" &&
-        printf '%s\n' "$_catch_hit"
-    done)
+    raw_output=$(filter_hits_by empty_catch_hit_matches)
   elif [[ "$flags" == *",empty-catch-best-effort,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _catch_hit; do
-      empty_catch_best_effort_hit_matches "$_catch_hit" &&
-        printf '%s\n' "$_catch_hit"
-    done)
+    raw_output=$(filter_hits_by empty_catch_best_effort_hit_matches)
   elif [[ "$flags" == *",empty-catch-unresolved-outcome,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _catch_hit; do
-      empty_catch_unresolved_outcome_hit_matches "$_catch_hit" &&
-        printf '%s\n' "$_catch_hit"
-    done)
+    raw_output=$(filter_hits_by empty_catch_unresolved_outcome_hit_matches)
   elif [[ "$flags" == *",empty-catch-any,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _catch_hit; do
-      catch_callback_hit_matches "$_catch_hit" empty &&
-        printf '%s\n' "$_catch_hit"
-    done)
+    raw_output=$(filter_hits_by catch_callback_hit_matches empty)
   elif [[ "$flags" == *",catch-fallback,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _catch_hit; do
-      catch_callback_hit_matches "$_catch_hit" fallback &&
-        printf '%s\n' "$_catch_hit"
-    done)
+    raw_output=$(filter_hits_by catch_callback_hit_matches fallback)
   elif [[ "$flags" == *",catch-parameterized,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _catch_hit; do
-      catch_callback_hit_matches "$_catch_hit" parameterized &&
-        printf '%s\n' "$_catch_hit"
-    done)
+    raw_output=$(filter_hits_by catch_callback_hit_matches parameterized)
   elif [[ "$flags" == *",swallowed-all-settled,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _swallowed_hit; do
-      swallowed_assertion_hit_matches "$_swallowed_hit" all-settled &&
-        printf '%s\n' "$_swallowed_hit"
-    done)
+    raw_output=$(filter_hits_by swallowed_assertion_hit_matches all-settled)
   elif [[ "$flags" == *",swallowed-finally-return,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _swallowed_hit; do
-      swallowed_assertion_hit_matches "$_swallowed_hit" finally-return &&
-        printf '%s\n' "$_swallowed_hit"
-    done)
+    raw_output=$(filter_hits_by swallowed_assertion_hit_matches finally-return)
   elif [[ "$flags" == *",playwright-wait-timeout,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _wait_hit; do
-      playwright_wait_timeout_hit_matches "$_wait_hit" &&
-        printf '%s\n' "$_wait_hit"
-    done)
+    raw_output=$(filter_hits_by playwright_wait_timeout_hit_matches)
   elif [[ "$flags" == *",zero-timeout,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _timeout_hit; do
-      zero_timeout_hit_matches "$_timeout_hit" &&
-        printf '%s\n' "$_timeout_hit"
-    done)
+    raw_output=$(filter_hits_by zero_timeout_hit_matches)
   elif [[ "$flags" == *",force-action,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _force_hit; do
-      force_action_hit_matches "$_force_hit" &&
-        printf '%s\n' "$_force_hit"
-    done)
+    raw_output=$(filter_hits_by force_action_hit_matches)
   elif [[ "$flags" == *",serial-configure,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _serial_hit; do
-      serial_configure_hit_matches "$_serial_hit" &&
-        printf '%s\n' "$_serial_hit"
-    done)
+    raw_output=$(filter_hits_by serial_configure_hit_matches)
   elif [[ "$flags" == *",cypress-action-chain,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _chain_hit; do
-      cypress_action_chain_hit_matches "$_chain_hit" &&
-        printf '%s\n' "$_chain_hit"
-    done)
+    raw_output=$(filter_hits_by cypress_action_chain_hit_matches)
   elif [[ "$flags" == *",positive-attached,"* && -n "$raw_output" ]]; then
     raw_output=$(printf '%s\n' "$raw_output" | filter_positive_to_be_attached_hits)
   elif [[ "$flags" == *",executable-line,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _executable_hit; do
-      executable_hit_matches "$_executable_hit" "$pattern" &&
-        printf '%s\n' "$_executable_hit"
-    done)
+    raw_output=$(filter_hits_by executable_hit_matches "$pattern")
   elif [[ "$flags" == *",immutable-computed-truthy,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _computed_hit; do
-      immutable_computed_truthy_hit_matches "$_computed_hit" &&
-        printf '%s\n' "$_computed_hit"
-    done)
+    raw_output=$(filter_hits_by immutable_computed_truthy_hit_matches)
   elif [[ "$flags" == *",cypress-numeric-wait,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _wait_hit; do
-      cypress_numeric_wait_hit_matches "$_wait_hit" &&
-        printf '%s\n' "$_wait_hit"
-    done)
+    raw_output=$(filter_hits_by cypress_numeric_wait_hit_matches)
   elif [[ "$flags" == *",unresolved-locator-assertion,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _locator_hit; do
-      unresolved_locator_assertion_hit_matches "$_locator_hit" &&
-        printf '%s\n' "$_locator_hit"
-    done)
+    raw_output=$(filter_hits_by unresolved_locator_assertion_hit_matches)
   elif [[ "$flags" == *",locator-assertion,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _locator_hit; do
-      locator_assertion_hit_matches "$_locator_hit" &&
-        printf '%s\n' "$_locator_hit"
-    done)
+    raw_output=$(filter_hits_by locator_assertion_hit_matches)
   elif [[ "$flags" == *",wrapped-locator-assertion,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _locator_hit; do
-      wrapped_locator_assertion_hit_matches "$_locator_hit" &&
-        printf '%s\n' "$_locator_hit"
-    done)
+    raw_output=$(filter_hits_by wrapped_locator_assertion_hit_matches)
   elif [[ "$flags" == *",generic-getby-assertion,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _locator_hit; do
-      generic_getby_assertion_hit_matches "$_locator_hit" &&
-        printf '%s\n' "$_locator_hit"
-    done)
+    raw_output=$(filter_hits_by generic_getby_assertion_hit_matches)
   elif [[ "$flags" == *",identifier-locator-assertion,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _locator_hit; do
-      identifier_locator_assertion_hit_matches "$_locator_hit" &&
-        printf '%s\n' "$_locator_hit"
-    done)
+    raw_output=$(filter_hits_by identifier_locator_assertion_hit_matches)
   elif [[ "$flags" == *",member-locator-assertion,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _locator_hit; do
-      member_locator_assertion_hit_matches "$_locator_hit" &&
-        printf '%s\n' "$_locator_hit"
-    done)
+    raw_output=$(filter_hits_by member_locator_assertion_hit_matches)
   elif [[ "$flags" == *",conditional-assertion,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _conditional_hit; do
-      conditional_assertion_hit_matches "$_conditional_hit" &&
-        printf '%s\n' "$_conditional_hit"
-    done)
+    raw_output=$(filter_hits_by conditional_assertion_hit_matches)
   elif [[ "$flags" == *",credential-candidate,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _credential_hit; do
-      hardcoded_credential_hit_matches "$_credential_hit" &&
-        printf '%s\n' "$_credential_hit"
-    done)
+    raw_output=$(filter_hits_by hardcoded_credential_hit_matches)
   elif [[ "$flags" == *",initialized-module-state,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _state_hit; do
-      initialized_module_state_hit_matches "$_state_hit" &&
-        printf '%s\n' "$_state_hit"
-    done)
+    raw_output=$(filter_hits_by initialized_module_state_hit_matches)
   elif [[ "$flags" == *",one-shot-page-url,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _url_hit; do
-      one_shot_page_url_hit_matches "$_url_hit" &&
-        printf '%s\n' "$_url_hit"
-    done)
+    raw_output=$(filter_hits_by one_shot_page_url_hit_matches)
   elif [[ "$flags" == *",soft-expect,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _soft_hit; do
-      soft_expect_hit_matches "$_soft_hit" &&
-        printf '%s\n' "$_soft_hit"
-    done)
+    raw_output=$(filter_hits_by soft_expect_hit_matches)
   elif [[ "$flags" == *",direct-page-api,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _page_hit; do
-      direct_page_api_hit_matches "$_page_hit" &&
-        printf '%s\n' "$_page_hit"
-    done)
+    raw_output=$(filter_hits_by direct_page_api_hit_matches)
   elif [[ "$flags" == *",triage-page-api,"* && -n "$raw_output" ]]; then
-    raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _page_hit; do
-      triage_page_api_hit_matches "$_page_hit" &&
-        printf '%s\n' "$_page_hit"
-    done)
+    raw_output=$(filter_hits_by triage_page_api_hit_matches)
   fi
   if [[ "$flags" == *",unresolved-test-source,"* && -n "$raw_output" ]]; then
     raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _unresolved_hit; do
@@ -5994,7 +5944,10 @@ confirmed_mechanical_hits=$((unique_mechanical_hits - llm_triage_hits))
 # mistake partial counts for whole ones. A suppressed rule moves the label.
 _summary_label="Summary:"
 if [[ -n "$SUPPRESSED_RULES" ]]; then
-  _summary_label="Summary [INCOMPLETE — $(printf '%s' $SUPPRESSED_RULES | wc -w | tr -d ' ') rule(s) suppressed]:"
+  # printf reuses its format for every argument, so '%s' concatenates them:
+  # "#7 #15 #15" became "#7#15#15" and wc -w counted one. Give each rule its own
+  # line instead, so the count is the number of rules that reported nothing.
+  _summary_label="Summary [INCOMPLETE — $(printf '%s\n' $SUPPRESSED_RULES | wc -l | tr -d ' ') rule(s) suppressed]:"
 fi
 printf '\n%s %s total hit(s), %s P0, %s P1/P2 heuristic, %s LLM-triage, %s P0 candidate; %s AST-origin hit(s), exact cross-tier dedupe applied.\n' "$_summary_label" "$unique_mechanical_hits" "$unique_p0_hits" "$unique_p1_hits" "$llm_triage_hits" "$p0_candidate_hits" "${ast_total:-0}"
 

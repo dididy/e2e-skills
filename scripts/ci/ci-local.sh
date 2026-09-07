@@ -337,6 +337,10 @@ run_python scripts/ci/test-scanner-bounded-rule-v1.py ||
   fail "test-scanner-bounded-rule-v1.py"
 run_python scripts/ci/test-scanner-vendored-bundle-v1.py ||
   fail "test-scanner-vendored-bundle-v1.py"
+run_python scripts/ci/test-scanner-determinism-v1.py ||
+  fail "test-scanner-determinism-v1.py"
+run_python scripts/ci/test-scanner-manifest-v1.py ||
+  fail "test-scanner-manifest-v1.py"
 
 step "PR preflight contracts"
 run_python scripts/ci/test-pr-preflight.py || fail "test-pr-preflight.py"

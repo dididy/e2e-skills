@@ -13,7 +13,7 @@ Every hit the deterministic scanner produced on the pinned public repositories, 
 
 The selection rule was frozen and committed before this scan ran: [`benchmarks/field-scan-v1/README.md`](../../benchmarks/field-scan-v1/README.md).
 
-Repositories excluded as contaminated (already used in development): **32**. Scanned: **10/12**.
+Repositories excluded as contaminated (already used in development): **32**. Scanned: **11/12**.
 
 ## Per repository
 
@@ -29,11 +29,11 @@ Repositories excluded as contaminated (already used in development): **32**. Sca
 | [kentcdodds/bookshelf](https://github.com/kentcdodds/bookshelf) | [`32e9e87db9`](https://github.com/kentcdodds/bookshelf/tree/32e9e87db958de863bead65761bfbe2dec0eafd4) | 0 | 45 | 1 | 0 | yes |
 | [gautamkrishnar/nothing-private](https://github.com/gautamkrishnar/nothing-private) | [`7050e014a8`](https://github.com/gautamkrishnar/nothing-private/tree/7050e014a8e65041fd38bb42bc72f667b72ec0e7) | 0 | 2 | 0 | 0 | yes |
 | [LekoArts/gatsby-themes](https://github.com/LekoArts/gatsby-themes) | [`0ee600732b`](https://github.com/LekoArts/gatsby-themes/tree/0ee600732beb88a49135760df9ed6f4d419fde2e) | 0 | 26 | 0 | 0 | yes |
-| [open-mercato/open-mercato](https://github.com/open-mercato/open-mercato) | `8b492325d3` | — | — | — | — | timeout |
+| [open-mercato/open-mercato](https://github.com/open-mercato/open-mercato) | [`8b492325d3`](https://github.com/open-mercato/open-mercato/tree/8b492325d3db29c431cca43674dcc93f894110be) | ≥0 | ≥1415 | ≥83 | ≥3 | **no** |
 | [jhipster/jhipster-sample-app](https://github.com/jhipster/jhipster-sample-app) | [`e06e87abe0`](https://github.com/jhipster/jhipster-sample-app/tree/e06e87abe0be8a3a194381ce651164a734811b3f) | ≥0 | ≥70 | ≥0 | ≥0 | **no** |
-| **Total** | | **≥0** | **≥527** | **≥275** | **≥231** | |
+| **Total** | | **≥0** | **≥1942** | **≥358** | **≥234** | |
 
-≥ marks a floor, not a count: 4 of 10 scanned repositories had at least one rule suppressed at the bounded per-rule limit, and a suppressed rule reports nothing. **A zero in one of those rows does not mean the repository is clean** — it means the check did not finish. The bound was left at its shipped default rather than raised after seeing these results.
+≥ marks a floor, not a count: 5 of 11 scanned repositories had at least one rule suppressed at the bounded per-rule limit, and a suppressed rule reports nothing. **A zero in one of those rows does not mean the repository is clean** — it means the check did not finish. The bound was left at its shipped default rather than raised after seeing these results.
 
 ### Incomplete scans
 
@@ -71,6 +71,32 @@ A rule that exceeds the bounded per-rule limit suppresses itself and reports not
   - Tier 3 #5a Conditional branch contains assertion exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan root or raise t
   - Tier 3 #15 Missing await on Playwright expect exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan root or raise the 
   - Tier 3 #15 Missing await on Playwright retry assertion exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan root or r
+- **open-mercato/open-mercato** — 25 rule(s) suppressed:
+  - these rules hit a bounded limit and reported nothing: #3 #3 #3 #3 #3 #3 #3 #7 #4f #4f #4f #4f #4f #4f #5a #10a #10d #10f #14 #15 #15 #16 #16 #16
+  - Tier 3 #3 Error swallowing via empty catch (E2E scope) exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan root or r
+  - Tier 3 #3 Possible best-effort setup, teardown, or cleanup empty catch exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow th
+  - Tier 3 #3 Possible empty catch with unresolved test-outcome impact exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the sc
+  - Tier 3 #3 Possible error swallowing in unresolved test-fixture source exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the
+  - Tier 3 #3 Possible error swallowing via catch fallback exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan root or r
+  - Tier 3 #3 Possible parameterized catch swallowing exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan root or raise 
+  - Tier 3 #3 Possible assertion failure masked by finally return exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan ro
+  - Tier 3 #7 Focused test committed exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan root or raise the bounded limit
+  - Tier 3 #4f Locator always-true assertion (truthy/defined/not-null) exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the sc
+  - Tier 3 #4f Possible wrapped Locator truthiness assertion exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan root or
+  - Tier 3 #4f Possible Locator truthiness in unresolved test-fixture source exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow 
+  - Tier 3 #4f Possible generic getBy/query truthiness assertion exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan roo
+  - Tier 3 #4f Possible Locator/POM identifier truthiness assertion exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan 
+  - Tier 3 #4f Possible Locator/POM member truthiness assertion exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan root
+  - Tier 3 #5a Conditional branch contains assertion exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan root or raise t
+  - Tier 3 #10a Positional selector exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan root or raise the bounded limit.
+  - Tier 3 #10d Cypress async callback mixes promises with queued commands exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow th
+  - Tier 3 #10f Cypress action followed by an unsafe continued chain exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan
+  - Tier 3 #14 Hardcoded credential candidate exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan root or raise the boun
+  - Tier 3 #15 Missing await on Playwright expect exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan root or raise the 
+  - Tier 3 #15 Missing await on Playwright retry assertion exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan root or r
+  - Tier 3 #16 Possible deferred/discarded Playwright action promise exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan
+  - Tier 3 #16 Missing await on Playwright action exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan root or raise the 
+  - Tier 3 #16 Possible missing await on Locator/POM action exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan root or 
 - **jhipster/jhipster-sample-app** — 3 rule(s) suppressed:
   - these rules hit a bounded limit and reported nothing: #15 #15
   - Tier 3 #15 Missing await on Playwright expect exceeded E2E_SMELL_MAX_RULE_HITS=1000 while streaming raw candidates; this rule is suppressed and reported no findings. Narrow the scan root or raise the 
@@ -88,23 +114,23 @@ _None listed._ This is not a finding of cleanliness: P0 rules were among those s
 
 | Pattern | Candidates |
 |---|---:|
-| `#4c-4e` | 77 |
+| `#10c` | 880 |
+| `#4i` | 242 |
+| `#11c` | 224 |
+| `#5a` | 147 |
+| `#4c-4e` | 79 |
 | `#14` | 72 |
 | `#10f` | 69 |
-| `#4b` | 58 |
+| `#4b` | 65 |
 | `#10a` | 49 |
-| `#10c` | 45 |
-| `#4i` | 41 |
-| `#11c` | 26 |
-| `#6` | 21 |
+| `#4a` | 30 |
+| `#6` | 23 |
 | `#16` | 19 |
+| `#8a` | 10 |
 | `#18` | 9 |
-| `#8a` | 8 |
-| `#5a` | 8 |
 | `#3` | 7 |
 | `#9b` | 7 |
 | `#15` | 5 |
 | `#17` | 4 |
 | `#4k` | 1 |
-| `#4a` | 1 |
 

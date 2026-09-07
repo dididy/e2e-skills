@@ -78,10 +78,40 @@ Two labels in that ledger carry the honesty of the whole exercise:
 
 ## Result: a null result, and a runtime wall
 
-Of the twelve pinned repositories, **ten completed and two did not finish**
-within the 30-minute per-repository budget. Across the ten that completed, the
-deterministic P0 tier reported **zero hits**. What it did report was ~527
-`[LLM-TRIAGE]` candidates: shapes the deterministic tier cannot decide alone.
+Of the twelve pinned repositories, **eleven completed and one did not finish**
+within the 30-minute per-repository budget. Across the eleven that completed,
+the deterministic P0 tier reported **zero hits**, alongside ~1,942
+`[LLM-TRIAGE]` candidates: shapes it cannot decide alone.
+
+**That zero is bounded by what completed, and the repository that did not is
+where it breaks.** An independent review scanned `ever-co/ever-gauzy`'s
+`apps/gauzy-e2e` subtree directly — the same subtree the timing figure below
+comes from — and the tier reports **294 `#3` hits there in the confirmed
+bucket**, all in `tests/support/pages/*.po.ts`, none in the specs. An earlier
+version of this file reported the zero as a corpus-wide result and treated the
+unfinished repository as merely absent. It is not merely absent: it is the one
+case that changes the answer.
+
+The 294 are bounded rather than a floor. The scanner's own empty-catch pattern
+hits 314 times across the whole repository; 311 are in that subtree and the
+three outside carry no E2E markers, so the scope filter drops them. A completed
+run would report the same 294 for this rule and nothing more.
+
+A further 19% of them (55 hits) sit inside an enclosing `try`/`catch` block that
+the scanner documents itself as unable to judge: `SKILL.md` states that
+try/catch wrapping needs Phase 2 because grep cannot decide it. For those, the
+tier is confirming a `.catch(` whose surrounding construct it has declared out
+of its reach.
+
+What they are worth is a narrower claim than the count suggests. A ten-hit
+sample read against the consequence-based `#3` exemption — swallowed failure is
+exempt only when it cannot change what the test proves — splits roughly one
+third in scope and two thirds exempt, and **in every case the deciding evidence
+was several lines after the hit**, outside the window the deterministic tier
+reads. Two of the ten are clear true positives: a swallowed gate that lets a
+later step pass on a state the test never established. So the honest reading is
+that the tier flags 294 candidates it is not equipped to adjudicate, and that
+adjudication is Phase 2's.
 
 Both halves matter, and neither is flattering:
 
@@ -90,16 +120,35 @@ Both halves matter, and neither is flattering:
   deterministic tier decided nothing on its own, which is consistent with where
   the project's accepted upstream fixes actually came from -- see
   [Field review v1](../field-review-v1/README.md), where a model is in the loop.
-  The first run of this scan reached the same result on eight repositories; two
-  more completing did not change it.
-- **Two repositories still do not finish.** `ever-co/ever-gauzy` and
-  `open-mercato/open-mercato` carry 9,232 and 9,670 scanned code files, roughly
-  twenty-five times the size of the repositories that complete, and neither has
-  a pathological line. Measured on a real subtree, the scanner costs about
-  **1.5 seconds per code file** (350 files in 546 seconds), so a 30-minute
-  budget reaches roughly 1,200 files and these two need over four hours. This is
-  scale, not the defect described below, and the scanner's own advice applies:
-  narrow the scan root to the test directories.
+  The first run of this scan reached the same result on eight repositories, and
+  three more have completed since as the scanner got faster without moving it.
+  But the zero describes the repositories that finish, and the one that does not
+  carries 294 confirmed-bucket hits, so it is a statement about a sample rather
+  than about public code.
+- **One repository still does not finish**, and the reason is not the one an
+  earlier version of this file gave. `ever-co/ever-gauzy` carries 9,232 scanned
+  code files and has no pathological line. The cost that scales with file count is a
+  per-file integrity fingerprint: the candidate manifest is built and
+  revalidated six times per scan. It used to spawn one `python3` process per
+  candidate file per pass -- about **0.18 s per code file measured on one
+  host**, or roughly 28 minutes for 9,232 files before a single finding was
+  evaluated. That is now one process per pass, which is what brought
+  `open-mercato` (9,670 files) inside the budget; `ever-gauzy` is still outside
+  it.
+
+  Dividing a subtree's wall clock by its file count, as this file previously did,
+  gives a number that does not extrapolate. Hit work does not grow with
+  repository size, because each rule evaluates at most 1,000 candidates and is
+  suppressed above that — on `ever-gauzy` thirteen rules exceed the cap, leaving
+  roughly as many surviving evaluations as its own 350-file subtree.
+
+  That has a consequence worth stating plainly, and `open-mercato` has now
+  demonstrated it: **finishing is not the same as measuring.** Its completed
+  scan reports `Summary [INCOMPLETE]` with **25 rules suppressed** and exit 2 --
+  1,498 listed hits, none of them P0, from the rules that survived the cap. The
+  same is expected of `ever-gauzy` if it is ever made to finish. The operative limit
+  is the per-rule candidate cap rather than a time budget, and narrowing the scan
+  root is the remedy for the cap — not a way to buy time.
 
 ### What the first run could not explain, and what it was
 

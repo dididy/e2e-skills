@@ -87,6 +87,35 @@ class BoundedRuleTests(unittest.TestCase):
             "a scan with a suppressed rule is not authoritative and must fail closed",
         )
 
+    def test_the_suppressed_count_matches_the_named_rules(self) -> None:
+        """The number in the label must be the number of rules that went silent.
+
+        It was not. `printf '%s' $SUPPRESSED_RULES` reuses the format for every
+        argument and concatenates them, so "#7 #15 #15" became "#7#15#15" and
+        `wc -w` reported one rule suppressed when three were. The earlier tests
+        here missed it because they assert the label exists and names a rule,
+        never that its count is right -- a check on the presence of a claim
+        rather than on its truth, which is the exact defect class this scanner
+        exists to find.
+        """
+        result = scan(noisy_tree(6, 10), {"E2E_SMELL_MAX_RULE_HITS": "5"})
+        out = result.stdout + result.stderr
+
+        label = re.search(r"Summary \[INCOMPLETE — (\d+) rule\(s\) suppressed\]", out)
+        self.assertIsNotNone(label, "the incomplete label must carry a count")
+
+        listed = re.search(
+            r"INCOMPLETE: these rules hit a bounded limit and reported nothing:(.*)",
+            out,
+        )
+        self.assertIsNotNone(listed, "the suppressed rules must be listed by id")
+        named = listed.group(1).split()
+        self.assertGreater(len(named), 1, "this fixture must suppress several rules")
+        self.assertEqual(
+            int(label.group(1)), len(named),
+            "the label's count must equal the number of rules listed below it",
+        )
+
     def test_the_truncated_rule_is_named(self) -> None:
         result = scan(noisy_tree(6, 10), {"E2E_SMELL_MAX_RULE_HITS": "5"})
         out = result.stdout + result.stderr

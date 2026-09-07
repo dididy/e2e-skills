@@ -20,7 +20,7 @@
 <a href="README.md">🇺🇸 English</a> | <strong>🇰🇷 한국어</strong> | <a href="README.ja.md">🇯🇵 日本語</a> | <a href="README.zh-cn.md">🇨🇳 简体中文</a>
 </p>
 
-<!-- README-CANONICAL-REVISION: sha256=eb8ea45cdf8648d847486360f0eadb0ee69a16fca22750ff6c5c9d51af8d4a20; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
+<!-- README-CANONICAL-REVISION: sha256=7187f32d69d92669edaf5298c08a5a2c52df44c1457dfeee5728a7d69ea127fd; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
 
 `e2e-skills`는 AI 코딩 에이전트가 Playwright와 Cypress E2E 테스트를 생성·검토하고 실패 원인을 분석할 때 쓰는 네 가지 Agent Skills 모음입니다. 새 테스트 생성은 Playwright를 지원하고, 기존 테스트나 PR/diff 범위의 변경 검토와 실패 분석은 Playwright와 Cypress를 지원합니다. 검토 목록 가운데 규칙만으로 판별할 수 있는 항목을 찾는 `deterministic scanner`도 포함합니다.
 
@@ -245,7 +245,7 @@ Debug the failed Cypress report in cypress/reports/.
 
 이것도 정밀도 수치는 아닙니다. 병합은 관리자가 패치를 받아들였다는 뜻이지 지적의 심각도 분류가 옳았다는 보증이 아니며, 제출 서명이 선택 사항이라 서명 없는 거절은 비율을 위로 왜곡합니다. 다만 이 판정만은 프로젝트가 통제하지 않습니다.
 
-결정론적 스캐너는 따로 측정했고 결과는 null입니다. [Field scan v1](benchmarks/field-scan-v1/README.md)은 스캔 전에 얼린 규칙으로 고정한 공개 저장소에 스캐너를 돌렸고, 완주한 10곳에서 **P0 0건**을 보고했습니다. 나온 그대로 공개합니다. 받아들여진 업스트림 수정은 grep 계층 단독이 아니라 모델이 개입한 검토에서 나왔습니다.
+결정론적 스캐너는 따로 측정했습니다. [Field scan v1](benchmarks/field-scan-v1/README.md)은 스캔 전에 얼린 규칙으로 고정한 공개 저장소에 스캐너를 돌렸고, **완주한 11곳에서 P0 0건**을 보고했습니다. 그러나 완주하지 못한 열두 번째 저장소는 **294건**을 보고합니다. 이전 판에서는 이를 null result라고 적었지만, 그것은 완주한 저장소에 대한 진술이며 완주하지 못한 하나가 결론을 바꾸는 경우입니다. 정정과 294건의 의미는 링크된 문서에 있습니다. 어느 쪽이든 남는 사실은, 받아들여진 업스트림 수정이 grep 계층 단독이 아니라 모델이 개입한 검토에서 나왔다는 것입니다.
 
 - 가장 강한 독립적 신호는 점수가 아닙니다. 항상 통과하는 Locator 단언 패턴(`#4f`)이 공식 `eslint-plugin-playwright`의 `no-unnecessary-assertions` 규칙으로 채택됐습니다(병합된 풀 리퀘스트는 [로드맵](docs/roadmap.md) 참고). 이 프로젝트와 이해관계가 없는 외부 관리자가 규칙 정의를 받아들인 것입니다. 동시에 이제는 린트가 그 형태를 잡는다는 뜻이므로, 이 프로젝트는 더 이상 그 사례를 자기 성과로 주장하지 않습니다.
 - `docs/rule-self-audit.md`는 두 모델 계열의 적대적 감사로 이 프로젝트 **자신의** P0 규칙에서 발견한 결함을 기록합니다. 단일 검토자라면 통과시켰을 규칙들이 포함돼 있습니다.

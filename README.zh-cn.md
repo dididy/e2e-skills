@@ -19,7 +19,7 @@
 <p align="center">
 <a href="README.md">🇺🇸 English</a> | <a href="README.ko.md">🇰🇷 한국어</a> | <a href="README.ja.md">🇯🇵 日本語</a> | <strong>🇨🇳 简体中文</strong>
 </p>
-<!-- README-CANONICAL-REVISION: sha256=eb8ea45cdf8648d847486360f0eadb0ee69a16fca22750ff6c5c9d51af8d4a20; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
+<!-- README-CANONICAL-REVISION: sha256=7187f32d69d92669edaf5298c08a5a2c52df44c1457dfeee5728a7d69ea127fd; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
 
 `e2e-skills` 为 AI 编程代理提供四个面向 E2E 测试工作的聚焦工作流：生成 Playwright 覆盖、审查现有 spec 或 PR/diff 范围内的测试变更、调试失败的 Playwright 报告，以及调试失败的 Cypress 报告。它还包含一个确定性扫描器，用于发现审查目录中可机械判定的子集。
 
@@ -235,7 +235,7 @@ Debug the failed Cypress report in cypress/reports/.
 
 这仍然不是精确率。合并意味着维护者接受了补丁，并不证明该指摘的严重级别分类正确；提交署名是可选的，因此未署名的拒绝会把比率往上偏。它真正提供的，是本项目无法控制的裁决。
 
-确定性扫描器另行测量，结果是 null。[Field scan v1](benchmarks/field-scan-v1/README.md) 在扫描前冻结规则并据此固定公开仓库，在完成的 10 个仓库中报告 **0 个 P0**。结果原样公开：被接受的上游修复来自有模型参与的审查，而不是单靠 grep 层。
+确定性扫描器另行测量。[Field scan v1](benchmarks/field-scan-v1/README.md) 在扫描前冻结规则并据此固定公开仓库，在**完成的 11 个仓库中报告 0 个 P0**；但未能完成的第 12 个仓库报告 **294 个**。早先的版本称之为 null result，其实它只是关于已完成仓库的陈述，而未完成的那一个正是改变结论的案例。更正与这 294 个的意义见链接页面。无论如何仍然成立的是：被接受的上游修复来自有模型参与的审查，而不是单靠 grep 层。
 
 - 最强的独立信号不是分数：始终通过的 Locator 断言模式（`#4f`）已被官方 `eslint-plugin-playwright` 采纳为 `no-unnecessary-assertions` 规则（已合并的 pull request 见[路线图](docs/roadmap.md)）。这是一位与本项目没有利害关系的外部维护者接受了该规则定义。同时这也意味着当前的 lint 已能检出这种形状，因此本项目不再将其作为自己的成果来声称。
 - `docs/rule-self-audit.md` 记录了由两个模型系列进行的对抗性审计在本项目**自身** P0 规则中发现的缺陷，其中包括单一审查者会放行的规则。
