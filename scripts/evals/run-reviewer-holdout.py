@@ -1781,6 +1781,45 @@ def prompt_set_digest(
     )
 
 
+# Atomic writes do not make a report durable when its destination is swept by
+# the operating system.
+VOLATILE_OUTPUT_ROOTS = ("/tmp", "/private/tmp", "/var/folders")
+
+
+def volatile_output_roots(environ: dict[str, str] | None = None) -> list[Path]:
+    """Resolve the temp roots whose contents the OS may sweep between runs."""
+    env = os.environ if environ is None else environ
+    candidates = list(VOLATILE_OUTPUT_ROOTS)
+    configured = (env.get("TMPDIR") or "").strip()
+    if configured:
+        candidates.append(configured)
+    roots: list[Path] = []
+    for candidate in candidates:
+        try:
+            resolved = Path(candidate).resolve()
+        except OSError:
+            continue
+        if resolved not in roots:
+            roots.append(resolved)
+    return roots
+
+
+def is_volatile_output_path(
+    path: Path,
+    *,
+    environ: dict[str, str] | None = None,
+) -> bool:
+    """Report whether a resolved output destination sits in swept temp space."""
+    try:
+        resolved = path.resolve()
+    except OSError:
+        return False
+    return any(
+        resolved == volatile or resolved.is_relative_to(volatile)
+        for volatile in volatile_output_roots(environ)
+    )
+
+
 def portable_host_path(
     path: str | os.PathLike[str],
     *,
@@ -2962,6 +3001,19 @@ def main() -> int:
     git_revision = command_output(["git", "rev-parse", "HEAD"])
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     output_path = args.output or ROOT / "results/reviewer-holdout" / f"{stamp}.json"
+    # Checked after corpus, wrapper, and identity validation so their fail-closed
+    # messages keep precedence, but before the run loop, so a doomed destination
+    # stops the run rather than being discovered after the model spend.
+    if (
+        args.runner in {"codex", "claude"}
+        and args.output is not None
+        and is_volatile_output_path(output_path)
+    ):
+        parser.error(
+            f"--output {output_path} resolves under a volatile temp root that "
+            "the OS may sweep; write the report to a durable path such as "
+            "benchmarks/<protocol>/reports/"
+        )
     runs: list[dict] = []
     started_at = dt.datetime.now(dt.timezone.utc).isoformat()
 

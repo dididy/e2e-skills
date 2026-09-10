@@ -18,15 +18,15 @@ source "$REPO_ROOT/scripts/ci/lib/init-python-isolation.sh" || exit 2
 if [ -z "${E2E_PARITY_DISPOSABLE_ROOT:-}" ]; then
   # Fan the case list out over several disposable copies. Each worker walks every case and asserts
   # only its own shard, so the union is the unsharded suite; the runner still proves the source
-  # digest once around the whole fan-out. Default 6; E2E_PARITY_WORKERS=1 restores the
+  # digest once around the whole fan-out. Default 4; E2E_PARITY_WORKERS=1 restores the
   # historical single-copy run, and 0 derives the count from the core count. A worker
   # costs more than a core here — it runs review.sh over its own full-tree copy — so a
-  # host with fewer than ~6 cores should set this down rather than take the default.
-  parity_workers="${E2E_PARITY_WORKERS:-6}"
+  # host with fewer than ~4 cores should set this down rather than take the default.
+  parity_workers="${E2E_PARITY_WORKERS:-4}"
   case "$parity_workers" in ''|*[!0-9]*) parity_workers=1 ;; esac
   if [ "$parity_workers" -eq 0 ]; then
     parity_workers=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)
-    [ "$parity_workers" -gt 6 ] && parity_workers=6
+    [ "$parity_workers" -gt 4 ] && parity_workers=4
   fi
   exec python3 \
     "$REPO_ROOT/scripts/ci/lib/run_disposable_parity.py" \

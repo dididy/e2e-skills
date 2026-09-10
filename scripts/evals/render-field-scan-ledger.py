@@ -11,8 +11,8 @@ Two things this renderer must never blur:
   * A `[LLM-TRIAGE]` hit is a *candidate*, not a defect. The deterministic
     scanner cannot decide those alone, so they are counted and displayed apart
     from the P0 hits and are never folded into a defect total.
-  * A repository whose scan suppressed a rule is incomplete. Its counts are a
-    floor, not a measurement, and the row says so.
+  * A scan is complete only when its exit status, Summary, and count
+    reconciliation establish completion. Partial counts remain visible as floors.
 """
 
 from __future__ import annotations
@@ -30,17 +30,35 @@ def severity_bucket(hit: dict) -> str:
     return "p0" if hit["severity"] == "P0" else "other"
 
 
+def incomplete_reasons(entry: dict) -> list[str]:
+    reasons = []
+    code = entry.get("exit_code")
+    if type(code) is not int or code not in (0, 1):
+        reasons.append(f"Scanner exit code: {code if code is not None else 'missing'}")
+    counts = entry.get("scanner_counts", {})
+    if type(counts.get("total")) is not int or counts["total"] < 0:
+        reasons.append("Scanner Summary missing or invalid")
+    elif counts.get("summary_incomplete") is not False:
+        reasons.append("Scanner Summary is incomplete or its completion marker is missing")
+    delta = entry.get("unexplained_delta")
+    if type(delta) is not int or delta != 0:
+        reasons.append(f"Unexplained count delta: {delta if delta is not None else 'missing'}")
+    reasons.extend(entry.get("incomplete", []))
+    return reasons
+
+
 def render(payload: dict) -> str:
     repositories = payload["repositories"]
     scanned = [r for r in repositories if r["status"] == "scanned"]
-    incomplete = [r for r in scanned if r.get("incomplete")]
+    unavailable = [r for r in repositories if r["status"] != "scanned"]
+    incomplete = [r for r in scanned if incomplete_reasons(r)]
 
     lines: list[str] = []
     add = lines.append
 
     add("# Field scan v1 — ledger\n")
     add(
-        "Every hit the deterministic scanner produced on the pinned public "
+        "This ledger retains every listed hit captured from scans of the pinned public "
         "repositories, with nothing removed for how it looks. No model was "
         "called (`model_calls: 0`), no pull request was opened, and no upstream "
         "repository was modified. Each line below links to the exact line at "
@@ -57,8 +75,10 @@ def render(payload: dict) -> str:
         "- **AST-origin** — Tier 2 hits counted in the scanner's own Summary "
         "but printed in a different shape, so they are reconciled here rather "
         "than re-listed.\n"
-        "- **Incomplete** — a rule hit the bounded per-rule limit and was "
-        "suppressed. That repository's counts are a floor, not a measurement.\n"
+        "- **Incomplete** — the scan failed, lacks a complete Summary, suppressed "
+        "a rule, or has unreconciled counts. Its displayed counts are a floor, "
+        "not a complete measurement. A `scanned` process status alone does not "
+        "establish completion.\n"
     )
 
     add("## Selection\n")
@@ -88,15 +108,13 @@ def render(payload: dict) -> str:
         ast = entry.get("scanner_counts", {}).get("ast", 0)
         totals.update(buckets)
         totals["ast"] += ast
-        partial = bool(entry.get("incomplete"))
+        partial = bool(incomplete_reasons(entry))
         if partial:
             incomplete_repos += 1
         complete = "yes" if not partial else "**no**"
 
-        # A suppressed rule reports nothing, so its zero is indistinguishable
-        # from a genuine absence. Rendering a bare number here would let a
-        # missing rule read as a clean repository, which is the exact failure
-        # the INCOMPLETE label exists to prevent.
+        # Suppressed rules and interrupted output can omit findings. Keep
+        # observed findings visible without presenting partial zeroes as clean.
         def cell(value: int) -> str:
             return f"\u2265{value}" if partial else str(value)
 
@@ -106,33 +124,38 @@ def render(payload: dict) -> str:
             f"{cell(buckets['p0'])} | {cell(buckets['triage'])} | "
             f"{cell(buckets['other'])} | {cell(ast)} | {complete} |"
         )
-    floor = "\u2265" if incomplete_repos else ""
+    floor = "\u2265" if incomplete_repos or unavailable else ""
     add(
         f"| **Total** | | **{floor}{totals['p0']}** | **{floor}{totals['triage']}** | "
         f"**{floor}{totals['other']}** | **{floor}{totals['ast']}** | |"
     )
     add("")
+    if unavailable:
+        add(
+            f"{len(unavailable)} repositories have no completed scan recorded "
+            "in this ledger. Their findings are not included in the totals, "
+            "which are floors rather than complete measurements.\n"
+        )
     if incomplete_repos:
         add(
             f"\u2265 marks a floor, not a count: {incomplete_repos} of "
-            f"{len(scanned)} scanned repositories had at least one rule "
-            "suppressed at the bounded per-rule limit, and a suppressed rule "
-            "reports nothing. **A zero in one of those rows does not mean the "
+            f"{len(scanned)} scanned repositories did not establish completion. "
+            "Failed scans and suppressed rules can omit findings. "
+            "**A zero in one of those rows does not mean the "
             "repository is clean** \u2014 it means the check did not finish. "
-            "The bound was left at its shipped default rather than raised "
-            "after seeing these results.\n"
+            "The reasons are listed below.\n"
         )
 
     if incomplete:
         add("### Incomplete scans\n")
         add(
-            "A rule that exceeds the bounded per-rule limit suppresses itself "
-            "and reports nothing; the rest of the scan still runs. The counts "
-            "for these repositories are therefore a lower bound.\n"
+            "The available findings remain listed, but scan completion or count "
+            "reconciliation failed for the following reasons. Suppressed rules "
+            "report no findings.\n"
         )
         for entry in incomplete:
-            add(f"- **{entry['repository']}** — {len(entry['incomplete'])} rule(s) suppressed:")
-            for detail in entry["incomplete"]:
+            add(f"- **{entry['repository']}** — incomplete:")
+            for detail in incomplete_reasons(entry):
                 add(f"  - {detail}")
         add("")
 
@@ -146,9 +169,9 @@ def render(payload: dict) -> str:
         add(
             "_None listed._"
             + (
-                " This is not a finding of cleanliness: P0 rules were among "
-                "those suppressed in the incomplete scans above.\n"
-                if incomplete
+                " This is not a finding of cleanliness: the incomplete or unavailable scans "
+                "above can omit P0 findings.\n"
+                if incomplete or unavailable
                 else "\n"
             )
         )

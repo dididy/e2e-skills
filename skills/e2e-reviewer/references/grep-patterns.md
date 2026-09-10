@@ -34,13 +34,28 @@ binds `rg`, optional
 absolute `E2E_SMELL_*_BIN` overrides.
 
 **Tier-3 workload ceiling:** each rule accepts at most 1,000 raw candidates by
-default. `E2E_SMELL_MAX_RULE_HITS` may be set from 1 through 10,000. Exceeding
-it prints `INCOMPLETE` and exits 2 before findings or Summary output. Tier 2
+default, after its file-scope checks and necessary discovery guards. The limit
+applies across all eligible files, not separately to each file.
+`E2E_SMELL_MAX_RULE_HITS` may be set from 1 through 10,000. Exceeding it
+suppresses that rule, prints `INCOMPLETE`, and keeps the final
+`Summary [INCOMPLETE]` and exit 2 even when other rules finish. Tier 2
 and Tier 3 tool output, plus opted-in Tier 1 ESLint output, is streamed through
 the same line ceiling and a byte
 ceiling before shell materialization; `E2E_SMELL_MAX_RULE_BYTES` defaults to
-1 MiB and may be set up to 16 MiB. Do not interpret either infrastructure
-failure as a P0 count.
+1 MiB and may be set up to 16 MiB. Tool or storage failures can abort before
+the Summary. Do not interpret a limit or infrastructure failure as a P0 count.
+
+**Optional strict scope watching:** set `E2E_SMELL_SCOPE_WATCH=strict` to use
+kernel directory-change notifications for missing dependency candidates on
+macOS local APFS. The default is `off`. Existing paths, unsupported filesystems
+or platforms, symlink traversals, and paths exceeding the bounded watch capacity
+keep their original metadata checks. No additional compiler or package is
+required. For ordinary `..` paths, each traversed directory is verified before
+watches are shared, including directories exited by `..`.
+This mode is deliberately stricter about concurrent writes: a watched
+directory change, including a temporary or unrelated sibling creation, aborts
+the scan without a normal Summary. Use it on a quiescent checkout. It does not
+raise candidate limits or turn an incomplete scan into complete coverage.
 
 **Phase-0 e2e-file scope filter (Tier 3):** the scanner drops hits in files that carry no executable Playwright/Cypress marker — `.cy.` / `.e2e.` names, Cypress paths, Playwright imports (including namespace aliases and transitive relative ESM/CommonJS fixture modules), Playwright fixture/type provenance, or executable `page.<api>` / `cy.<cmd>(` usage. Framework-looking text inside comments and strings does not create scope. A known foreign test-module import overrides a `.cy.*` basename for Cypress-only rules unless the same file also has executable Cypress module/runtime provenance. Playwright-only rules additionally require Playwright provenance, so a Cypress file with an unrelated object named `page` does not become a Playwright file. Skipped files are counted and reported on a `Scope filter:` line before the Summary — never silently.
 
@@ -50,7 +65,7 @@ failure as a P0 count.
 
 | Check | Pattern | Glob | What it detects |
 |-------|---------|------|-----------------|
-| #3 Error Swallowing | `\.catch(?:\?\.)?\(\s*(async\s*)?\(\)\s*=>` plus function-expression forms | `*.{ts,js,cy.*}` | `.catch(() => {})`, `.catch?.(() => {})`, and equivalent function callbacks in POM/spec silently hide failures. Phase 2 also covers `try/catch`, which grep cannot decide: check any file the spec reaches, including an imported helper or support module and `.then(...)` callback bodies |
+| #3 Error Swallowing | `\.catch(?:\?\.)?\(\s*(async\s*)?\(\)\s*=>` plus function-expression forms | `*.{ts,js,cy.*}` | `.catch(() => {})`, `.catch?.(() => {})`, and equivalent function callbacks in POM/spec can hide failures. The scanner emits empty catches as `[LLM-TRIAGE]`, including directly attached hard asynchronous assertions: local syntax cannot prove that the test loses meaningful verification. Phase 2 must confirm failure propagation and the absence of independent promised-outcome verification before assigning P0. Phase 2 also covers `try/catch`, which grep cannot decide: check any file the spec reaches, including an imported helper or support module and `.then(...)` callback bodies |
 | #7 Focused Test Leak | `\.(only)(?:\?\.)?\(` plus immutable one-hop alias declarations/calls | `*.{spec.*,test.*,cy.*}` + `**/cypress/integration/**/*.{js,ts}` | `test.only` / `it.only` / `describe.only`, optional-call variants, `const focused = test.only[.bind(test)]`, `const { only } = test`, and `const { only: focused } = test` followed by the alias call — zero legitimate committed uses, always P0. Playwright named/default/CommonJS/namespace receivers follow the exact `test` binding through relative re-exports; a sibling Playwright export cannot promote an unrelated receiver. Cypress-proven spec context is required for Cypress globals. Reassigned, shadowed, foreign-framework, ordinary-method, and wrong-receiver aliases are excluded. Glob also covers the legacy `cypress/integration` layout (plain `.js`, no `.cy.`/`.spec.`/`.test.` suffix). |
 | #9 Hard-coded Sleeps | `<proven Page>.waitForTimeout` | Playwright-proven JS/TS | Explicit sleeps cause flakiness. Receiver fixture/type provenance is required; `fakeClock.waitForTimeout()` is not a finding. |
 | #9b Cypress Sleeps | `cy\.wait\(\d` | `*.{cy.*}` | Cypress numeric waits |

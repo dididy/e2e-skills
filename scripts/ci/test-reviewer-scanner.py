@@ -1346,9 +1346,9 @@ def assert_invalid_inherited_locale_preserves_evidence() -> None:
     with tempfile.TemporaryDirectory(prefix="e2e-reviewer-invalid-locale-") as temp:
         target = Path(temp) / "locale.spec.ts"
         target.write_text(
-            "import { test } from '@playwright/test';\n"
+            "import { expect, test } from '@playwright/test';\n"
             "test('locale', async ({ page }) => {\n"
-            "  await page.goto('/').catch(() => {});\n"
+            "  await expect(page.locator('.r')).toBeVisible().catch(() => {});\n"
             "});\n",
             encoding="utf-8",
         )
@@ -1360,10 +1360,10 @@ def assert_invalid_inherited_locale_preserves_evidence() -> None:
                 "LANG": "C.UTF-8",
             },
         )
-        assert result.returncode == 1, result.stdout
+        assert result.returncode == 0, result.stdout
         finding = section(
             result.stdout,
-            "[P0] #3 Error swallowing via empty catch (E2E scope)",
+            "[P0?][LLM-TRIAGE] #3 Possible empty catch with unresolved test-outcome impact",
         )
         assert "locale.spec.ts:3:" in finding
         assert "panic: locale.c" not in result.stdout
@@ -1913,7 +1913,7 @@ def assert_generic_page_callback_is_non_gating_without_framework_lineage() -> No
             "run(async ({ page }) => {\n"
             "  await page.waitForTimeout(100);\n"
             "  await page.click('#submit');\n"
-            "  await page.goto('/ready').catch(() => {});\n"
+            "  await expect(page.locator('.r')).toBeVisible().catch(() => {});\n"
             "  expect(page.locator('.ready')).toBeTruthy();\n"
             "});\n",
             encoding="utf-8",
@@ -1923,8 +1923,7 @@ def assert_generic_page_callback_is_non_gating_without_framework_lineage() -> No
         assert result.returncode == 0, result.stdout
         assert "0 P0" in result.stdout
         assert (
-            "[P0?][LLM-TRIAGE] #3 Possible Error swallowing via empty catch "
-            "(E2E scope) (framework provenance unproven)"
+            "[P0?][LLM-TRIAGE] #3 Possible empty catch with unresolved test-outcome impact"
             in result.stdout
         )
         assert "[P1] #9 Playwright hard-coded sleep" not in result.stdout
@@ -1949,15 +1948,15 @@ def assert_generic_page_callback_is_non_gating_without_framework_lineage() -> No
             "test('Playwright callback', async ({ page }) => {\n"
             "  await page.waitForTimeout(100);\n"
             "  await page.click('#submit');\n"
-            "  await page.goto('/ready').catch(() => {});\n"
+            "  await expect(page.locator('.r')).toBeVisible().catch(() => {});\n"
             "});\n",
             encoding="utf-8",
         )
         proven_result = scan_path(proven)
-        assert proven_result.returncode == 1, proven_result.stdout
+        assert proven_result.returncode == 0, proven_result.stdout
         proven_empty_catch = section(
             proven_result.stdout,
-            "[P0] #3 Error swallowing via empty catch (E2E scope)",
+            "[P0?][LLM-TRIAGE] #3 Possible empty catch with unresolved test-outcome impact",
         )
         assert "playwright-callback.spec.ts:5:" in proven_empty_catch
         assert "framework provenance unproven" not in proven_empty_catch
@@ -1975,15 +1974,15 @@ def assert_function_expression_catch_boundaries() -> None:
         root = Path(temp)
         target = root / "catch-functions.spec.ts"
         target.write_text(
-            "import { test } from '@playwright/test';\n"
+            "import { expect, test } from '@playwright/test';\n"
             "test('function catches', async ({ page }) => {\n"
-            "  await page.goto('/one').catch(function() {});\n"
-            "  await page.goto('/two').catch(async function named() {});\n"
+            "  await expect(page.locator('.a')).toBeVisible().catch(function() {});\n"
+            "  await expect(page.locator('.b')).toBeVisible().catch(async function named() {});\n"
             "  await page.goto('/three').catch(function(error) {});\n"
             "  await page.goto('/four').catch(async function named(error) {});\n"
             "  await page.goto('/five').catch(function() { recover(); });\n"
             "  await page.goto('/six').catch(async function named() { recover(); });\n"
-            "  await page.goto('/seven').catch?.(function() {});\n"
+            "  await expect(page.locator('.g')).toBeVisible().catch?.(function() {});\n"
             "  await page.goto('/eight').catch?.(function(error) {});\n"
             "  await page.goto('/nine').catch?.(function() { recover(); });\n"
             "});\n"
@@ -1992,9 +1991,9 @@ def assert_function_expression_catch_boundaries() -> None:
         )
 
         result = scan_path(root)
-        assert result.returncode == 1, result.stdout
+        assert result.returncode == 0, result.stdout
         empty = section(
-            result.stdout, "[P0] #3 Error swallowing via empty catch (E2E scope)"
+            result.stdout, "[P0?][LLM-TRIAGE] #3 Possible empty catch with unresolved test-outcome impact"
         )
         for line in (3, 4, 9):
             assert f"catch-functions.spec.ts:{line}:" in empty
@@ -2272,41 +2271,41 @@ def assert_justified_lexical_filter() -> None:
         root = Path(temp)
         target = root / "justified.spec.ts"
         target.write_text(
-            "import { test } from '@playwright/test';\n"
+            "import { expect, test } from '@playwright/test';\n"
             "// JUSTIFIED: vendor callback intentionally records the fallback\n"
-            "await page.goto('/one').catch(() => {});\n"
+            "await expect(page.locator('.one')).toBeVisible().catch(() => {});\n"
             "// JUSTIFIED:\n"
-            "await page.goto('/two').catch(() => {});\n"
+            "await expect(page.locator('.two')).toBeVisible().catch(() => {});\n"
             "// NOT JUSTIFIED: this prefix must not suppress\n"
-            "await page.goto('/three').catch(() => {});\n"
+            "await expect(page.locator('.three')).toBeVisible().catch(() => {});\n"
             "const token = \"// JUSTIFIED: text inside a string\";\n"
-            "await page.goto('/four').catch(() => {});\n"
+            "await expect(page.locator('.four')).toBeVisible().catch(() => {});\n"
             "const template = `// JUSTIFIED: text inside a template`;\n"
-            "await page.goto('/five').catch(() => {});\n"
+            "await expect(page.locator('.five')).toBeVisible().catch(() => {});\n"
             "/* // JUSTIFIED: block comments are not suppression markers */\n"
-            "await page.goto('/six').catch(() => {});\n"
-            "await page.goto('/seven').catch(() => {}); // JUSTIFIED: inline rationale\n"
+            "await expect(page.locator('.six')).toBeVisible().catch(() => {});\n"
+            "await expect(page.locator('.seven')).toBeVisible().catch(() => {}); // JUSTIFIED: inline rationale\n"
             "const marker = true; // JUSTIFIED: trailing-token impostor\n"
-            "await page.goto('/eight').catch(() => {});\n"
+            "await expect(page.locator('.eight')).toBeVisible().catch(() => {});\n"
             "// JUSTIFIED: rationale separated from the finding by code\n"
             "const intervening = true;\n"
-            "await page.goto('/nine').catch(() => {});\n"
+            "await expect(page.locator('.nine')).toBeVisible().catch(() => {});\n"
             "// JUSTIFIED-CHECK: not the suppression marker\n"
-            "await page.goto('/ten').catch(() => {});\n"
+            "await expect(page.locator('.ten')).toBeVisible().catch(() => {});\n"
             "// JUSTIFIED: the fluent fallback is intentionally ignored\n"
-            "page.goto('/eleven')\n"
+            "expect(page.locator('.eleven')).toBeVisible()\n"
             "  .catch(() => {});\n"
             "// JUSTIFIED: unrelated code must break fluent suppression\n"
             "const breakChain = true;\n"
-            "page.goto('/twelve')\n"
+            "expect(page.locator('.twelve')).toBeVisible()\n"
             "  .catch(() => {});\n",
             encoding="utf-8",
         )
 
         result = scan_path(root)
-        assert result.returncode == 1, result.stdout
+        assert result.returncode == 0, result.stdout
         findings = section(
-            result.stdout, "[P0] #3 Error swallowing via empty catch (E2E scope)"
+            result.stdout, "[P0?][LLM-TRIAGE] #3 Possible empty catch with unresolved test-outcome impact"
         )
         for suppressed_line in (3, 24):
             assert f"justified.spec.ts:{suppressed_line}:" not in findings
@@ -2441,7 +2440,24 @@ def assert_ripgrep_fail_closed() -> None:
         broken.chmod(0o755)
         broken_result = scan_path(root, {"E2E_SMELL_RG_BIN": str(broken)})
         assert broken_result.returncode == 2, broken_result.stdout
-        assert "Tier 3 ripgrep failed for #3" in broken_result.stdout
+        # The filename prepass skips checks with no candidates. This fixture's
+        # first applicable rule is #7; its line-stream failure must still abort.
+        assert "Tier 3 ripgrep failed for #7" in broken_result.stdout
+
+        discovery_error = broken_bin / "discovery-rg"
+        discovery_error.write_text(
+            "#!/usr/bin/env bash\n"
+            "for arg in \"$@\"; do\n"
+            "  if [ \"$arg\" = \"-l0P\" ]; then exit 2; fi\n"
+            "done\n"
+            f"exec {real_rg!r} \"$@\"\n",
+            encoding="utf-8",
+        )
+        discovery_error.chmod(0o755)
+        discovery_result = scan_path(root, {"E2E_SMELL_RG_BIN": str(discovery_error)})
+        assert discovery_result.returncode == 2, discovery_result.stdout
+        assert "Tier 3 filename discovery failed" in discovery_result.stdout
+        assert "Summary:" not in discovery_result.stdout
 
         no_match_bin = Path(temp) / "no-match-bin"
         no_match_bin.mkdir()
@@ -3012,6 +3028,7 @@ def assert_discarded_locator_with_real_assertion_is_triage_only() -> None:
 
 
 def assert_pom_catch_scope() -> None:
+    """Retain type-only POM provenance and distinguish empty/fallback catches."""
     with tempfile.TemporaryDirectory(prefix="e2e-reviewer-pom-catch-") as temp:
         root = Path(temp)
         target = root / "account-page.ts"
@@ -3041,27 +3058,31 @@ def assert_pom_catch_scope() -> None:
             encoding="utf-8",
         )
 
-        result = scan_path(root)
-        assert result.returncode == 1, result.stdout
-        exact = section(
-            result.stdout, "[P0] #3 Error swallowing via empty catch (E2E scope)"
+        result = scan_path(root, {"E2E_SMELL_FAIL_ON": "none"})
+        assert result.returncode == 0, result.stdout
+        # Type-only `import type { Page }` is enough to put this POM in scope.
+        empty = section(
+            result.stdout,
+            "[P0?][LLM-TRIAGE] #3 Possible empty catch with unresolved "
+            "test-outcome impact",
         )
-        assert "account-page.ts:5:" in exact
-        assert "account-page.ts:6:" in exact
-        assert "account-page.ts:9:" not in exact
-        assert "account-page.ts:10:" not in exact
-        assert "account-page.ts:13:" not in exact
+        assert "account-page.ts:5:" in empty, empty
+        assert "account-page.ts:6:" in empty, empty
+        assert "account-page.ts:9:" not in empty, empty
+        assert "account-page.ts:10:" not in empty, empty
+        assert "account-page.ts:13:" not in empty, empty
+        # A non-empty callback is a fallback, never an empty swallow.
         ambiguous = section(
             result.stdout,
             "[P0?][LLM-TRIAGE] #3 Possible error swallowing via catch fallback",
         )
-        assert "account-page.ts:5:" not in ambiguous
-        assert "account-page.ts:6:" not in ambiguous
-        assert "account-page.ts:9:" in ambiguous
-        assert "account-page.ts:10:" in ambiguous
-        assert "account-page.ts:13:" not in ambiguous
+        assert "account-page.ts:5:" not in ambiguous, ambiguous
+        assert "account-page.ts:6:" not in ambiguous, ambiguous
+        assert "account-page.ts:9:" in ambiguous, ambiguous
+        assert "account-page.ts:10:" in ambiguous, ambiguous
+        assert "account-page.ts:13:" not in ambiguous, ambiguous
+        # A file with no Playwright/Cypress marker stays out of scope entirely.
         assert "unit-helper.ts:2:" not in result.stdout
-
 
 def assert_catch_parameter_and_cleanup_boundaries() -> None:
     with tempfile.TemporaryDirectory(prefix="e2e-reviewer-catch-boundaries-") as temp:
@@ -3069,20 +3090,20 @@ def assert_catch_parameter_and_cleanup_boundaries() -> None:
         target = root / "cleanup.spec.ts"
         target.write_text(
             "import fs from 'node:fs/promises';\n"
-            "import { test } from '@playwright/test';\n"
+            "import { expect, test } from '@playwright/test';\n"
             "test('catch boundaries', async ({ page }) => {\n"
             "  await page.goto('/').catch(err => {});\n"
             "  await page.goto('/').catch((err) => recover(err));\n"
-            "  await page.goto('/').catch /* retained comment */ (() => {});\n"
+            "  await expect(page.locator('.r')).toBeVisible().catch /* retained comment */ (() => {});\n"
             "  await fs.rm('/tmp/e2e-cleanup').catch(() => {});\n"
             "});\n",
             encoding="utf-8",
         )
 
         result = scan_path(root)
-        assert result.returncode == 1, result.stdout
+        assert result.returncode == 0, result.stdout
         exact = section(
-            result.stdout, "[P0] #3 Error swallowing via empty catch (E2E scope)"
+            result.stdout, "[P0?][LLM-TRIAGE] #3 Possible empty catch with unresolved test-outcome impact"
         )
         assert "cleanup.spec.ts:6:" in exact
         assert "cleanup.spec.ts:7:" not in exact
@@ -3095,7 +3116,7 @@ def assert_catch_parameter_and_cleanup_boundaries() -> None:
         assert "cleanup.spec.ts:7:" not in result.stdout
 
 
-def assert_empty_catch_final_gate_requires_load_bearing_test_outcome() -> None:
+def assert_empty_catch_best_effort_and_lifecycle_exemptions() -> None:
     with tempfile.TemporaryDirectory(prefix="e2e-reviewer-empty-catch-gate-") as temp:
         root = Path(temp)
         target = root / "empty-catch.spec.ts"
@@ -3123,12 +3144,11 @@ def assert_empty_catch_final_gate_requires_load_bearing_test_outcome() -> None:
 
         result = scan_path(root, {"E2E_SMELL_FAIL_ON": "none"})
         assert result.returncode == 0, result.stdout
-        exact = section(
-            result.stdout, "[P0] #3 Error swallowing via empty catch (E2E scope)"
-        )
-        assert "empty-catch.spec.ts:12:" in exact
-        for candidate_line in (3, 6, 9, 13, 14):
-            assert f"empty-catch.spec.ts:{candidate_line}:" not in exact
+        # Syntax alone cannot confirm a defect; every candidate stays visible.
+        assert (
+            "[P0] #3"
+            not in result.stdout
+        ), result.stdout
 
         best_effort = section(
             result.stdout,
@@ -3143,8 +3163,8 @@ def assert_empty_catch_final_gate_requires_load_bearing_test_outcome() -> None:
             "[P0?][LLM-TRIAGE] #3 Possible empty catch with unresolved "
             "test-outcome impact",
         )
-        assert "empty-catch.spec.ts:14:" in unresolved
-        assert "empty-catch.spec.ts:12:" not in unresolved
+        for candidate_line in (12, 14):
+            assert f"empty-catch.spec.ts:{candidate_line}:" in unresolved, unresolved
 
         cleanup_only = root / "cleanup-only.spec.ts"
         cleanup_only.write_text(
@@ -3162,6 +3182,243 @@ def assert_empty_catch_final_gate_requires_load_bearing_test_outcome() -> None:
         assert cleanup_gate.returncode == 0, cleanup_gate.stdout
         assert "0 P0" in cleanup_gate.stdout
         assert "2 P0 candidate" in cleanup_gate.stdout
+
+
+def assert_empty_catch_syntax_requires_semantic_confirmation() -> None:
+    """Retain true candidates without promoting receiver spelling into P0 proof."""
+    with tempfile.TemporaryDirectory(prefix="e2e-reviewer-catch-semantic-") as temp:
+        target = Path(temp) / "semantic.spec.ts"
+        source = (
+            "import { expect, test } from '@playwright/test';\n"
+            "test('catch semantics', async ({ page }) => {\n"
+            "  await expect(page.getByRole('main')).toBeVisible().catch(() => {});\n"
+            "  await expect.soft(page.getByRole('main')).toBeVisible().catch(() => {});\n"
+            "  expect(1).toBe(2).catch(() => {});\n"
+            "  await expect(page.getByRole('main')).toBeVisible(); await page.title().catch(() => {});\n"
+            "  await page.title().catch(() => {})\n"
+            "  await expect(page.getByRole('main')).toBeVisible();\n"
+            "  const exporter = { toBuffer: async () => new Uint8Array() };\n"
+            "  await exporter.toBuffer().catch(() => {});\n"
+            "  await expect(page.getByRole('main')).toBeVisible().catch(() => {});\n"
+            "  await expect(page.getByRole('main')).toBeVisible();\n"
+            "  try {\n"
+            "    await expect(page.getByRole('main')).toBeVisible().catch(() => {});\n"
+            "  } finally { throw new Error('still fails'); }\n"
+            "});\n"
+            "test('shadowed binding', async () => {\n"
+            "  const expect = async () => {};\n"
+            "  await expect().catch(() => {});\n"
+            "});\n"
+            "test('multiline true candidate', async ({ page }) => {\n"
+            "  await expect(page.getByRole('main'))\n"
+            "    .toBeVisible()\n"
+            "    .catch(() => {});\n"
+            "});\n"
+        )
+        target.write_text(source, encoding="utf-8")
+        expected_lines = {3, 4, 5, 6, 7, 10, 11, 14, 19, 24}
+        for policy, exit_code in (("p0", 0), ("p0-candidate", 1)):
+            result = scan_path(target, {"E2E_SMELL_FAIL_ON": policy})
+            assert result.returncode == exit_code, result.stdout
+            assert "[P0] #3" not in result.stdout, result.stdout
+            candidates = section(
+                result.stdout,
+                "[P0?][LLM-TRIAGE] #3 Possible empty catch with unresolved test-outcome impact",
+            )
+            observed_lines = {
+                int(line.split("semantic.spec.ts:", 1)[1].split(":", 1)[0])
+                for line in candidates.splitlines() if "semantic.spec.ts:" in line
+            }
+            assert observed_lines == expected_lines, candidates
+            assert "10 P0 candidate" in result.stdout, result.stdout
+
+
+def assert_empty_catch_assertions_and_actions_remain_candidates() -> None:
+    """Assertion and action catches require downstream outcome evidence alike.
+
+    An action, navigation, query, or readiness gate whose failure is swallowed
+    may still be caught by a later assertion, and that consequence lives outside
+    the scanner's local evidence window. Those candidates stay visible as
+    LLM-TRIAGE instead of being promoted into the confirmed P0 bucket.
+    """
+    with tempfile.TemporaryDirectory(prefix="e2e-reviewer-empty-catch-oracle-") as temp:
+        root = Path(temp)
+        target = root / "oracle.spec.ts"
+        target.write_text(
+            "import { expect, test } from '@playwright/test';\n"
+            "test('oracle vs consequence', async ({ page }) => {\n"
+            "  await expect(page.getByRole('alert')).toBeVisible().catch(() => {});\n"
+            "  await page.goto('/must-load').catch(() => {});\n"
+            "  await page.waitForLoadState('networkidle').catch(() => {});\n"
+            "  await page.keyboard.press('Escape').catch(() => {});\n"
+            "  await page.getByRole('main').textContent().catch(() => {});\n"
+            "  await expect(page.getByRole('status')).toBeVisible();\n"
+            "});\n",
+            encoding="utf-8",
+        )
+
+        result = scan_path(root, {"E2E_SMELL_FAIL_ON": "none"})
+        assert result.returncode == 0, result.stdout
+        assert "[P0] #3" not in result.stdout, result.stdout
+
+        unresolved = section(
+            result.stdout,
+            "[P0?][LLM-TRIAGE] #3 Possible empty catch with unresolved "
+            "test-outcome impact",
+        )
+        for consequence_line in (3, 4, 5, 6, 7):
+            assert f"oracle.spec.ts:{consequence_line}:" in unresolved, unresolved
+
+
+def assert_empty_catch_value_conversions_and_aliases_remain_candidates() -> None:
+    """Conversions and aliased assertions remain visible without gating as defects."""
+    with tempfile.TemporaryDirectory(prefix="e2e-reviewer-oracle-vocab-") as temp:
+        root = Path(temp)
+        conversions = root / "conversions.spec.ts"
+        conversions.write_text(
+            "import { expect, test } from '@playwright/test';\n"
+            "test('conversions are not oracles', async ({ page }) => {\n"
+            "  await page.evaluate(() => window.x).toString().catch(() => {});\n"
+            "  await someValue.toFixed(2).catch(() => {});\n"
+            "  await payload.toJSON().catch(() => {});\n"
+            "  await expect(page.getByRole('alert')).toBeVisible();\n"
+            "});\n",
+            encoding="utf-8",
+        )
+        result = scan_path(conversions, {"E2E_SMELL_FAIL_ON": "p0"})
+        assert result.returncode == 0, result.stdout
+        assert (
+            "[P0] #3"
+            not in result.stdout
+        ), result.stdout
+        unresolved = section(
+            result.stdout,
+            "[P0?][LLM-TRIAGE] #3 Possible empty catch with unresolved "
+            "test-outcome impact",
+        )
+        for line in (3, 4, 5):
+            assert f"conversions.spec.ts:{line}:" in unresolved, unresolved
+
+        aliased = root / "aliased.spec.ts"
+        aliased.write_text(
+            "import { test, expect as verify } from '@playwright/test';\n"
+            "test('aliased expect still counts', async ({ page }) => {\n"
+            "  await verify(page.getByRole('alert')).toBeVisible()"
+            ".catch(() => {});\n"
+            "});\n",
+            encoding="utf-8",
+        )
+        aliased_result = scan_path(aliased, {"E2E_SMELL_FAIL_ON": "p0"})
+        assert aliased_result.returncode == 0, aliased_result.stdout
+        assert "[P0] #3" not in aliased_result.stdout, aliased_result.stdout
+        candidates = section(
+            aliased_result.stdout,
+            "[P0?][LLM-TRIAGE] #3 Possible empty catch with unresolved test-outcome impact",
+        )
+        assert "aliased.spec.ts:3:" in candidates, candidates
+
+
+
+def assert_empty_catch_attached_assertions_remain_candidates() -> None:
+    """Preserve both existing FP guards and attached async assertion candidates."""
+    with tempfile.TemporaryDirectory(prefix="e2e-reviewer-oracle-attach-") as temp:
+        root = Path(temp)
+        target = root / "attach.spec.ts"
+        target.write_text(
+            "import { expect, test } from '@playwright/test';\n"
+            "test('not eliminated oracles', async ({ page }) => {\n"
+            "  await page.goto('/x').catch(() => {}); "
+            "await expect(page).toHaveURL('/x');\n"
+            "  await expect.soft(page.locator('.r')).toBeVisible()"
+            ".catch(() => {});\n"
+            "  expect(1).toBe(2).catch(() => {});\n"
+            "});\n",
+            encoding="utf-8",
+        )
+        result = scan_path(target, {"E2E_SMELL_FAIL_ON": "p0"})
+        assert result.returncode == 0, result.stdout
+        assert (
+            "[P0] #3"
+            not in result.stdout
+        ), result.stdout
+        unresolved = section(
+            result.stdout,
+            "[P0?][LLM-TRIAGE] #3 Possible empty catch with unresolved "
+            "test-outcome impact",
+        )
+        for line in (3, 4, 5):
+            assert f"attach.spec.ts:{line}:" in unresolved, unresolved
+
+        candidate_target = root / "candidates.spec.ts"
+        candidate_target.write_text(
+            "import { test, expect as verify } from '@playwright/test';\n"
+            "test('attached async assertion candidates', async ({ page }) => {\n"
+            "  await verify(page.getByRole('alert')).toBeVisible()"
+            ".catch(() => {});\n"
+            "  await verify(page.locator('.x')).not.toBeVisible()"
+            ".catch(() => {});\n"
+            "  await verify(page).toHaveURL('/done', { timeout: 5000 })"
+            ".catch(() => {});\n"
+            "  await verify(page.locator('.y')).toBeVisible().catch?.(() => {});\n"
+            "  await verify.poll(() => count).toBe(3).catch(() => {});\n"
+            "  await verify(async () => {}).toPass().catch(() => {});\n"
+            "});\n",
+            encoding="utf-8",
+        )
+        candidate_result = scan_path(candidate_target, {"E2E_SMELL_FAIL_ON": "p0"})
+        assert candidate_result.returncode == 0, candidate_result.stdout
+        assert "[P0] #3" not in candidate_result.stdout, candidate_result.stdout
+        candidates = section(
+            candidate_result.stdout,
+            "[P0?][LLM-TRIAGE] #3 Possible empty catch with unresolved test-outcome impact",
+        )
+        for line in (3, 4, 5, 6, 7, 8):
+            assert f"candidates.spec.ts:{line}:" in candidates, candidates
+
+def assert_focused_rule_survives_bounded_limit_on_large_trees() -> None:
+    """#7 must not suppress itself into silence on an ordinary large repository.
+
+    The raw pattern's computed-member alternative used to match ANY bracket
+    expression on a line, so every array literal and index access became a
+    candidate. On one 9,232-file monorepo that streamed 29,976 raw candidates
+    against a 1,000 bound, the rule suppressed itself and reported nothing --
+    and #7 is the P0 the project documents as having zero legitimate uses. A
+    "0 P0" result on a large repository was therefore a result in which the most
+    clear-cut P0 was never evaluated.
+
+    Ordinary bracket syntax must not be a candidate; a computed member CALL
+    still must be.
+    """
+    with tempfile.TemporaryDirectory(prefix="e2e-reviewer-focused-bound-") as temp:
+        root = Path(temp)
+        noise = []
+        for index in range(700):
+            noise.append(
+                f"export const table{index} = [1, 2, 3];\n"
+                f"export const pick{index} = table{index}[0];\n"
+                f"export type Row{index} = Array<string>;\n"
+            )
+        (root / "bulk.ts").write_text(
+            "import { test } from '@playwright/test';\n" + "".join(noise),
+            encoding="utf-8",
+        )
+        (root / "focused.spec.ts").write_text(
+            "import { test } from '@playwright/test';\n"
+            "test.only('plain focused', async () => {});\n"
+            "test['on' + 'ly']('computed focused', async () => {});\n",
+            encoding="utf-8",
+        )
+
+        result = scan_path(root, {"E2E_SMELL_MAX_RULE_HITS": "1000"})
+        assert "#7 Focused test committed" not in result.stdout.split(
+            "INCOMPLETE"
+        )[-1] or "INCOMPLETE" not in result.stdout, result.stdout
+        assert "these rules hit a bounded limit" not in result.stdout, result.stdout
+
+        focused = section(result.stdout, "[P0] #7 Focused test committed")
+        assert "focused.spec.ts:2:" in focused, focused
+        assert "focused.spec.ts:3:" in focused, focused
+        assert "bulk.ts:" not in focused, focused
 
 
 def assert_promise_and_control_flow_triage() -> None:
@@ -3746,14 +4003,14 @@ def assert_v10_semantic_boundaries() -> None:
         chain.write_text(
             "import { test } from '@playwright/test';\n"
             "// JUSTIFIED: the first navigation fallback is intentionally ignored\n"
-            "page.goto('/first')\n"
+            "expect(page.locator('.first')).toBeVisible()\n"
             "  .catch(() => {})\n"
-            "page.goto('/second')\n"
+            "expect(page.locator('.second')).toBeVisible()\n"
             "  .catch(() => {});\n",
             encoding="utf-8",
         )
         result = scan_path(chain, {"E2E_SMELL_FAIL_ON": "none"})
-        swallowing = section(result.stdout, "[P0] #3 Error swallowing")
+        swallowing = section(result.stdout, "[P0?][LLM-TRIAGE] #3 Possible empty catch with unresolved test-outcome impact")
         assert "chain.spec.ts:4:" not in swallowing
         assert "chain.spec.ts:6:" in swallowing
 
@@ -3921,12 +4178,12 @@ def assert_v11_final_boundaries() -> None:
             "import { test } from '@playwright/test';\n"
             "// JUSTIFIED: only the immediately following call is intentional\n"
             "// unrelated note about a different concern\n"
-            "page.goto('/must-report').catch(() => {});\n",
+            "expect(page.locator('.r')).toBeVisible().catch(() => {});\n",
             encoding="utf-8",
         )
         justified_result = scan_path(justified, {"E2E_SMELL_FAIL_ON": "none"})
         assert "justified.spec.ts:4:" in section(
-            justified_result.stdout, "[P0] #3 Error swallowing"
+            justified_result.stdout, "[P0?][LLM-TRIAGE] #3 Possible empty catch with unresolved test-outcome impact"
         )
 
         cypress = root / "jquery.cy.ts"
@@ -5465,7 +5722,7 @@ def assert_v25_scanner_security_boundaries() -> None:
             "from '@workspace/e2e-fixtures';\n"
             "scenario.only('focused candidate', async () => {});\n"
             "scenario('P0 candidates', async ({ page }) => {\n"
-            "  await page.goto('/ready').catch(() => {});\n"
+            "  await verify(page.locator('.ready')).toBeVisible().catch(() => {});\n"
             "  verify(0).toBeGreaterThanOrEqual(0);\n"
             "  verify(page.locator('.ready')).toBeTruthy();\n"
             "  if (await page.locator('.optional').isVisible()) {\n"
@@ -5478,8 +5735,7 @@ def assert_v25_scanner_security_boundaries() -> None:
         unresolved_result = scan_path(unresolved)
         assert unresolved_result.returncode == 0, unresolved_result.stdout
         unresolved_expectations = {
-            "#3 Possible Error swallowing via empty catch (E2E scope) "
-            "(framework provenance unproven)": 4,
+            "#3 Possible empty catch with unresolved test-outcome impact": 4,
             "#4a Always-true numeric assertion": 5,
             "#4f Possible Locator truthiness in unresolved test-fixture source": 6,
             "#5a Conditional branch contains assertion": 7,
@@ -5639,8 +5895,10 @@ def assert_escaped_module_specifiers_resolve_to_their_evaluated_value() -> None:
     and it cannot hide a foreign runner (which would invent a gating P0 on a
     file no browser ever runs).
     """
-    scanner_source = SCANNER.read_text(encoding="utf-8")
-    # One lexer, so the two provenance questions cannot disagree about the same
+    scanner_source = SCANNER.read_text(encoding="utf-8") + SCANNER.with_name(
+        "scope-source.sh"
+    ).read_text(encoding="utf-8")
+    # One lexer across the scanner and its shared scope source, so the two provenance questions cannot disagree about the same
     # specifier the way a duplicated implementation did.
     assert scanner_source.count("lex_value = lex_value js_escape_text(s, i)") == 1, (
         "exactly one lexer may own JavaScript string-escape decoding"
@@ -5733,16 +5991,16 @@ def run_checks_in_parallel(*checks: Callable[[], None]) -> None:
     """
     # Each check spawns scan.sh, so a worker costs more than one core. Filling every
     # core oversubscribes, and the checks that build large trees then lose the CPU long
-    # enough to trip their own deadlines. Half the cores, overridable for constrained hosts.
+    # enough to trip their own deadlines. Use at most four workers by default;
+    # E2E_SCANNER_WORKERS remains available for measured host-specific tuning.
     requested = os.environ.get("E2E_SCANNER_WORKERS", "").strip()
     cores = os.cpu_count() or 2
-    # Half the cores, but never more than the machine has: on a 2-core runner a
-    # floor of 2 would be the whole box, which is the oversubscription this is
-    # meant to avoid. One worker is a valid answer there.
+    # Half the cores, capped at four and always below the machine's core count:
+    # on a 2-core runner, one worker is the only non-oversubscribed answer.
     ceiling = (
         int(requested)
         if requested.isdigit() and int(requested) > 0
-        else max(1, min(cores - 1, cores // 2))
+        else max(1, min(4, cores - 1, cores // 2))
     )
     workers = min(len(checks), ceiling)
     failures: list[tuple[str, BaseException]] = []
@@ -5961,7 +6219,12 @@ def main() -> None:
         assert_discarded_locator_with_real_assertion_is_triage_only,
         assert_pom_catch_scope,
         assert_catch_parameter_and_cleanup_boundaries,
-        assert_empty_catch_final_gate_requires_load_bearing_test_outcome,
+        assert_empty_catch_best_effort_and_lifecycle_exemptions,
+        assert_empty_catch_syntax_requires_semantic_confirmation,
+        assert_empty_catch_assertions_and_actions_remain_candidates,
+        assert_empty_catch_value_conversions_and_aliases_remain_candidates,
+        assert_empty_catch_attached_assertions_remain_candidates,
+        assert_focused_rule_survives_bounded_limit_on_large_trees,
         assert_promise_and_control_flow_triage,
         assert_swallowed_assertion_triage,
         assert_nested_nonregular_entries_fail_closed,

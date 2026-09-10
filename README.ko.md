@@ -20,9 +20,17 @@
 <a href="README.md">🇺🇸 English</a> | <strong>🇰🇷 한국어</strong> | <a href="README.ja.md">🇯🇵 日本語</a> | <a href="README.zh-cn.md">🇨🇳 简体中文</a>
 </p>
 
-<!-- README-CANONICAL-REVISION: sha256=7187f32d69d92669edaf5298c08a5a2c52df44c1457dfeee5728a7d69ea127fd; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
+<!-- README-CANONICAL-REVISION: sha256=175f756b2b888a2ec59c3c2559756d75999cbb8d61543f90692e0fffcdabd002; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
 
 `e2e-skills`는 AI 코딩 에이전트가 Playwright와 Cypress E2E 테스트를 생성·검토하고 실패 원인을 분석할 때 쓰는 네 가지 Agent Skills 모음입니다. 새 테스트 생성은 Playwright를 지원하고, 기존 테스트나 PR/diff 범위의 변경 검토와 실패 분석은 Playwright와 Cypress를 지원합니다. 검토 목록 가운데 규칙만으로 판별할 수 있는 항목을 찾는 `deterministic scanner`도 포함합니다.
+
+<p align="center">
+  <a href="https://www.kimi.ai/ko/resources/software-testing-skills">
+    <img src="docs/assets/kimi-software-testing-skills.png" alt="Kimi 공식 사이트의 AI 소프트웨어 테스트 스킬 가이드에 소개된 e2e-skills" width="100%" />
+  </a>
+  <br />
+  <sub><a href="https://www.kimi.ai/ko/resources/software-testing-skills">Kimi 공식 사이트의 “더 스마트한 QA 자동화를 위한 AI 소프트웨어 테스트 스킬”에 소개되었습니다.</a></sub>
+</p>
 
 `e2e-reviewer`는 사람이나 AI가 작성한 테스트를 검토하는 독립적인 품질 게이트입니다. 통과한 테스트가 제목에 명시된 동작을 실제로 입증하는지 확인합니다.
 
@@ -53,14 +61,6 @@ false-green 탐지는 테스트 검토 기능의 중요한 부분이지만, 이 
 | false-green 검토와 실패 보고서 디버깅 | `e2e-skills` |
 
 `e2e-skills`는 이러한 공식 툴킷을 보완합니다. 테스트가 이름에 명시된 동작을 실제로 입증하는지, 변경으로 인해 실패해야 할 테스트가 통과하게 됐는지, 실패한 Playwright/Cypress 실행 산출물에서 무엇을 확인할 수 있는지에 초점을 맞춥니다.
-
-<p align="center">
-  <a href="https://www.kimi.ai/ko/resources/software-testing-skills">
-    <img src="docs/assets/kimi-software-testing-skills.png" alt="Kimi 공식 사이트의 AI 소프트웨어 테스트 스킬 가이드에 소개된 e2e-skills" width="100%" />
-  </a>
-  <br />
-  <sub><a href="https://www.kimi.ai/ko/resources/software-testing-skills">Kimi 공식 사이트의 “더 스마트한 QA 자동화를 위한 AI 소프트웨어 테스트 스킬”에 소개되었습니다.</a></sub>
-</p>
 
 <a id="merged-upstream-fixes"></a>
 
@@ -245,7 +245,7 @@ Debug the failed Cypress report in cypress/reports/.
 
 이것도 정밀도 수치는 아닙니다. 병합은 관리자가 패치를 받아들였다는 뜻이지 지적의 심각도 분류가 옳았다는 보증이 아니며, 제출 서명이 선택 사항이라 서명 없는 거절은 비율을 위로 왜곡합니다. 다만 이 판정만은 프로젝트가 통제하지 않습니다.
 
-결정론적 스캐너는 따로 측정했습니다. [Field scan v1](benchmarks/field-scan-v1/README.md)은 스캔 전에 얼린 규칙으로 고정한 공개 저장소에 스캐너를 돌렸고, **완주한 11곳에서 P0 0건**을 보고했습니다. 그러나 완주하지 못한 열두 번째 저장소는 **294건**을 보고합니다. 이전 판에서는 이를 null result라고 적었지만, 그것은 완주한 저장소에 대한 진술이며 완주하지 못한 하나가 결론을 바꾸는 경우입니다. 정정과 294건의 의미는 링크된 문서에 있습니다. 어느 쪽이든 남는 사실은, 받아들여진 업스트림 수정이 grep 계층 단독이 아니라 모델이 개입한 검토에서 나왔다는 것입니다.
+결정론적 스캐너는 별도로 측정합니다. [Field scan v1](benchmarks/field-scan-v1/README.md)은 동일한 공개 저장소 12개를 고정된 커밋에서 다시 스캔하며, 기존의 30분 제한과 기본 후보 수 제한을 적용합니다. **12개 중 10개는 억제된 규칙 없이 스캔을 완료했고 P0 0건을 보고했습니다**. 나머지 2개는 시간 제한에 걸렸습니다. 결과 목록은 검토가 필요한 후보를 별도로 표시하며, 재현율이나 정밀도를 입증하지는 않습니다. 이전에 `#3` 294건을 확정된 결함으로 보고한 것은 스캐너의 분류 결함이었습니다. 정정 내용과 당시 변경 전후 비교 근거는 링크된 문서에 있습니다.
 
 - 가장 강한 독립적 신호는 점수가 아닙니다. 항상 통과하는 Locator 단언 패턴(`#4f`)이 공식 `eslint-plugin-playwright`의 `no-unnecessary-assertions` 규칙으로 채택됐습니다(병합된 풀 리퀘스트는 [로드맵](docs/roadmap.md) 참고). 이 프로젝트와 이해관계가 없는 외부 관리자가 규칙 정의를 받아들인 것입니다. 동시에 이제는 린트가 그 형태를 잡는다는 뜻이므로, 이 프로젝트는 더 이상 그 사례를 자기 성과로 주장하지 않습니다.
 - `docs/rule-self-audit.md`는 두 모델 계열의 적대적 감사로 이 프로젝트 **자신의** P0 규칙에서 발견한 결함을 기록합니다. 단일 검토자라면 통과시켰을 규칙들이 포함돼 있습니다.

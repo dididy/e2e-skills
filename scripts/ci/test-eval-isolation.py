@@ -708,6 +708,111 @@ def assert_release_scope_fails_before_runner_launch(temp: Path) -> None:
     assert not marker.exists()
 
 
+def _volatile_output_run(temp: Path, output: Path, *extra: str):
+    """Invoke a fake live runner whose model call must never be launched."""
+    tag = abs(hash((str(output), extra)))
+    marker = temp / f"volatile-launched-{tag}"
+    runner = temp / f"volatile-runner-{tag}"
+    auth_source = temp / f"volatile-auth-{tag}"
+    write_codex_auth(auth_source)
+    write_executable(
+        runner,
+        "#!/bin/sh\n"
+        'if [ "${1:-}" = "--version" ]; then echo "codex-test 1.0"; exit 0; fi\n'
+        f"touch {marker}\n"
+        "exit 0\n",
+    )
+    completed = subprocess.run(
+        [
+            os.fspath(HOLDOUT_PATH),
+            "--runner",
+            "codex",
+            "--runner-path",
+            os.fspath(runner),
+            "--model",
+            "gpt-5.6-sol",
+            "--allow-live",
+            "--case",
+            "playwright-split-context",
+            "--output",
+            os.fspath(output),
+            *extra,
+        ],
+        cwd=ROOT,
+        env={**os.environ, "CODEX_HOME": os.fspath(auth_source)},
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    return completed, marker
+
+
+def assert_volatile_output_fails_before_runner_launch(temp: Path) -> None:
+    """A swept temp destination stops a live run before model execution."""
+    with tempfile.TemporaryDirectory(prefix="volatile-output-") as raw:
+        volatile = Path(raw) / "reports" / "must-not-run.json"
+        completed, marker = _volatile_output_run(temp, volatile)
+        assert completed.returncode != 0, completed.stdout
+        assert "volatile temp root" in completed.stdout, completed.stdout
+        assert not marker.exists()
+        assert not volatile.exists()
+
+        # --report-only alone must NOT be enough: every preregistered live run
+        # documented in AGENTS.md already passes it, so honouring it on its own
+        # would downgrade this guard to a warning exactly where it matters.
+        completed, marker = _volatile_output_run(temp, volatile, "--report-only")
+        assert completed.returncode != 0, completed.stdout
+        assert "volatile temp root" in completed.stdout, completed.stdout
+        assert not marker.exists()
+
+        # Symlinked and traversal spellings of the same directory are caught,
+        # because containment is checked after resolve() on both sides.
+        link = temp / "volatile-link"
+        if link.is_symlink() or link.exists():
+            link.unlink()
+        link.symlink_to(Path(raw), target_is_directory=True)
+        completed, marker = _volatile_output_run(temp, link / "via-symlink.json")
+        assert completed.returncode != 0, completed.stdout
+        assert "volatile temp root" in completed.stdout, completed.stdout
+        assert not marker.exists()
+
+        traversal = Path(raw) / "reports" / ".." / "via-traversal.json"
+        completed, marker = _volatile_output_run(temp, traversal)
+        assert completed.returncode != 0, completed.stdout
+        assert "volatile temp root" in completed.stdout, completed.stdout
+        assert not marker.exists()
+
+
+def assert_durable_output_is_unaffected(temp: Path) -> None:
+    """Ordinary destinations and an explicit durable CLI path remain allowed."""
+    assert not HOLDOUT.is_volatile_output_path(
+        ROOT / "results/reviewer-holdout" / "20260907T000000Z.json"
+    )
+    assert not HOLDOUT.is_volatile_output_path(
+        ROOT / "benchmarks/reviewer-holdout-v3/reports/full-codex.json"
+    )
+    # An ordinary home-directory path is durable.
+    assert not HOLDOUT.is_volatile_output_path(Path.home() / "reports/out.json")
+    # TMPDIR is honoured even when it names a root outside the static list.
+    # The path is synthetic and never created: resolve() handles a missing
+    # path, and a real temp dir would already sit under /var/folders on macOS,
+    # which would mask exactly the behaviour under test.
+    custom_tmp = Path("/opt/e2e-skills-volatile-tmpdir-probe")
+    target = custom_tmp / "report.json"
+    assert not HOLDOUT.is_volatile_output_path(target, environ={})
+    assert HOLDOUT.is_volatile_output_path(
+        target, environ={"TMPDIR": os.fspath(custom_tmp)}
+    )
+    durable = ROOT / "results/reviewer-holdout/durable-probe.json"
+    completed, marker = _volatile_output_run(
+        temp, durable, "--evidence-scope", "release"
+    )
+    assert "release evidence is unavailable" in completed.stdout, completed.stdout
+    assert "volatile temp root" not in completed.stdout, completed.stdout
+    assert not marker.exists()
+
+
 def assert_public_live_development_run_is_zero_tool_and_non_release(
     temp: Path,
 ) -> None:
@@ -1175,7 +1280,9 @@ def main() -> None:
         BEHAVIORAL.DEFAULT_CASES,
         "0" * 64,
     )
-    with tempfile.TemporaryDirectory(prefix="eval-isolation-tests-") as raw:
+    with tempfile.TemporaryDirectory(
+        prefix="eval-isolation-tests-", dir=ROOT
+    ) as raw:
         temp = Path(raw)
         assert_external_public_requires_wrapper(temp)
         assert_external_behavioral_tasks_require_wrapper(temp)
@@ -1191,6 +1298,8 @@ def main() -> None:
         assert_public_local_runs_are_decisive_but_not_release_evidence()
         assert_development_comparison_never_hides_failed_host()
         assert_release_scope_fails_before_runner_launch(temp)
+        assert_volatile_output_fails_before_runner_launch(temp)
+        assert_durable_output_is_unaffected(temp)
         assert_public_live_development_run_is_zero_tool_and_non_release(temp)
         assert_development_status_state_end_to_end(temp)
         assert_credential_output_never_persists(temp)

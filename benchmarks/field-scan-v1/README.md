@@ -7,8 +7,9 @@ picked after seeing them.
 ## What this is
 
 The bundled scanner (`skills/e2e-reviewer/scripts/scan.sh`) is run over public
-repositories at pinned commits, and **every** hit is published — file, line,
-and pattern id — with no filtering for whether the hit looks good.
+repositories at pinned commits. For scans recorded in the ledger, every listed
+hit is published — file, line, and pattern id — with no filtering for whether
+the hit looks good. Timeout rows have no completed measurement.
 
 No model is involved. Anyone can check out the same commit, run the same
 command, and get the same output. That is the entire credibility mechanism: the
@@ -59,121 +60,118 @@ this result.
 
 ## Results
 
-- [`ledger.md`](ledger.md) — the readable ledger: per-repository counts and a
-  permalink to every P0 hit at the pinned commit.
-- [`ledger.json`](ledger.json) — the same run as data, including the scanner's
-  own Summary counts next to the parsed hits so a discrepancy is visible rather
-  than silently absorbed.
+- [`ledger.md`](ledger.md) — per-repository completion, counts, and P0 locations.
+- [`ledger.json`](ledger.json) — the generated data, including scanner Summary
+  counts, listed candidates, and incomplete-rule diagnostics.
 
-Two labels in that ledger carry the honesty of the whole exercise:
+The latest rerun used all **12 pinned repository roots**, the original
+**30-minute scan budget per repository**, and the shipped default candidate
+limits. The scanner source was frozen for the run and remained byte-identical.
+No model was called. The selection rule above is unchanged.
 
-- **Triage candidates are not defects.** Hits the scanner tags `[LLM-TRIAGE]`
-  need a judgement the deterministic tier cannot make, so they are counted in
-  their own column and never folded into a defect total.
-- **An incomplete scan is a floor, not a reading.** When a rule exceeds the
-  bounded per-rule limit it suppresses itself and reports nothing, so those
-  rows are rendered with `≥`. A zero in an incomplete row does not mean the
-  repository is clean; it means the check did not finish. The bound was left at
-  its shipped default rather than raised after seeing the results.
+**Incomplete: 10/12 repositories completed with no suppressed rules.**
+Timeouts: `ever-co/ever-gauzy`, `open-mercato/open-mercato`. Other incomplete rows: **0**.
 
-## Result: a null result, and a runtime wall
+Across the 10 complete scans, scanner Summary counts report **1062 total
+hits: 0 P0, 278 P1/P2 heuristic, and 784 LLM-triage**.
+**231** of those hits are AST-origin; that is a subset of the total, not an
+additional count. The ledger displays listed candidates and AST-origin counts
+in separate columns. Triage candidates need review and are not defect counts.
 
-Of the twelve pinned repositories, **eleven completed and one did not finish**
-within the 30-minute per-repository budget. Across the eleven that completed,
-the deterministic P0 tier reported **zero hits**, alongside ~1,942
-`[LLM-TRIAGE]` candidates: shapes it cannot decide alone.
+| Repository | Scan time | Outcome |
+|---|---:|---|
+| `remix-run/react-router` | 1236.435 s | complete; no suppressed rules |
+| `sweetalert2/sweetalert2` | 1068.804 s | complete; no suppressed rules |
+| `ixartz/SaaS-Boilerplate` | 9.293 s | complete; no suppressed rules |
+| `ever-co/ever-gauzy` | 1800.192 s | timeout; no final Summary |
+| `francoischalifour/medium-zoom` | 11.122 s | complete; no suppressed rules |
+| `i5ting/imove` | 25.975 s | complete; no suppressed rules |
+| `livestorejs/livestore` | 346.637 s | complete; no suppressed rules |
+| `kentcdodds/bookshelf` | 24.291 s | complete; no suppressed rules |
+| `gautamkrishnar/nothing-private` | 7.048 s | complete; no suppressed rules |
+| `LekoArts/gatsby-themes` | 25.536 s | complete; no suppressed rules |
+| `open-mercato/open-mercato` | 1800.159 s | timeout; no final Summary |
+| `jhipster/jhipster-sample-app` | 103.832 s | complete; no suppressed rules |
 
-**That zero is bounded by what completed, and the repository that did not is
-where it breaks.** An independent review scanned `ever-co/ever-gauzy`'s
-`apps/gauzy-e2e` subtree directly — the same subtree the timing figure below
-comes from — and the tier reports **294 `#3` hits there in the confirmed
-bucket**, all in `tests/support/pages/*.po.ts`, none in the specs. An earlier
-version of this file reported the zero as a corpus-wide result and treated the
-unfinished repository as merely absent. It is not merely absent: it is the one
-case that changes the answer.
+A normal process exit alone does not establish complete coverage. A complete
+row requires exit 0 or 1, a complete Summary, no suppressed rules, and reconciled
+counts. Partial rows and aggregate totals containing unavailable results are
+floors. A zero in an incomplete row does not establish that the repository is
+clean. Timeout rows have no final Summary and contribute no complete count.
 
-The 294 are bounded rather than a floor. The scanner's own empty-catch pattern
-hits 314 times across the whole repository; 311 are in that subtree and the
-three outside carry no E2E markers, so the scope filter drops them. A completed
-run would report the same 294 for this rule and nothing more.
+The prior ledger recorded 11 terminal scans, but only 6
+met these completion conditions. Its earlier "eleven completed" description
+included scans with suppressed rules. A finished process with partial coverage
+must not be reported as a complete scan.
 
-A further 19% of them (55 hits) sit inside an enclosing `try`/`catch` block that
-the scanner documents itself as unable to judge: `SKILL.md` states that
-try/catch wrapping needs Phase 2 because grep cannot decide it. For those, the
-tier is confirming a `.catch(` whose surrounding construct it has declared out
-of its reach.
+### Candidate preservation and recovered coverage
 
-What they are worth is a narrower claim than the count suggests. A ten-hit
-sample read against the consequence-based `#3` exemption — swallowed failure is
-exempt only when it cannot change what the test proves — splits roughly one
-third in scope and two thirds exempt, and **in every case the deciding evidence
-was several lines after the hit**, outside the window the deterministic tier
-reads. Two of the ten are clear true positives: a swallowed gate that lets a
-later step pass on a state the test never established. So the honest reading is
-that the tier flags 294 candidates it is not equipped to adjudicate, and that
-adjudication is Phase 2's.
+The fresh ledger is compared with the prior published ledger by file, line,
+pattern ID, severity, triage tag, and title. Across 10 rows with
+comparable Summary output, no prior listed finding was removed or reclassified.
+Added findings from previously suppressed rules: `#16`: 6, `#5a`: 23. Rows without
+comparable Summary output are not included in that comparison. Recovered
+findings are candidates, not an accuracy score.
 
-Both halves matter, and neither is flattering:
+Scope checks now precede raw candidate limits. Conservative discovery guards
+exclude shapes that the unchanged downstream classifiers cannot emit. The
+focused-test rule no longer treats every array expression as a candidate.
+The default bounds still apply, and any genuinely over-cap rule remains
+explicitly incomplete.
 
-- **Zero P0 on popular public code.** The frozen rule above predicted a low hit
-  rate from popularity sampling. It was not merely low. On this sample the
-  deterministic tier decided nothing on its own, which is consistent with where
-  the project's accepted upstream fixes actually came from -- see
-  [Field review v1](../field-review-v1/README.md), where a model is in the loop.
-  The first run of this scan reached the same result on eight repositories, and
-  three more have completed since as the scanner got faster without moving it.
-  But the zero describes the repositories that finish, and the one that does not
-  carries 294 confirmed-bucket hits, so it is a statement about a sample rather
-  than about public code.
-- **One repository still does not finish**, and the reason is not the one an
-  earlier version of this file gave. `ever-co/ever-gauzy` carries 9,232 scanned
-  code files and has no pathological line. The cost that scales with file count is a
-  per-file integrity fingerprint: the candidate manifest is built and
-  revalidated six times per scan. It used to spawn one `python3` process per
-  candidate file per pass -- about **0.18 s per code file measured on one
-  host**, or roughly 28 minutes for 9,232 files before a single finding was
-  evaluated. That is now one process per pass, which is what brought
-  `open-mercato` (9,670 files) inside the budget; `ever-gauzy` is still outside
-  it.
+### Historical correction to pattern `#3`
 
-  Dividing a subtree's wall clock by its file count, as this file previously did,
-  gives a number that does not extrapolate. Hit work does not grow with
-  repository size, because each rule evaluates at most 1,000 candidates and is
-  suppressed above that — on `ever-gauzy` thirteen rules exceed the cap, leaving
-  roughly as many surviving evaluations as its own 350-file subtree.
+An earlier version reported 294 confirmed `#3` hits from a direct scan of
+`ever-co/ever-gauzy`'s `apps/gauzy-e2e` subtree. That was an error in the scanner's
+classification, not 294 established defects in that repository. The scanner
+had promoted assertion-looking text without proving attachment, rejectable
+failure, or the absence of soft-assertion behavior.
 
-  That has a consequence worth stating plainly, and `open-mercato` has now
-  demonstrated it: **finishing is not the same as measuring.** Its completed
-  scan reports `Summary [INCOMPLETE]` with **25 rules suppressed** and exit 2 --
-  1,498 listed hits, none of them P0, from the rules that survived the cap. The
-  same is expected of `ever-gauzy` if it is ever made to finish. The operative limit
-  is the per-rule candidate cap rather than a time budget, and narrowing the scan
-  root is the remedy for the cap — not a way to buy time.
+Every `#3` hit now reports as `[LLM-TRIAGE]`, including a `.catch()` attached
+to a rejectable asynchronous assertion oracle (a web-first matcher, `toPass()`,
+or a matcher under `expect.poll`, excluding `expect.soft(...)`) — that
+attachment and rejectability check narrows which hits are LLM-TRIAGE
+candidates worth Phase-2 review, but it does not promote any `#3` hit to
+confirmed P0. The default `E2E_SMELL_FAIL_ON=p0` gate exits 0 on `#3` alone;
+`E2E_SMELL_FAIL_ON=p0-candidate` is the opt-in way to gate on these triage
+candidates. Swallowed actions and context-dependent consequences remain
+`[LLM-TRIAGE]` rather than disappearing. The earlier isolated classification
+differential retained all 1,922 hits while moving those 294 from confirmed to
+triage; P1/P2 and AST counts were unchanged. Those historical differential
+counts are not the latest full-root result.
 
-### What the first run could not explain, and what it was
+### Runtime work and remaining limits
 
-The first run timed out on four repositories and this file recorded the
-mechanism as unidentified. It has since been found, and two of the four now
-complete.
+The earlier full-root `ever-gauzy` measurement took 3,679 seconds against the
+same 1,800-second budget. The latest runtime is listed above. The runtime target
+remains unmet wherever the table records a timeout.
 
-The scan runs with `--hidden --no-ignore` and treats `.cjs` as source, while the
-exclusion list -- which already drops `node_modules`, `dist`, `build`, `out` and
-`coverage` -- had no entry for vendored package-manager bundles, which are not
-named `*.min.*`. On `LekoArts/gatsby-themes` that admitted
-`.yarn/releases/yarn-4.8.1.cjs`, whose longest line is 337,344 characters. The
-lexer then built its output one character at a time, which is quadratic in line
-length: a single pass over that file took 12 seconds, and one check with two
-candidates spent 676 seconds.
+The current implementation retains one private scope worker and its metadata,
+avoiding repeated JSON state loading and rewriting. Small eligible ASCII
+sources use a paired Python lexer, with the original shell helper retained for
+unsupported inputs and explicit tool overrides. Ordinary pathname operations
+avoid additional processes. Downstream scope filters reuse the same exact
+predicate/file cache already populated during preselection.
 
-Both faults are fixed -- the vendored paths are excluded, the lexer no longer
-builds output it discards, and an oversized-line guard now matches the limit the
-scanner's embedded Python path already enforced. Re-running the frozen sample
-produced **identical findings on every repository that had completed before**,
-which is what distinguishes this from a change in behaviour.
+A two-file warm-filter control produced byte-identical output in three paired
+runs: 1.075–1.158 seconds before cache reuse and 0.229–0.371 seconds after it.
+A captured-cache component fixture, remapped to the pinned checkout, measured
+0.227 seconds for reading state, 0.702 seconds for writing it, 1.000 seconds for
+validating 192,043 witnesses, and 0.008 seconds for one cached traversal. That
+fixture is synthetic profiling evidence, not scan-completion evidence.
+Full-run time attribution remains incomplete; these component timings do not
+establish the share of any one operation in the whole scan.
 
-The numbers were not re-run with a raised bound or a longer budget after seeing
-them. Incomplete rows render with a floor marker so a zero in them cannot read
-as a clean repository.
+Dependency validation still runs before and after each scope-worker query and
+before the final Summary. Reusing missing-parent observations within a
+validation pass was rejected because concurrent path creation could evade an
+observation that the original implementation performs. Candidate integrity,
+symlink protections, bounded rules, and fail-closed exits remain in force.
+
+Earlier fixes also excluded vendored package-manager bundles and avoided
+quadratic lexer output construction on long lines. Those historical fixes did
+not remove the frozen time limit. This rerun makes no claim about recall,
+precision, reviewer lift, or generator quality.
 
 ## Reproducing
 

@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-## [1.16.0] - 2026-09-03
+## [1.16.0] - 2026-09-10
 
 ### Added
 
@@ -27,6 +27,14 @@
   clean fixture, which contradicted the first rule.
 ### Changed
 
+- **Local CI uses four workers for its two process-heavy suites by default.**
+  The reviewer scanner still derives its worker count from available cores but
+  now caps it at four; the disposable parity suite also defaults to four
+  full-tree copies instead of six. Both retain their existing environment
+  overrides. This avoids oversubscribing a ten-core host: four scanner workers
+  completed faster than five in adjacent runs, and four parity workers passed
+  all 51 smoke checks after a six-worker run produced an incomplete disposable
+  snapshot.
 - **Playwright generation now uses a CLI-first, verification-first workflow.**
   Browser exploration prefers a compatible project-local Playwright CLI
   (`playwright cli`), then the `playwright-cli` command from an already-installed
@@ -60,6 +68,40 @@
 
 ### Fixed
 
+- **Scanner limits now apply after exact file-scope checks and necessary
+  discovery guards.** Unrelated files and expressions no longer exhaust rules
+  that would reject them. Focused-test discovery retains computed member calls
+  without matching every array expression. The default limits and downstream
+  classifiers remain unchanged; any suppressed rule still makes the scan
+  incomplete.
+- **Scope analysis reuses one private worker and its lexical metadata.**
+  Ordered, depth-bounded import traversal and dependency validation remain in
+  place. Small ASCII sources can use an equivalent Python lexer; unsupported
+  inputs and explicit tool overrides retain the shell path. Ordinary pathname
+  operations avoid extra processes while preserving physical-root checks.
+- **Field-scan rendering requires completion evidence.** A process that exits
+  with an error, lacks a complete Summary, suppresses a rule, or has
+  unreconciled counts is incomplete. Partial counts remain visible as floors;
+  timeouts and fetch failures also make aggregate counts floors.
+- **`e2e-reviewer` `#3` error swallowing no longer confirms what it has not
+  proven.** Every `#3` hit — including a `.catch(` attached to the assertion
+  itself where the assertion returns a promise that can actually reject (a
+  web-first matcher, `toPass()`, or a matcher under `expect.poll`) — now
+  reports as `[LLM-TRIAGE]` rather than a confirmed P0 defect; the default
+  `E2E_SMELL_FAIL_ON=p0` gate does not exit non-zero for any `#3` hit. Use
+  `E2E_SMELL_FAIL_ON=p0-candidate` to also gate on these triage candidates.
+  Previously any assertion-looking token anywhere in the evidence window was
+  enough to confirm the finding, so a catch on a neighbouring statement, a
+  synchronous `expect(1).toBe(2)` whose `.catch()` never runs, and value
+  conversions such as `.toString()` were all reported as confirmed defects.
+  Swallowed actions, navigation, queries and readiness gates were already
+  `[LLM-TRIAGE]` and remain so. The pattern id and its documented P0 severity
+  are unchanged and no candidate is dropped.
+- **Field scan v1 evidence regenerated under its frozen conditions.**
+  10/12 pinned repositories completed with no suppressed rules; 2 timed out.
+  Complete scans reported 0 P0 hits. The generated ledger and documentation
+  preserve the historical correction to the over-promoted 294 `#3` hits and
+  distinguish unavailable results from zeroes.
 - **`#4i` no longer contradicts itself on where a locator may be proven.** The
   Rule required the locator to be proven "somewhere in that test's execution
   path" and the FLAG criterion fired only when it "appears nowhere else", but

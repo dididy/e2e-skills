@@ -22,6 +22,11 @@ fi
 ROOT="${1:-.}"
 REQUESTED_ROOT="$ROOT"
 FAIL_ON="${E2E_SMELL_FAIL_ON:-p0}"
+SCOPE_WATCH_MODE="${E2E_SMELL_SCOPE_WATCH:-off}"
+case "$SCOPE_WATCH_MODE" in
+  off|strict) ;;
+  *) printf 'error: E2E_SMELL_SCOPE_WATCH must be off or strict\n' >&2; exit 2 ;;
+esac
 case "$ROOT" in
   -*) printf "error: scan root must not begin with '-': %s\n" "$ROOT" >&2; exit 2 ;;
 esac
@@ -398,6 +403,11 @@ if [[ "$_scanner_temp_root_real" != "$SCANNER_TEMP_ROOT" ||
 fi
 
 cleanup_scanner_temp_root() {
+  # The main scanner owns this child; query command substitutions share it.
+  if [[ "${BASH_SUBSHELL:-0}" -eq 0 && -n "${SCOPE_WORKER_PID:-}" ]]; then
+    kill "$SCOPE_WORKER_PID" 2>/dev/null || true
+    wait "$SCOPE_WORKER_PID" 2>/dev/null || true
+  fi
   case "${SCANNER_TEMP_ROOT:-}" in
     "$TRUSTED_TEMP_PARENT"/e2e-reviewer.*)
       [[ -d "$SCANNER_TEMP_ROOT" && ! -L "$SCANNER_TEMP_ROOT" ]] &&
@@ -406,6 +416,15 @@ cleanup_scanner_temp_root() {
   esac
 }
 trap cleanup_scanner_temp_root EXIT
+
+# Error recording can itself fail when temporary storage is exhausted. Bash
+# keeps $$ as the scanner PID in command substitutions, giving those callers
+# a storage-independent way to stop the main scan before a normal Summary.
+abort_on_scope_signal() {
+  printf 'error: scope graph failure could not be recorded; no final Summary was emitted\n' >&2
+  exit 2
+}
+trap abort_on_scope_signal USR1
 
 allocate_temp() {
   local variable_name="$1" allocated_path="" template=""
@@ -545,6 +564,13 @@ fi
 unset _scanner_self _scanner_link_hops _scanner_link_target
 unset _scanner_link_parent _scanner_dir
 
+if [[ -z "$SCANNER_DIR_REAL" || ! -f "$SCANNER_DIR_REAL/scope-source.sh" ||
+      ! -f "$SCANNER_DIR_REAL/scope-graph.py" ]]; then
+  printf 'error: bundled scope graph helpers are required\n' >&2
+  exit 2
+fi
+source "$SCANNER_DIR_REAL/scope-source.sh"
+
 # Exclude intentional fixtures only when the SCANNED PROJECT is an e2e-skills
 # checkout. Fingerprint the scanned project, never the scanner's own location:
 # `reinstall-skills.sh` installs real copies and users symlink the skill, so a
@@ -598,171 +624,11 @@ esac
 # executable imports. This shares source_executable_code's lexer on purpose: a
 # second copy of the string rules could disagree with it about the evaluated
 # value of an escaped specifier, and a disagreement is a silent scope drop.
-source_has_playwright_module_reference() {
-  source_executable_code "$1" @playwright/test |
-    tr '\n' ' ' |
-    scanner_rg -q "(import|export)[^;]*from[[:space:]]*['\"\`]@playwright/test['\"\`]|require[[:space:]]*\\([[:space:]]*['\"\`]@playwright/test['\"\`][[:space:]]*\\)|import[[:space:]]*\\([[:space:]]*['\"\`]@playwright/test['\"\`][[:space:]]*\\)"
-}
 
 # Emit executable JavaScript/TypeScript while removing comments and quoted
 # values. An optional package name is the only string value retained, allowing
 # import/require provenance checks without letting documentation strings create
 # framework scope.
-source_executable_code() {
-  local f="$1" retained_string="${2:-}"
-  awk -v retained="$retained_string" '
-    # A JavaScript string literal is not its own source text: `\u0040pkg` and
-    # `@pkg` are the same module specifier. Decode escapes so an obfuscated
-    # import cannot make a real framework reference invisible (or an unrelated
-    # package look like one). Sequences whose value cannot occur inside a
-    # package specifier (control characters, non-ASCII code points) decode to a
-    # sentinel word so they compare unequal to every package name instead of
-    # accidentally matching one.
-    function js_hex_value(digits,   k, value, digit) {
-      value = 0
-      for (k = 1; k <= length(digits); k++) {
-        digit = index("0123456789abcdef", tolower(substr(digits, k, 1))) - 1
-        if (digit < 0) return -1
-        value = value * 16 + digit
-      }
-      return value
-    }
-    function js_code_point_text(code) {
-      if (code >= 32 && code <= 126) return sprintf("%c", code)
-      return "__E2E_UNREPRESENTABLE__"
-    }
-    # Decodes the escape sequence starting at s[i] (which is a backslash) and
-    # records how many source characters it spans in js_escape_span so the
-    # caller can advance its cursor past the whole sequence.
-    function js_escape_text(s, i,   next_char, digits, brace_end) {
-      next_char = substr(s, i + 1, 1)
-      if (next_char == "") {
-        # Trailing backslash: a line continuation contributes no characters.
-        js_escape_span = 1
-        return ""
-      }
-      if (next_char == "u") {
-        if (substr(s, i + 2, 1) == "{") {
-          brace_end = index(substr(s, i + 3), "}")
-          if (brace_end > 0) {
-            digits = substr(s, i + 3, brace_end - 1)
-            if (digits ~ /^[0-9A-Fa-f]+$/) {
-              js_escape_span = brace_end + 3
-              return js_code_point_text(js_hex_value(digits))
-            }
-          }
-        } else {
-          digits = substr(s, i + 2, 4)
-          if (digits ~ /^[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]$/) {
-            js_escape_span = 6
-            return js_code_point_text(js_hex_value(digits))
-          }
-        }
-        js_escape_span = 2
-        return "u"
-      }
-      if (next_char == "x") {
-        digits = substr(s, i + 2, 2)
-        if (digits ~ /^[0-9A-Fa-f][0-9A-Fa-f]$/) {
-          js_escape_span = 4
-          return js_code_point_text(js_hex_value(digits))
-        }
-        js_escape_span = 2
-        return "x"
-      }
-      js_escape_span = 2
-      if (next_char ~ /^[0-7]$/) return "__E2E_UNREPRESENTABLE__"
-      if (index("ntrbfv", next_char) > 0) return "__E2E_UNREPRESENTABLE__"
-      return next_char
-    }
-    function executable_source(s, want_output,    out, i, c, nchar) {
-      out = ""
-      # A line this long is generated or vendored, never test source. The
-      # embedded Python path already refuses it as an "oversized source line";
-      # holding the awk path to the same contract also stops the character loop
-      # below from going quadratic on a minified bundle.
-      if (length(s) > 65536) want_output = 0
-      for (i = 1; i <= length(s); i++) {
-        c = substr(s, i, 1)
-        nchar = substr(s, i + 1, 1)
-        if (lex_block) {
-          if (c == "*" && nchar == "/") { lex_block = 0; i++ }
-          continue
-        }
-        if (lex_regex) {
-          if (lex_escape) {
-            lex_escape = 0
-          } else if (c == "\\") {
-            lex_escape = 1
-          } else if (c == "[") {
-            regex_class = 1
-          } else if (c == "]") {
-            regex_class = 0
-          } else if (c == "/" && !regex_class) {
-            lex_regex = 0
-            out = out "__REGEX__"
-            prev_sig = "/"
-          }
-          continue
-        }
-        if (lex_quote != "") {
-          if (c == "\\") {
-            lex_value = lex_value js_escape_text(s, i)
-            i += js_escape_span - 1
-          } else if (lex_quote == "`" && c == "$" && nchar == "{") {
-            lex_quote = ""
-            template_depth = 1
-            lex_value = ""
-            i++
-          } else if (c == lex_quote) {
-            if (retained != "" && lex_value == retained)
-              out = out lex_quote lex_value lex_quote
-            lex_quote = ""
-            lex_value = ""
-          } else {
-            lex_value = lex_value c
-          }
-          continue
-        }
-        if (template_depth > 0 && c == "{") {
-          template_depth++
-          if (want_output) out = out c
-          continue
-        }
-        if (template_depth > 0 && c == "}") {
-          template_depth--
-          if (template_depth == 0) {
-            lex_quote = "`"
-            lex_value = ""
-          } else {
-            if (want_output) out = out c
-          }
-          continue
-        }
-        if (c == "\"" || c == "\047" || c == "`") {
-          lex_quote = c
-          lex_value = ""
-          continue
-        }
-        if (c == "/" && nchar == "*") { lex_block = 1; i++; continue }
-        if (c == "/" && nchar == "/") break
-        if (c == "/" && (prev_sig == "" ||
-            prev_sig ~ /[=(:,!{\[;?&|]/ ||
-            out ~ /(^|[^A-Za-z0-9_$])(return|throw|case|yield)[[:space:]]*$/ ||
-            out ~ /=>[[:space:]]*$/ ||
-            out ~ /(^|[^A-Za-z0-9_$])(if|while|for|with)[[:space:]]*\([^)]*\)[[:space:]]*$/)) {
-          lex_regex = 1
-          regex_class = 0
-          continue
-        }
-        if (want_output) out = out c
-        if (c !~ /[[:space:]]/) prev_sig = c
-      }
-      return out
-    }
-    { print executable_source($0, 1) }
-  ' "$f" 2>/dev/null
-}
 
 source_has_cypress_module_reference() {
   source_executable_code "$1" cypress |
@@ -920,93 +786,41 @@ source_has_cypress_runtime_reference() {
 
 # Emit relative module specifiers only from executable import/export/require
 # syntax. Quoted comments and standalone strings remain inert.
-source_relative_module_references() {
-  awk '
-    function executable_source(s, want_output,    out, i, c, nchar) {
-      out = ""
-      # A line this long is generated or vendored, never test source. The
-      # embedded Python path already refuses it as an "oversized source line";
-      # holding the awk path to the same contract also stops the character loop
-      # below from going quadratic on a minified bundle.
-      if (length(s) > 65536) want_output = 0
-      for (i = 1; i <= length(s); i++) {
-        c = substr(s, i, 1)
-        nchar = substr(s, i + 1, 1)
-        if (lex_block) {
-          if (c == "*" && nchar == "/") { lex_block = 0; i++ }
-          continue
-        }
-        if (lex_quote != "") {
-          if (lex_escape) {
-            lex_value = lex_value c
-            lex_escape = 0
-          } else if (c == "\\") {
-            lex_value = lex_value c
-            lex_escape = 1
-          } else if (c == lex_quote) {
-            out = out "__E2E_STR__" lex_value "__E2E_END__"
-            lex_quote = ""
-            lex_value = ""
-          } else {
-            lex_value = lex_value c
-          }
-          continue
-        }
-        if (c == "\"" || c == "\047" || c == "`") {
-          lex_quote = c
-          lex_value = ""
-          continue
-        }
-        if (c == "/" && nchar == "*") { lex_block = 1; i++; continue }
-        if (c == "/" && nchar == "/") break
-        if (want_output) out = out c
-      }
-      return out
-    }
-    { print executable_source($0, 1) }
-  ' "$1" 2>/dev/null |
-    tr '\n' ' ' |
-    scanner_rg -o "(?:(?:import|export)[^;]*?from[[:space:]]*|require[[:space:]]*\\([[:space:]]*|import[[:space:]]*\\([[:space:]]*|import[[:space:]]+)__E2E_STR__\\.\\.?/.*?__E2E_END__" 2>/dev/null |
-    sed -E 's/^.*__E2E_STR__(.*)__E2E_END__.*$/\1/'
+
+
+scope_graph_call() {
+  local rc
+  local -a request=()
+  case "${1:-}" in
+    --ping)
+      request=(--op ping --wait-ready 30)
+      [[ "$#" -gt 1 ]] && request+=(--repeat "$2")
+      ;;
+    --validate) request=(--op validate) ;;
+    *) request=(--op query --node "$1" --visited "$2" --depth "$3") ;;
+  esac
+  "$PYTHON3_BIN" -I -B "$SCANNER_DIR_REAL/scope-worker.py" client \
+    --socket "$SCANNER_TEMP_ROOT/scope.sock" \
+    --control "$SCANNER_TEMP_ROOT/scope-worker.json" "${request[@]}"
+  rc=$?
+  # Exit 3 is a proven negative. An interpreter/helper crash can exit 1,
+  # so no other nonzero status may silently become an out-of-scope result.
+  [[ "$rc" -eq 3 ]] && return 1
+  if [[ "$rc" -ne 0 ]]; then
+    if ! printf 'scope graph query failed (exit %s)\n' "$rc" >> "$SCANNER_TEMP_ROOT/scope-errors"; then
+      kill -USR1 "$$"
+    fi
+    return 2
+  fi
+  return 0
 }
 
-resolve_relative_module_candidates() {
-  local f="$1" import_path="$2" module_path module_base candidate candidate_dir candidate_real
-  module_path="$(dirname "$f")/$import_path"
-  module_base="$module_path"
-  case "$module_path" in
-    *.js|*.jsx|*.mjs|*.cjs) module_base="${module_path%.*}" ;;
-  esac
-  for candidate in \
-    "$module_path" \
-    "$module_base.ts" "$module_base.tsx" "$module_base.js" "$module_base.jsx" \
-    "$module_base.mts" "$module_base.mjs" "$module_base.cts" "$module_base.cjs" \
-    "$module_path/index.ts" "$module_path/index.tsx" \
-    "$module_path/index.js" "$module_path/index.jsx" \
-    "$module_path/index.mts" "$module_path/index.mjs" \
-    "$module_path/index.cts" "$module_path/index.cjs"; do
-    [[ -f "$candidate" && ! -L "$candidate" ]] || continue
-    candidate_dir=$(cd "$(dirname "$candidate")" 2>/dev/null && pwd -P) || continue
-    candidate_real="$candidate_dir/$(basename "$candidate")"
-    case "$candidate_real" in
-      "$PROJECT_ROOT_REAL"/*) printf '%s\n' "$candidate_real" ;;
-    esac
-  done
+scope_graph_validate() {
+  scope_graph_call --validate
 }
 
 module_reaches_playwright_reference() {
-  local f="$1" visited="$2" depth="$3" import_path candidate
-  [[ "$depth" -le 32 ]] || return 1
-  grep -qFx -e "$f" "$visited" 2>/dev/null && return 1
-  printf '%s\n' "$f" >> "$visited"
-  source_has_playwright_module_reference "$f" && return 0
-  while IFS= read -r import_path; do
-    while IFS= read -r candidate; do
-      module_reaches_playwright_reference "$candidate" "$visited" "$((depth + 1))" &&
-        return 0
-    done < <(resolve_relative_module_candidates "$f" "$import_path")
-  done < <(source_relative_module_references "$f")
-  return 1
+  scope_graph_call "$1" "$2" "$3"
 }
 
 # Resolve generic relative fixture/support/barrel chains within the containing
@@ -2435,6 +2249,20 @@ allocate_temp SUPPRESSED_P0_CANDIDATES_FILE
 : > "$SUPPRESSED_HITS_FILE"
 : > "$SUPPRESSED_P0_CANDIDATES_FILE"
 
+# Initialize after the helper error path exists, before any scope query.
+# Later registry loss remains an integrity failure.
+# Start once in the main shell after its error sink is ready. A failed worker
+# is never restarted: that would discard historical dependency witnesses.
+"$PYTHON3_BIN" -I -B "$SCANNER_DIR_REAL/scope-worker.py" serve \
+  --socket "$SCANNER_TEMP_ROOT/scope.sock" \
+  --control "$SCANNER_TEMP_ROOT/scope-worker.json" \
+  --engine "$SCANNER_DIR_REAL/scope-graph.py" --parent-pid "$$" \
+  --project "$PROJECT_ROOT_REAL" --helper "$SCANNER_DIR_REAL/scope-source.sh" \
+  --rg "$RG_BIN" --rg-errors "$RG_RUNTIME_ERROR_FILE" --timeout 1800 \
+  --watch-mode "$SCOPE_WATCH_MODE" >/dev/null &
+SCOPE_WORKER_PID=$!
+scope_graph_call --ping || exit 2
+
 record_justified_suppression() {
   local severity="$1" pattern_id="$2" file="$3" line="$4" canonical_file=""
   canonical_file=$(absolute_hit_file "$file" 2>/dev/null || true)
@@ -2456,8 +2284,14 @@ scanner_rg() {
 }
 
 abort_on_rg_error() {
+  # The worker also records a scope failure when its lexical helper fails.
+  # Preserve the underlying ripgrep diagnostic instead of masking its cause.
   if [[ -s "$RG_RUNTIME_ERROR_FILE" ]]; then
     printf 'error: ripgrep helper invocation failed (exit %s)\n' "$(tail -1 "$RG_RUNTIME_ERROR_FILE")" >&2
+    exit 2
+  fi
+  if [[ -s "$SCANNER_TEMP_ROOT/scope-errors" ]]; then
+    printf 'error: scope graph provenance failed; no final Summary was emitted\n' >&2
     exit 2
   fi
 }
@@ -4958,11 +4792,6 @@ hardcoded_credential_hit_matches() {
       scanner_rg -qi '(password|passwd|secret|credential|token|username|email|validUser|testAdmin|adminUser|auth|login|signIn)'
 }
 
-empty_catch_hit_matches() {
-  catch_callback_hit_matches "$1" empty || return 1
-  empty_catch_best_effort_hit_matches "$1" && return 1
-  empty_catch_load_bearing_hit_matches "$1"
-}
 
 fluent_chain_source_at() {
   local file="$1" line="$2"
@@ -4990,24 +4819,14 @@ fluent_chain_source_at() {
     '
 }
 
-empty_catch_load_bearing_hit_matches() {
-  local hit="$1" file rest line code chain
-  file=${hit%%:*}
-  rest=${hit#*:}
-  line=${rest%%:*}
-  code=$(locator_assertion_source "$file" "$line")
-  chain=$(fluent_chain_source_at "$file" "$line")
-  [[ -n "$chain" ]] && code="$chain
-$code"
-  [[ -n "$code" ]] || return 1
-  printf '%s\n' "$code" |
-    scanner_rg -qP '(?:Promise[[:space:]]*[.][[:space:]]*(?:all|allSettled|any|race)|[.](?:goto|reload|goBack|goForward|waitForURL|waitForNavigation|waitForLoadState|waitForResponse|waitForRequest|click|dblclick|tap|fill|clear|type|press|pressSequentially|check|uncheck|setChecked|selectOption|setInputFiles|hover|focus|blur|dragTo|drop|dispatchEvent|scrollIntoViewIfNeeded|selectText|screenshot|waitFor|route|unroute|evaluate|evaluateAll|title|content|textContent|innerText|innerHTML|inputValue|count|isVisible|isHidden|isEnabled|isDisabled|isEditable|isChecked|get|post|put|patch|delete|fetch|step|to[A-Z][A-Za-z0-9_$]*))[[:space:]]*[(]'
-}
+# Empty-catch syntax cannot prove lost test verification. Assertion-looking
+# receivers may be shadowed, synchronous, or soft; independent postconditions
+# can still fail. Preserve these candidates for Phase 2 rather than promoting
+# a local token match to a confirmed P0.
 
 empty_catch_unresolved_outcome_hit_matches() {
   catch_callback_hit_matches "$1" empty || return 1
   empty_catch_best_effort_hit_matches "$1" && return 1
-  empty_catch_load_bearing_hit_matches "$1" && return 1
   return 0
 }
 
@@ -5162,6 +4981,190 @@ filter_hits_by() {
   done
 }
 
+
+# File predicates are identical to the downstream scope filters. Cache only
+# within this scan's private directory; the candidate manifest still validates
+# source identity before tiers and before the final Summary.
+rule_scope_predicate() {
+  local predicate="$1" file="$2" result rc
+  if grep -qFx -e "$file" "$SCOPE_STATE_DIR/$predicate.in" 2>/dev/null; then return 0; fi
+  if grep -qFx -e "$file" "$SCOPE_STATE_DIR/$predicate.out" 2>/dev/null; then return 1; fi
+  "$predicate" "$file"
+  rc=$?
+  # A predicate exit status >=2 is an error, not "not in scope" -- propagate it
+  # without caching a negative result, or a transient failure would be
+  # permanently and silently remembered as a definitive scope exclusion.
+  if [[ "$rc" -ge 2 ]]; then
+    return "$rc"
+  fi
+  if [[ "$rc" -eq 0 ]]; then result=in; else result=out; fi
+  if ! printf '%s\n' "$file" >> "$SCOPE_STATE_DIR/$predicate.$result"; then
+    printf 'error: scope predicate cache write failed\n' >&2
+    exit 2
+  fi
+  [[ "$result" == in ]]
+}
+
+rule_scope_predicate_or_abort() {
+  local predicate="$1" file="$2" rc
+  rule_scope_predicate "$predicate" "$file"
+  rc=$?
+  if [[ "$rc" -ge 2 ]]; then
+    # Some callers run inside command substitutions, where an exit only stops
+    # the subshell. Persist the failure so run_check's final guard still fails
+    # closed even when a surrounding boolean expression consumes the status.
+    if ! printf '%s\t%s\t%s\n' "$predicate" "$file" "$rc" >> "$SCANNER_TEMP_ROOT/scope-errors"; then
+      printf 'error: scope predicate failure record could not be written\n' >&2
+    fi
+    printf 'error: scope predicate %s failed for %s (exit %s)\n' \
+      "$predicate" "$file" "$rc" >&2
+    exit 2
+  fi
+  return "$rc"
+}
+
+file_in_rule_scope() {
+  local file="$1" severity="$2" check_id="$3" flags="$4" in_scope=0 exception=0
+  [[ "$(scope_status "$file")" == IN ]] && in_scope=1
+  if [[ "$check_id" == '#7' ||
+        ( "$severity" == P0 && "$flags" == *",triage,"* ) ||
+        ( "$flags" == *",playwright-only,"* && "$flags" == *",triage,"* ) ]]; then
+    rule_scope_predicate_or_abort source_has_unresolved_test_import "$file" && exception=1
+  fi
+  if [[ "$flags" == *",unresolved-test-source,"* ]]; then
+    rule_scope_predicate_or_abort source_has_unresolved_test_import "$file" || return 1
+    rule_scope_predicate_or_abort file_has_resolved_framework_reference "$file" && return 1
+    # The later e2e filter does not have the unresolved-test-source exception.
+    [[ "$flags" != *",e2e,"* ]] && exception=1
+  fi
+  [[ "$in_scope" == 1 || "$exception" == 1 ]] || return 1
+  if [[ "$flags" == *",playwright-only,"* ]]; then
+    if ! rule_scope_predicate_or_abort file_in_playwright_scope "$file"; then
+      [[ "$flags" == *",triage,"* ]] &&
+        rule_scope_predicate_or_abort source_has_unresolved_test_import "$file" || return 1
+    fi
+  fi
+  if [[ "$flags" == *",cypress-only,"* || "$check_id" == '#10d' ||
+        "$check_id" == '#10e' || "$check_id" == '#10f' ]]; then
+    rule_scope_predicate_or_abort file_in_cypress_scope "$file" || return 1
+  fi
+  return 0
+}
+
+stream_rule_candidates() {
+  # All batches share the caller's single byte/line limiter. Never invoke rg
+  # with an empty path array, which would accidentally read standard input.
+  local paths="$1" file bytes=0 rc result=1
+  shift
+  [[ -f "$paths" && -r "$paths" && ! -L "$paths" ]] || return 2
+  local -a batch=()
+  while IFS= read -r file; do
+    if [[ ${#batch[@]} -gt 0 && $((bytes + ${#file})) -gt 32768 ]]; then
+      "$@" -- "${batch[@]}"
+      rc=$?
+      [[ "$rc" -le 1 ]] || return "$rc"
+      [[ "$rc" -eq 0 ]] && result=0
+      batch=(); bytes=0
+    fi
+    batch+=("$file"); bytes=$((bytes + ${#file} + 1))
+  done < "$paths" || return 2
+  if [[ ${#batch[@]} -gt 0 ]]; then
+    "$@" -- "${batch[@]}"
+    rc=$?
+    [[ "$rc" -le 1 ]] || return "$rc"
+    [[ "$rc" -eq 0 ]] && result=0
+  fi
+  return "$result"
+}
+
+stream_focused_rule_candidates() {
+  # The focused-test regex is deliberately broader than the semantic check so
+  # computed and multiline forms stay discoverable.  Apply that classifier
+  # before the shared hit/byte limiter: rejected names such as `.onlyProperty`
+  # must not consume the finding budget or hide a valid `test.only` later in
+  # path order.  Keep the original producer status, including SIGPIPE when the
+  # outer limiter proves a real classified-hit overflow.
+  local hit file rc
+  local -a _stream_status=()
+  stream_rule_candidates "$@" |
+    while IFS= read -r hit; do
+      file=${hit%%:*}
+      absolute_hit_file "$file" >/dev/null 2>&1 &&
+        focused_test_hit_matches "$hit" &&
+        printf '%s\n' "$hit"
+    done
+  _stream_status=("${PIPESTATUS[@]}")
+  for rc in "${_stream_status[@]}"; do
+    [[ "$rc" -eq 141 ]] && return 141
+  done
+  [[ "${_stream_status[0]:-2}" -le 1 ]] || return "${_stream_status[0]}"
+  [[ "${_stream_status[1]:-2}" -eq 0 ]] || return "${_stream_status[1]}"
+  return "${_stream_status[0]}"
+}
+
+stream_action_rule_candidates() {
+  # #16 deliberately discovers a broad Playwright action surface, but ordinary
+  # awaited calls must not consume the bounded finding budget. Classify each
+  # mode before the shared limiter while preserving producer/SIGPIPE status.
+  local mode="$1" hit file rest line source rc
+  local -a _stream_status=()
+  shift
+  stream_rule_candidates "$@" |
+    while IFS= read -r hit; do
+      file=${hit%%:*}
+      rest=${hit#*:}
+      line=${rest%%:*}
+      source=${rest#*:}
+      absolute_hit_file "$file" >/dev/null 2>&1 || continue
+      # This is the same necessary rejection made by every mode's bounded
+      # receiver walk. Handle the overwhelmingly common one-line consumed
+      # form without rereading and lexing its whole source file per hit.
+      if [[ "$source" =~ ^[[:space:]]*(await|return)[[:space:]] ]]; then
+        continue
+      fi
+      case "$mode" in
+        direct)
+          missing_await_action_hit_matches "$hit" direct &&
+            playwright_page_receiver_proven_at "$file" "$line" page &&
+            printf '%s\n' "$hit"
+          ;;
+        variable)
+          if missing_await_action_hit_matches "$hit" variable || {
+            missing_await_action_hit_matches "$hit" direct &&
+              ! playwright_page_receiver_proven_at "$file" "$line" page
+          }; then
+            printf '%s\n' "$hit"
+          fi
+          ;;
+        deferred)
+          missing_await_action_hit_matches "$hit" deferred &&
+            printf '%s\n' "$hit"
+          ;;
+        *) return 2 ;;
+      esac
+    done
+  _stream_status=("${PIPESTATUS[@]}")
+  for rc in "${_stream_status[@]}"; do
+    [[ "$rc" -eq 141 ]] && return 141
+  done
+  [[ "${_stream_status[0]:-2}" -le 1 ]] || return "${_stream_status[0]}"
+  [[ "${_stream_status[1]:-2}" -eq 0 ]] || return "${_stream_status[1]}"
+  return "${_stream_status[0]}"
+}
+
+require_anchored_discovery_pattern() {
+  # The assertion-token rewrite later strips only a *leading* ^ before
+  # re-anchoring the whole expression at column 0 (`${pattern#^}`). An
+  # unanchored discovery pattern would silently narrow to matching only at
+  # line-start instead of erroring, so refuse to proceed unless the caller
+  # already anchored it.
+  local check_id="$1" pattern="$2"
+  if [[ "$pattern" != '^'* ]]; then
+    printf 'error: run_check %s: assertion-token rewrite requires an anchored (^) discovery pattern, got: %s\n' "$check_id" "$pattern" >&2
+    exit 2
+  fi
+}
+
 run_check() {
   local severity="$1"
   local check_id="$2"
@@ -5169,6 +5172,39 @@ run_check() {
   local pattern="$4"
   local glob="$5"
   local output="" p0_unproven_output="" p1_unproven_output=""
+  local flags=",${6:-}," assertion_token=""
+  local -a context_options=()
+
+  # These predicates only accept a matcher reconstructed within the starting
+  # line plus 12 following lines. Use that same necessary condition at discovery
+  # so ordinary synchronous assertions/call statements do not exhaust the raw
+  # candidate budget. A block comment can join identifier fragments in the
+  # lexical predicate, so retain any such window conservatively.
+  case "$flags" in
+    *",locator-assertion,"*|*",wrapped-locator-assertion,"*|\
+    *",unresolved-locator-assertion,"*|*",generic-getby-assertion,"*|\
+    *",identifier-locator-assertion,"*|*",member-locator-assertion,"*)
+      assertion_token='toBeTruthy|toBeDefined|toBeNull|toBeUndefined|equal|undefined|null|/\*'
+      ;;
+    *",missing-expect,"*) assertion_token="${PLAYWRIGHT_ASYNC_MATCHERS}|/\\*" ;;
+    *",retry-expect,"*) assertion_token='poll|toPass|/\*' ;;
+  esac
+  # The catch classifiers use locator_assertion_source, which emits only
+  # after a semicolon or its assertion stop tokens in this 13-line window.
+  # Comments can join tokens; keep those windows conservatively. Check the
+  # original catch discovery first, then preserve the complete original line.
+  if [[ "$flags" == *",catch-fallback,"* || "$flags" == *",catch-parameterized,"* ]]; then
+    pattern="^(?=[^\n]*(?:${pattern}))(?=(?:[^\n]*\n){0,12}[^\n]*(?:;|toBeTruthy|toBeDefined|toBeNull|toBeUndefined|not|/\*|//|\*/))[^\n]*"
+    context_options=(--multiline)
+  fi
+  if [[ -n "$assertion_token" ]]; then
+    require_anchored_discovery_pattern "$check_id" "$pattern"
+    # Only the lookahead crosses lines. Keep the consuming expression's old
+    # line-based whitespace semantics and the original finding line/content.
+    pattern=${pattern//\[\[:space:\]\]/[^\\S\\n]}
+    pattern="^(?=(?:[^\n]*\n){0,12}[^\n]*(?:${assertion_token}))${pattern#^}"
+    context_options=(--multiline)
+  fi
 
   local raw_output
   # Include globs: a `;`-separated list in $glob becomes multiple --glob includes (rg unions
@@ -5187,26 +5223,137 @@ run_check() {
   allocate_temp _rg_capture
   allocate_temp _rg_error
   allocate_temp _rg_limit
+  local _matched_paths _eligible_paths _known_paths _prepass_bytes _prepass_file
+  local _conditional_flags _conditional_keep _conditional_count
+  local -a _prepass_status=() _discovery_options=() _candidate_stream=()
+  allocate_temp _matched_paths
+  allocate_temp _eligible_paths
+  allocate_temp _known_paths
+  allocate_temp _conditional_flags
+  _discovery_options=(
+    ${context_options[@]+"${context_options[@]}"}
+    "${include_globs[@]}"
+    --glob '!**/node_modules/**'
+    --glob '!**/.git/**'
+    --glob '!**/playwright-report/**'
+    --glob '!**/cypress/reports/**'
+    --glob '!**/test-results/**'
+    --glob '!**/dist/**'
+    --glob '!**/build/**'
+    --glob '!**/.next/**'
+    --glob '!**/out/**'
+    --glob '!**/coverage/**'
+    --glob '!*.min.js'
+    --glob '!*.min.ts'
+    --glob '!**/.yarn/**'
+    --glob '!.pnp.cjs'
+    --glob '!.pnp.loader.mjs'
+    ${EVAL_FIXTURE_EXCLUDES[@]+"${EVAL_FIXTURE_EXCLUDES[@]}"}
+  )
+  # Matching filenames are bounded by the already validated manifest size,
+  # independently of the raw candidate budget. No candidate lines are emitted
+  # until exact file applicability has been decided.
+  _prepass_bytes=$(wc -c < "$_filename_list" | tr -d '[:space:]')
+  "$RG_BIN" -l0P --color never --hidden --no-ignore --sort path \
+    "${_discovery_options[@]}" "$pattern" -- "$ROOT" 2>&1 |
+    head -c "$((_prepass_bytes + 1))" > "$_matched_paths"
+  _prepass_status=("${PIPESTATUS[@]}")
+  if [[ "${_prepass_status[0]}" -gt 1 || "${_prepass_status[1]}" -ne 0 ||
+        "$(wc -c < "$_matched_paths" | tr -d '[:space:]')" -gt "$_prepass_bytes" ]]; then
+    printf 'error: Tier 3 filename discovery failed for %s %s\n' "$check_id" "$title" >&2
+    exit 2
+  fi
+  if [[ -s "$_matched_paths" && "$(tail -c 1 "$_matched_paths" | od -An -tu1 | tr -d '[:space:]')" != 0 ]]; then
+    printf 'error: Tier 3 filename discovery returned a truncated path\n' >&2
+    exit 2
+  fi
+  if ! tr '\000' '\n' < "$_filename_list" > "$_known_paths"; then
+    printf 'error: Tier 3 filename manifest copy failed\n' >&2
+    exit 2
+  fi
+  if ! tr '\000' '\n' < "$_matched_paths" |
+    awk 'FILENAME != "-" { known[$0] = 1; next }
+      !($0 in known) || seen[$0]++ { invalid = 1 }
+      END { exit invalid }' "$_known_paths" -; then
+    printf 'error: Tier 3 filename discovery returned an unknown or duplicate path\n' >&2
+    exit 2
+  fi
+  # A conditional assertion needs a lexical assertion token within 41 rows.
+  # Avoid discovering dependency graphs for files that cannot satisfy it. The
+  # helper verifies the bytes it reads against the original candidate manifest;
+  # unsupported text and alias-bearing files retain the old path.
+  if [[ "$flags" == *",conditional-assertion,"* ]]; then
+    if ! "$PYTHON3_BIN" -I -B "$SCANNER_DIR_REAL/conditional-discovery.py" \
+      --paths "$_matched_paths" --manifest "$CANDIDATE_IDENTITY_FILE" \
+      --output "$_conditional_flags"; then
+      printf 'error: conditional assertion discovery failed\n' >&2
+      exit 2
+    fi
+    _conditional_count=$(tr -cd '\000' < "$_matched_paths" | wc -c | tr -d '[:space:]')
+    if [[ "$(wc -c < "$_conditional_flags" | tr -d '[:space:]')" -ne "$((_conditional_count * 2))" ]]; then
+      printf 'error: conditional assertion discovery returned invalid flags\n' >&2
+      exit 2
+    fi
+  fi
+  local _conditional_pending=0
+  while IFS= read -r -d '' _prepass_file; do
+    if [[ "$flags" == *",conditional-assertion,"* ]]; then
+      if ! IFS= read -r -d '' _conditional_keep <&3 ||
+        [[ "$_conditional_keep" != 0 && "$_conditional_keep" != 1 ]]; then
+        printf 'error: conditional assertion discovery returned invalid flag\n' >&2
+        exit 2
+      fi
+      if [[ "$_conditional_keep" == 0 ]]; then
+        # Preserve fresh validation of already witnessed dependencies without
+        # traversing a new graph for an impossible candidate. Do not call this
+        # file out-of-scope: it was excluded by a rule's necessary condition.
+        # Consecutive excluded files require no graph query or output. Reuse
+        # one interpreter for up to 64 original pings, never their validations.
+        # Explicit interpreter wrappers retain the original invocation shape.
+        if [[ -n "${E2E_SMELL_PYTHON_BIN:-}" ]]; then
+          scope_graph_call --ping || exit 2
+        else
+          _conditional_pending=$((_conditional_pending + 1))
+          if [[ "$_conditional_pending" -eq 64 ]]; then
+            scope_graph_call --ping "$_conditional_pending" || exit 2
+            _conditional_pending=0
+          fi
+        fi
+        continue
+      fi
+    fi
+    if [[ "$_conditional_pending" -gt 0 ]]; then
+      scope_graph_call --ping "$_conditional_pending" || exit 2
+      _conditional_pending=0
+    fi
+    if file_in_rule_scope "$_prepass_file" "$severity" "$check_id" "$flags"; then
+      if ! printf '%s\n' "$_prepass_file" >> "$_eligible_paths"; then
+        printf 'error: Tier 3 eligible filename write failed\n' >&2
+        exit 2
+      fi
+    fi
+  done < "$_matched_paths" 3< "$_conditional_flags" || {
+    printf 'error: conditional candidate input unavailable\n' >&2
+    exit 2
+  }
+  if [[ "$_conditional_pending" -gt 0 ]]; then
+    scope_graph_call --ping "$_conditional_pending" || exit 2
+  fi
+  _candidate_stream=(stream_rule_candidates)
+  if [[ "$flags" == *",action-direct,"* ]]; then
+    _candidate_stream=(stream_action_rule_candidates direct)
+  elif [[ "$flags" == *",action-variable,"* ]]; then
+    _candidate_stream=(stream_action_rule_candidates variable)
+  elif [[ "$flags" == *",action-deferred,"* ]]; then
+    _candidate_stream=(stream_action_rule_candidates deferred)
+  elif [[ "$flags" == *",focused-call,"* ]]; then
+    _candidate_stream=(stream_focused_rule_candidates)
+  fi
   capture_bounded_command "$_rg_capture" "$_rg_error" "$_rg_limit" "" \
+    "${_candidate_stream[@]}" "$_eligible_paths" \
     "$RG_BIN" -nP -H --color never --hidden --no-ignore --sort path \
-    "${include_globs[@]}" \
-    --glob '!**/node_modules/**' \
-    --glob '!**/.git/**' \
-    --glob '!**/playwright-report/**' \
-    --glob '!**/cypress/reports/**' \
-    --glob '!**/test-results/**' \
-    --glob '!**/dist/**' \
-    --glob '!**/build/**' \
-    --glob '!**/.next/**' \
-    --glob '!**/out/**' \
-    --glob '!**/coverage/**' \
-    --glob '!*.min.js' \
-    --glob '!*.min.ts' \
-    --glob '!**/.yarn/**' \
-    --glob '!.pnp.cjs' \
-    --glob '!.pnp.loader.mjs' \
-    ${EVAL_FIXTURE_EXCLUDES[@]+"${EVAL_FIXTURE_EXCLUDES[@]}"} \
-    "$pattern" -- "$ROOT"
+    "${_discovery_options[@]}" "$pattern"
+  rm -f "$_matched_paths" "$_eligible_paths" "$_known_paths" "$_conditional_flags"
   local _rg_rc="$BOUNDED_COMMAND_RC"
   if [[ "$_rg_rc" -gt 1 && "$_rg_rc" -ne 141 ]]; then
     printf 'error: Tier 3 ripgrep failed for %s %s (exit %s)\n' "$check_id" "$title" "$_rg_rc" >&2
@@ -5246,7 +5393,6 @@ run_check() {
   # The #16 sweep starts at the action line, then classifies its bounded
   # receiver chain. Keeping classification here preserves all shared filters:
   # E2E scope, JUSTIFIED, lint dedupe, Promise.all/race, and severity accounting.
-  local flags=",${6:-},"
   if [[ "$flags" == *",action-direct,"* && -n "$raw_output" ]]; then
     raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _action_hit; do
       _action_file=${_action_hit%%:*}
@@ -5279,8 +5425,6 @@ run_check() {
     raw_output=$(filter_hits_by missing_await_expect_hit_matches)
   elif [[ "$flags" == *",retry-expect,"* && -n "$raw_output" ]]; then
     raw_output=$(filter_hits_by retry_expect_hit_matches)
-  elif [[ "$flags" == *",empty-catch,"* && -n "$raw_output" ]]; then
-    raw_output=$(filter_hits_by empty_catch_hit_matches)
   elif [[ "$flags" == *",empty-catch-best-effort,"* && -n "$raw_output" ]]; then
     raw_output=$(filter_hits_by empty_catch_best_effort_hit_matches)
   elif [[ "$flags" == *",empty-catch-unresolved-outcome,"* && -n "$raw_output" ]]; then
@@ -5343,8 +5487,8 @@ run_check() {
   if [[ "$flags" == *",unresolved-test-source,"* && -n "$raw_output" ]]; then
     raw_output=$(printf '%s\n' "$raw_output" | while IFS= read -r _unresolved_hit; do
       _unresolved_file=${_unresolved_hit%%:*}
-      if source_has_unresolved_test_import "$_unresolved_file" &&
-        ! file_has_resolved_framework_reference "$_unresolved_file"; then
+      if rule_scope_predicate_or_abort source_has_unresolved_test_import "$_unresolved_file" &&
+        ! rule_scope_predicate_or_abort file_has_resolved_framework_reference "$_unresolved_file"; then
         printf '%s\n' "$_unresolved_hit"
       fi
     done)
@@ -5375,18 +5519,18 @@ run_check() {
       [[ -z "$_sf" ]] && continue
       if [[ "$(scope_status "$_sf")" == "IN" ]]; then
         printf '%s\n' "$_sf" >> "$_scopekeep"
-      elif [[ "$check_id" == '#7' ]] && source_has_unresolved_test_import "$_sf"; then
+      elif [[ "$check_id" == '#7' ]] && rule_scope_predicate_or_abort source_has_unresolved_test_import "$_sf"; then
         printf '%s\n' "$_sf" >> "$_scopekeep"
       elif [[ "$flags" == *",unresolved-test-source,"* ]] &&
-        source_has_unresolved_test_import "$_sf"; then
+        rule_scope_predicate_or_abort source_has_unresolved_test_import "$_sf"; then
         printf '%s\n' "$_sf" >> "$_scopekeep"
       elif [[ "$severity" == "P0" &&
               "$flags" == *",triage,"* ]] &&
-        source_has_unresolved_test_import "$_sf"; then
+        rule_scope_predicate_or_abort source_has_unresolved_test_import "$_sf"; then
         printf '%s\n' "$_sf" >> "$_scopekeep"
       elif [[ "$flags" == *",playwright-only,"* &&
               "$flags" == *",triage,"* ]] &&
-        source_has_unresolved_test_import "$_sf"; then
+        rule_scope_predicate_or_abort source_has_unresolved_test_import "$_sf"; then
         printf '%s\n' "$_sf" >> "$_scopekeep"
       fi
     done <<< "$(printf '%s\n' "$output" | awk -F: '{print $1}' | sort -u)"
@@ -5402,9 +5546,9 @@ run_check() {
     allocate_temp _playwrightkeep
     while IFS= read -r _pf; do
       [[ -z "$_pf" ]] && continue
-      if file_in_playwright_scope "$_pf" ||
+      if rule_scope_predicate_or_abort file_in_playwright_scope "$_pf" ||
         { [[ "$flags" == *",triage,"* ]] &&
-          source_has_unresolved_test_import "$_pf"; }; then
+          rule_scope_predicate_or_abort source_has_unresolved_test_import "$_pf"; }; then
         printf '%s\n' "$_pf" >> "$_playwrightkeep"
       fi
     done <<< "$(printf '%s\n' "$output" | awk -F: '{print $1}' | sort -u)"
@@ -5417,7 +5561,7 @@ run_check() {
     allocate_temp _cypressonlykeep
     while IFS= read -r _cf; do
       [[ -z "$_cf" ]] && continue
-      file_in_cypress_scope "$_cf" &&
+      rule_scope_predicate_or_abort file_in_cypress_scope "$_cf" &&
         printf '%s\n' "$_cf" >> "$_cypressonlykeep"
     done <<< "$(printf '%s\n' "$output" | awk -F: '{print $1}' | sort -u)"
     output=$(printf '%s\n' "$output" | awk -F: 'NR==FNR { if ($0 != "") k[$0] = 1; next } k[$1] { print }' "$_cypressonlykeep" -)
@@ -5434,7 +5578,7 @@ run_check() {
         allocate_temp _cypresskeep
         while IFS= read -r _cf; do
           [[ -z "$_cf" ]] && continue
-          if file_in_cypress_scope "$_cf"; then printf '%s\n' "$_cf" >> "$_cypresskeep"; fi
+          if rule_scope_predicate_or_abort file_in_cypress_scope "$_cf"; then printf '%s\n' "$_cf" >> "$_cypresskeep"; fi
         done <<< "$(printf '%s\n' "$output" | awk -F: '{print $1}' | sort -u)"
         output=$(printf '%s\n' "$output" | awk -F: 'NR==FNR { if ($0 != "") k[$0] = 1; next } k[$1] { print }' "$_cypresskeep" -)
         rm -f "$_cypresskeep"
@@ -5763,7 +5907,6 @@ run_check() {
 # suffix-less Cypress layouts without admitting unrelated unit/backend files.
 FOCUSED_ALIAS_CALL_PATTERN=$(focused_alias_call_pattern)
 EXPECT_CALL_PATTERN=$(expect_call_pattern)
-run_check P0 '#3' 'Error swallowing via empty catch (E2E scope)' '\.catch([^A-Za-z0-9_$]|$)' "$ALL_CODE_GLOB" 'e2e,empty-catch'
 run_check P0 '#3' 'Possible best-effort setup, teardown, or cleanup empty catch' '\.catch([^A-Za-z0-9_$]|$)' "$ALL_CODE_GLOB" 'e2e,triage,empty-catch-best-effort'
 run_check P0 '#3' 'Possible empty catch with unresolved test-outcome impact' '\.catch([^A-Za-z0-9_$]|$)' "$ALL_CODE_GLOB" 'e2e,triage,empty-catch-unresolved-outcome'
 run_check P0 '#3' 'Possible error swallowing in unresolved test-fixture source' '\.catch([^A-Za-z0-9_$]|$)' "$ALL_CODE_GLOB" 'triage,empty-catch-any,unresolved-test-source'
@@ -5773,7 +5916,19 @@ run_check P0 '#3' 'Possible error swallowing via catch fallback' '\.catch([^A-Za
 run_check P0 '#3' 'Possible parameterized catch swallowing' '\.catch([^A-Za-z0-9_$]|$)' "$ALL_CODE_GLOB" 'e2e,triage,catch-parameterized'
 run_check P0 '#3' 'Possible assertion failure swallowed by Promise.allSettled' 'Promise[.]allSettled[[:space:]]*\(' "$ALL_CODE_GLOB" 'e2e,triage,swallowed-all-settled'
 run_check P0 '#3' 'Possible assertion failure masked by finally return' '\bfinally\b' "$ALL_CODE_GLOB" 'e2e,triage,swallowed-finally-return'
-run_check P0 '#7' 'Focused test committed' '(\.[^;\n]{0,80}\bonly|\[[^]\n]{0,80}\])' "$ALL_CODE_GLOB" 'e2e,focused-call'
+# The computed-member alternative below requires the bracket to be a member
+# CALL on an identifier or a call result (`test['on' + 'ly'](...)`,
+# `getSuite()['only'](...)`), not any bracket at all.
+# It used to be `\[[^]\n]{0,80}\]`, which matched every array literal,
+# index access and generic argument in the tree: on one 9,232-file monorepo
+# that streamed 29,976 raw candidates against the 1,000 bound, so the rule
+# suppressed itself and reported nothing. #7 is the P0 this project
+# documents as having zero legitimate uses, so a large repository was
+# silently getting no focused-test coverage at all while still reporting
+# "0 P0". Requiring the call takes the same tree from 29,472 candidates to
+# 16 for this alternative (535 for the rule) without narrowing what Phase 2
+# can confirm -- focused_test_hit_matches still decides every candidate.
+run_check P0 '#7' 'Focused test committed' '(\.[^;\n]{0,80}\bonly|[A-Za-z0-9_$)][[:space:]]*\[[^]\n]{0,80}\][[:space:]]*\()' "$ALL_CODE_GLOB" 'e2e,focused-call'
 run_check P0 '#7' 'Focused test alias committed' "$FOCUSED_ALIAS_CALL_PATTERN" "$ALL_CODE_GLOB" 'e2e,focused-alias-call'
 run_check P1 '#9' 'Playwright hard-coded sleep' 'waitForTimeout' "$ALL_CODE_GLOB" 'e2e,playwright-wait-timeout,playwright-only'
 run_check P1 '#9b' 'Cypress hard-coded sleep' 'cy\.wait\(' "$ALL_CODE_GLOB" 'cypress-numeric-wait'
@@ -5928,6 +6083,8 @@ if [[ "$suppressed_count" -gt 0 ]]; then
 fi
 
 validate_candidate_manifest
+scope_graph_validate || exit 2
+abort_on_rg_error
 if [[ "$TIER2_INFRA_FAILURE" -eq 1 ]]; then
   # Tier 3 completed, so report what it found. Withholding the Summary because
   # another tier failed hides results that are sound. Still incomplete below,

@@ -217,13 +217,16 @@ have hidden that. The scanner suite had just been parallelised at one worker per
 core, but each worker spawns `scan.sh`, so a worker costs more than a core and
 filling every core oversubscribes the box. At ten workers the check that builds
 1500 files lost the CPU long enough to fail; at five it passes in 362 seconds,
-at four in 286. The default is now half the cores, capped below the core count so a
-two-core runner gets one worker rather than the whole box, with an
+at four in 286. The default is now half the cores capped at four, and remains
+below the core count so a two-core runner gets one worker rather than the whole box, with an
 `E2E_SCANNER_WORKERS` override. That keeps the speedup — serial is over ten
-minutes — without the oversubscription. The parity suite still defaults to a
-flat six workers, each running `review.sh` over its own full-tree copy, so a
-host with fewer cores than that should set `E2E_PARITY_WORKERS` down. Only measuring across worker counts separated our own
-regression from the ambient load that was also real.
+minutes — without the oversubscription. The parity suite likewise defaults to
+four workers, each running `review.sh` over its own full-tree copy.
+`E2E_PARITY_WORKERS` remains available for smaller hosts and controlled
+comparisons. A six-worker run on the same ten-core host produced an incomplete
+disposable snapshot while four workers completed all 51 drift and scanner
+smoke checks. Only measuring across worker counts separated our own regression
+from the ambient load that was also real.
 
 Both remaining load-sensitive checks now have narrower assertions. The residual
 regex budget measures process CPU time instead of scheduler wall time, so

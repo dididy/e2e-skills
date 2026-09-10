@@ -4,7 +4,7 @@
   "release_eligible": false,
   "cross_host_comparison_available": false,
   "development_evidence_score_available": false,
-  "current_skill_sha256": "64e0d92b0a3af9cdf505a0499a88f896cc829e2e3c967c73a9b8ecc1c28c73a5",
+  "current_skill_sha256": "b076e1cf76e1c060851b3cd1bf261c2aa18bb9f086690d9fd7b4618a36bc10e0",
   "required_complete_artifacts": [
     "evidence-manifest.json",
     "reports/full-codex.json",

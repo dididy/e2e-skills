@@ -248,6 +248,28 @@ LC_ALL=C LC_CTYPE=C LANG=C /bin/bash -p scripts/ci/test-reviewer-holdout.sh ||
   fail "test-reviewer-holdout.sh"
 
 step "Reviewer scanner contracts"
+run_python scripts/ci/test-scanner-scope-graph.py ||
+  fail "test-scanner-scope-graph.py"
+run_python scripts/ci/test-scanner-scope-watch.py ||
+  fail "test-scanner-scope-watch.py"
+run_python scripts/ci/test-scanner-scope-lexer.py ||
+  fail "test-scanner-scope-lexer.py"
+run_python scripts/ci/test-scanner-scope-paths.py ||
+  fail "test-scanner-scope-paths.py"
+run_python scripts/ci/test-scanner-scope-worker.py ||
+  fail "test-scanner-scope-worker.py"
+run_python scripts/ci/test-scanner-worker-integration.py ||
+  fail "test-scanner-worker-integration.py"
+run_python scripts/ci/test-scanner-catch-discovery.py ||
+  fail "test-scanner-catch-discovery.py"
+run_python scripts/ci/test-scanner-conditional-discovery.py ||
+  fail "test-scanner-conditional-discovery.py"
+run_python scripts/ci/test-scanner-conditional-integration.py ||
+  fail "test-scanner-conditional-integration.py"
+run_python scripts/ci/test-scanner-assertion-token-guard.py ||
+  fail "test-scanner-assertion-token-guard.py"
+run_python scripts/ci/test-scanner-rule-scope-predicate-cache.py ||
+  fail "test-scanner-rule-scope-predicate-cache.py"
 run_python scripts/ci/test-reviewer-scanner.py ||
   fail "test-reviewer-scanner.py"
 

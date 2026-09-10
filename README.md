@@ -22,6 +22,14 @@
 
 `e2e-skills` gives AI coding agents four focused workflows for Playwright and Cypress E2E work: generate Playwright coverage, review existing specs or PR/diff-scoped test changes for false greens, debug failed Playwright reports, and debug failed Cypress reports. It also includes a deterministic scanner for the mechanically detectable subset of the review catalog.
 
+<p align="center">
+  <a href="https://www.kimi.ai/resources/software-testing-skills">
+    <img src="docs/assets/kimi-software-testing-skills.png" alt="Kimi's official website listing e2e-skills in AI Software Testing Skills for Smarter QA Automation" width="100%" />
+  </a>
+  <br />
+  <sub><a href="https://www.kimi.ai/resources/software-testing-skills">Featured on Kimi's official website: “AI Software Testing Skills for Smarter QA Automation”.</a></sub>
+</p>
+
 Use `e2e-reviewer` as an independent quality gate for human-written or AI-generated specs: it checks whether a passing test actually proves the behavior named in its title.
 
 | Need | Skill | Result |
@@ -51,14 +59,6 @@ If you're comparing framework-specific assistants, the split is simple:
 | Review Playwright/Cypress specs for false greens and debug failing reports | `e2e-skills` |
 
 `e2e-skills` complements those official toolkits. It focuses on whether a test actually proves the behavior it names, whether a change introduced a silent pass, and what a failing Playwright or Cypress artifact says happened.
-
-<p align="center">
-  <a href="https://www.kimi.ai/resources/software-testing-skills">
-    <img src="docs/assets/kimi-software-testing-skills.png" alt="Kimi's official website listing e2e-skills in AI Software Testing Skills for Smarter QA Automation" width="100%" />
-  </a>
-  <br />
-  <sub><a href="https://www.kimi.ai/resources/software-testing-skills">Featured on Kimi's official website: “AI Software Testing Skills for Smarter QA Automation”.</a></sub>
-</p>
 
 <a id="merged-upstream-fixes"></a>
 
@@ -234,7 +234,7 @@ The merge count now has its denominator. [Field review v1](benchmarks/field-revi
 
 That is still not a precision figure. A merge means a maintainer accepted a patch, not that a finding's severity was classified correctly, and the submission footer is optional, so an unmarked rejection would bias the rate upward. What it does give is adjudication this project does not control.
 
-The deterministic scanner is measured separately. [Field scan v1](benchmarks/field-scan-v1/README.md) runs it over public repositories pinned under a rule frozen before the scan, and reports **zero P0 hits across the eleven that complete** — but the twelfth, which does not finish, reports **294**. An earlier version of this section called that a null result; it is a statement about the repositories that complete, and the one that does not is the case that changes it. The linked page carries the correction and what the 294 are worth. The reading that survives either way: the accepted upstream fixes came from review with a model in the loop, not from the grep tier alone.
+The deterministic scanner is measured separately. [Field scan v1](benchmarks/field-scan-v1/README.md) reruns the same 12 pinned public repositories with the original 30-minute budget and default candidate limits. **10/12 scans completed with no suppressed rules and reported 0 P0 hits**; 2 scans timed out. The ledger lists triage candidates separately and does not establish recall or precision. The earlier claim of 294 confirmed `#3` hits was a scanner classification defect; its correction and historical differential evidence are documented there.
 
 - The strongest independent signal is not a score: the always-passing-Locator-assertion pattern (`#4f`) was accepted into the official `eslint-plugin-playwright` as its `no-unnecessary-assertions` rule (see [roadmap](docs/roadmap.md) for the merged pull request). An external maintainer with no stake in this project adopted the rule definition. It also means current lint now catches that shape, so this project no longer claims it.
 - `docs/rule-self-audit.md` documents defects found in this project's *own* P0 rules by an adversarial two-model audit, including rules that a single reviewer had passed.

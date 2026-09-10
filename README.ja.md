@@ -20,9 +20,17 @@
 <a href="README.md">🇺🇸 English</a> | <a href="README.ko.md">🇰🇷 한국어</a> | <strong>🇯🇵 日本語</strong> | <a href="README.zh-cn.md">🇨🇳 简体中文</a>
 </p>
 
-<!-- README-CANONICAL-REVISION: sha256=7187f32d69d92669edaf5298c08a5a2c52df44c1457dfeee5728a7d69ea127fd; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
+<!-- README-CANONICAL-REVISION: sha256=175f756b2b888a2ec59c3c2559756d75999cbb8d61543f90692e0fffcdabd002; bytes=exact-README.md-UTF-8; translation-quality=not-attested -->
 
 `e2e-skills` は、AI コーディングエージェントが Playwright/Cypress の E2E テスト作業に使える 4 つのワークフローを提供します。Playwright カバレッジの生成、既存のテスト仕様または PR/diff 範囲の変更レビュー、失敗した Playwright レポートのデバッグ、失敗した Cypress レポートのデバッグを扱います。レビューカタログのうち、機械的に判定できる部分集合を検出する決定論的スキャナーも含まれます。
+
+<p align="center">
+  <a href="https://www.kimi.ai/resources/software-testing-skills">
+    <img src="docs/assets/kimi-software-testing-skills.png" alt="Kimi 公式サイトの「AI Software Testing Skills for Smarter QA Automation」に掲載された e2e-skills" width="100%" />
+  </a>
+  <br />
+  <sub><a href="https://www.kimi.ai/resources/software-testing-skills">Kimi 公式サイトの「AI Software Testing Skills for Smarter QA Automation」で紹介されています。</a></sub>
+</p>
 
 人間または AI が作成したテストでは、`e2e-reviewer` を独立した品質ゲートとして利用できます。合格したテストが、タイトルに書かれた動作を本当に証明しているかを確認します。
 
@@ -53,14 +61,6 @@ false-green 検出はレビューワークフローの重要な一部ですが�
 | false-green のレビューと失敗レポートのデバッグ | `e2e-skills` |
 
 `e2e-skills` はこうした公式ツールキットを補完します。テストが名前どおりの動作を本当に証明しているか、変更が静かな通過を生んでいないか、そして失敗した Playwright/Cypress artifact が実際に何を示しているかに焦点を当てます。
-
-<p align="center">
-  <a href="https://www.kimi.ai/resources/software-testing-skills">
-    <img src="docs/assets/kimi-software-testing-skills.png" alt="Kimi 公式サイトの「AI Software Testing Skills for Smarter QA Automation」に掲載された e2e-skills" width="100%" />
-  </a>
-  <br />
-  <sub><a href="https://www.kimi.ai/resources/software-testing-skills">Kimi 公式サイトの「AI Software Testing Skills for Smarter QA Automation」で紹介されています。</a></sub>
-</p>
 
 <a id="merged-upstream-fixes"></a>
 
@@ -236,7 +236,7 @@ Debug the failed Cypress report in cypress/reports/.
 
 これも精度の数値ではありません。マージはメンテナーがパッチを受け入れたことを意味し、指摘の重大度分類が正しかったことを保証しません。提出署名は任意なので、署名のない却下は比率を上振れさせます。ただしこの判定だけは、このプロジェクトの管理下にありません。
 
-決定的スキャナーは別途測定しました。[Field scan v1](benchmarks/field-scan-v1/README.md) はスキャン前に凍結した規則で固定した公開リポジトリに対して実行し、**完走した 11 件で P0 0 件** を報告しています。ただし完走しなかった 12 件目は **294 件** を報告します。以前の版はこれを null result と呼びましたが、それは完走したリポジトリについての主張であり、完走しなかった 1 件こそが結論を変える事例です。訂正と 294 件の意味はリンク先にあります。どちらにせよ残る事実は、受け入れられた upstream 修正が grep 層単独ではなく、モデルを介したレビューから生まれたということです。
+決定的スキャナーは別途測定します。[Field scan v1](benchmarks/field-scan-v1/README.md) では、同じ 12 件の公開リポジトリを固定したコミットで再スキャンし、従来の 30 分の制限とデフォルトの候補数上限を適用しています。**12 件中 10 件はルールの抑制なしにスキャンを完了し、P0 0 件を報告しました**。残る 2 件はタイムアウトしました。結果一覧では要レビューの候補を別に示しており、再現率や適合率を証明するものではありません。以前の「`#3` の確定ヒット 294 件」という報告は、スキャナーの分類上の欠陥によるものでした。訂正内容と当時の変更前後の比較結果は、リンク先に記載しています。
 
 - 最も強い独立した signal はスコアではありません。常に通過する Locator アサーションのパターン (`#4f`) が公式の `eslint-plugin-playwright` に `no-unnecessary-assertions` ルールとして採用されました (マージ済みのプルリクエストは [ロードマップ](docs/roadmap.md) を参照)。このプロジェクトと利害関係のない外部メンテナーがルール定義を受け入れたということです。同時に、現在の lint がその形状を検出するようになったため、このプロジェクトはもうその事例を自分の成果として主張しません。
 - `docs/rule-self-audit.md` は、2 つのモデル系統による敵対的監査で、このプロジェクト**自身**の P0 ルールに見つかった欠陥を記録しています。単一のレビューアーであれば通過させていたルールが含まれます。
