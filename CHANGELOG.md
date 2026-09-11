@@ -102,6 +102,21 @@
   Complete scans reported 0 P0 hits. The generated ledger and documentation
   preserve the historical correction to the over-promoted 294 `#3` hits and
   distinguish unavailable results from zeroes.
+- **Field scan v1's designed 12-repository sample is now fully measured.**
+  v1's own selection rule set the sample at 12 repositories and its own
+  results self-declared "Incomplete: 10/12 repositories completed with no
+  suppressed rules" — `ever-co/ever-gauzy` and `open-mercato/open-mercato`,
+  the two rows in the entry above, never produced a measurement under the
+  frozen 30-minute budget. A separate,
+  disclosed [`benchmarks/field-scan-v1-extension`](benchmarks/field-scan-v1-extension/README.md)
+  protocol (no wall-clock cutoff; bounded per-rule hit/byte limits raised to
+  their documented hard ceilings, `E2E_SMELL_MAX_RULE_HITS=10000` /
+  `E2E_SMELL_MAX_RULE_BYTES=16777216`) completes both rows: natural scanner
+  exit (exit 0), zero suppressed rules, a reconciled hit count, unchanged
+  source fingerprint, 0 P0 hits, 0 model calls. The frozen
+  `benchmarks/field-scan-v1/ledger.json` from the entry above is unchanged;
+  this is scanner-completion evidence under a separate disclosed protocol,
+  not a rerun of the v1 pool and not reviewer-accuracy evidence.
 - **`#4i` no longer contradicts itself on where a locator may be proven.** The
   Rule required the locator to be proven "somewhere in that test's execution
   path" and the FLAG criterion fired only when it "appears nowhere else", but
